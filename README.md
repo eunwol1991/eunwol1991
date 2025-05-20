@@ -1,22 +1,23 @@
-- 👋 Hi, I’m gpec
-- 👀 I’m interested in sleep
-- 🌱 I’m currently learning python,c and other languages
-- 📫 How to reach me:gmail:eunwol1991@gmail.com & line:kingdom1464
+# EPUB Converter
 
-## EPUB Converter
+A small utility to convert Chinese novel `.txt` files to EPUB format.
 
-Use `epub_converter.py` to turn Chinese novel `.txt` files into EPUB books.
+## Features
 
-Run without arguments to be prompted for the folder containing your `.txt` files and the destination folder for the EPUBs:
+- 自动检测文本编码（UTF-8 / GBK / GB18030）
+- 智能识别章节标题（例如 “第四卷 第一章” 或纯数字开头）
+- 生成带目录的 EPUB，并使用 SimSun（宋体）字体、良好排版
+- 支持批量处理一个文件夹下的所有 `.txt` 文件
+- 可选设置作者名，EPUB 元数据中包含作者信息
 
-```
-python3 epub_converter.py
-```
+## 依赖
 
-You can also provide paths on the command line:
+- Python 3
+- 仅使用标准库
 
-```
-python3 epub_converter.py -i "C:/path/to/txt folder" -o "C:/path/to/output folder"
-```
+## 安装
 
-All `.txt` files in the input folder are converted in batch. Chapter headings are detected automatically (including patterns like `第四卷 第一章`) and the resulting EPUBs use the **SimSun** font so they display nicely in the iPhone Books app.
+```bash
+# 如果你尚未安装 Python 环境，请先安装 Python 3.x
+git clone https://github.com/yourrepo/epub-converter.git
+cd epub-converter
