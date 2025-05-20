@@ -1,8 +1,3 @@
-- 👋 Hi, I’m gpec
-- 👀 I’m interested in sleep
-- 🌱 I’m currently learning python,c and other languages
-- 📫 How to reach me:gmail:eunwol1991@gmail.com & line:kingdom1464
-
 ## EPUB Converter
 
 Use `epub_converter.py` to batch convert Chinese novel `.txt` files into EPUB books.
