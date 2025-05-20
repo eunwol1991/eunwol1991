@@ -2,28 +2,22 @@
 
 A small utility to convert Chinese novel `.txt` files to EPUB format.
 
-## Usage
+## Features
 
-```bash
-python3 epub_converter.py /path/to/txt_folder /path/to/output_folder [-a "Author"]
-```
+- 自动检测文本编码（UTF-8 / GBK / GB18030）
+- 智能识别章节标题（例如 “第四卷 第一章” 或纯数字开头）
+- 生成带目录的 EPUB，并使用 SimSun（宋体）字体、良好排版
+- 支持批量处理一个文件夹下的所有 `.txt` 文件
+- 可选设置作者名，EPUB 元数据中包含作者信息
 
-All `.txt` files in the input directory will be processed. Output EPUB files will be saved in the specified output directory. Text encoding is detected automatically and common chapter heading styles are recognized.
+## 依赖
 
-### Single File
-To convert a single text file:
-
-```bash
-python3 epub_converter.py path/to/file.txt path/to/output_dir -a "Author"
-```
-
-### Batch Conversion
-Place all `.txt` files in one folder and run the script as shown in the basic usage example above. Each text file becomes an EPUB using the file name as the title.
-
-## Dependencies
 - Python 3
-- Standard library only
+- 仅使用标准库
 
-## License
-See [LICENSE](LICENSE) for license information.
+## 安装
 
+```bash
+# 如果你尚未安装 Python 环境，请先安装 Python 3.x
+git clone https://github.com/yourrepo/epub-converter.git
+cd epub-converter
