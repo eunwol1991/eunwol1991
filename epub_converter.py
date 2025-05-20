@@ -67,17 +67,21 @@ def clean_text(text: str) -> str:
 
 
 def is_chapter_heading(line: str) -> bool:
-    text = line.strip()
+    """Return True if *line* looks like a chapter heading."""
+    text = clean_text(line).strip()
     if not text or len(text) > 50:
         return False
-    if any(sym in text for sym in ('，', '。', '“', '”')):
-        return False
-    pattern = (
-        r"^第[0-9一二三四五六七八九十百千万零〇两]+(?:卷|季|集|部)?"
-        r"(?:\s*第[0-9一二三四五六七八九十百千万零〇两]+(?:章|回|篇|节))?"
-        r"(?:\s+\S+)?$"
+
+    norm = re.sub(r"[\s:：.-]+", "", text)
+    if norm in ("序", "序章", "楔子"):
+        return True
+
+    pat1 = (
+        r"^第[0-9零一二三四五六七八九十百千万〇两]+(?:卷|季|集|部|册)?"
+        r"(?:第[0-9零一二三四五六七八九十百千万〇两]+)?(?:章|回|篇|节|话).*"
     )
-    return bool(re.match(pattern, text))
+    pat2 = r"^[0-9一二三四五六七八九十百千万〇两]{1,4}[、.．]\S+"
+    return bool(re.match(pat1, norm) or re.match(pat2, text))
 
 
 def detect_author(file_path: str, max_lines: int = 20) -> str:
