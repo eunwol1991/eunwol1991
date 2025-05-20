@@ -1,29 +1,18 @@
-# EPUB Converter
+- 👋 Hi, I’m gpec
+- 👀 I’m interested in sleep
+- 🌱 I’m currently learning python,c and other languages
+- 📫 How to reach me:gmail:eunwol1991@gmail.com & line:kingdom1464
 
-A small utility to convert Chinese novel `.txt` files to EPUB format.
+<!---
+eunwol1991/eunwol1991 is a ✨ special ✨ repository because its `README.md` (this file) appears on your GitHub profile.
+You can click the Preview link to take a look at your changes.
+--->
+## EPUB Converter
 
-## Usage
+Use `epub_converter.py` to batch convert folders of Chinese novel `.txt` files into EPUB books. Simply run the script and provide the input and output folders when prompted.
 
-```bash
-python3 epub_converter.py /path/to/txt_folder /path/to/output_folder [-a "Author"]
+```
+python3 epub_converter.py
 ```
 
-All `.txt` files in the input directory will be processed. Output EPUB files will be saved in the specified output directory. Text encoding is detected automatically and common chapter heading styles are recognized.
-
-### Single File
-To convert a single text file:
-
-```bash
-python3 epub_converter.py path/to/file.txt path/to/output_dir -a "Author"
-```
-
-### Batch Conversion
-Place all `.txt` files in one folder and run the script as shown in the basic usage example above. Each text file becomes an EPUB using the file name as the title.
-
-## Dependencies
-- Python 3
-- Standard library only
-
-## License
-See [LICENSE](LICENSE) for license information.
-
+The program will ask for the folder containing the text files and the folder to store the EPUBs. Every `.txt` file will be converted with the font set to **SimSun**. You can also supply the folders with `--input` and `--output` options to skip the prompts.

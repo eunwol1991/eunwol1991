@@ -1,19 +1,15 @@
-#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """Convert Chinese novel text files to EPUB.
-Usage:
-    python3 epub_converter.py input_dir output_dir [-a "Author"]
-
-All `.txt` files in ``input_dir`` will be converted and saved as EPUBs in
-``output_dir``. Each EPUB is named after its source text file.
-"""
+Run the script and it will ask for the input folder containing ``.txt`` novels
+and the output folder where EPUB files should be placed.  Optionally, you can
+specify ``--input`` and ``--output`` on the command line to skip the prompts."""
 
 import argparse
 import os
 import re
 import uuid
 import zipfile
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 def detect_encoding(file_path: str) -> str:
@@ -25,7 +21,7 @@ def detect_encoding(file_path: str) -> str:
             return enc
         except UnicodeDecodeError:
             continue
-    raise RuntimeError("Unable to decode file with common encodings")
+    raise UnicodeDecodeError("Unable to decode file with common encodings")
 
 
 def is_chapter_heading(line: str) -> bool:
@@ -41,6 +37,23 @@ def is_chapter_heading(line: str) -> bool:
         if re.match(pattern, line):
             return True
     return False
+
+
+def detect_author(file_path: str, max_lines: int = 20) -> str:
+    """Return the author name if found within the first few lines."""
+    encoding = detect_encoding(file_path)
+    author_re = re.compile(r"作者[:：]\s*(.+)")
+    with open(file_path, "r", encoding=encoding, errors="ignore") as f:
+        for _ in range(max_lines):
+            line = f.readline()
+            if not line:
+                break
+            m = author_re.search(line)
+            if m:
+                author = m.group(1).strip()
+                if author:
+                    return author
+    return "无"
 
 
 def parse_chapters(file_path: str):
@@ -80,7 +93,7 @@ def chapter_to_xhtml(index: int, title: str, text: str) -> str:
 
 def create_epub(title: str, author: str, chapters, output_path: str):
     unique_id = str(uuid.uuid4())
-    modified = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+    modified = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     css = "body { font-family: SimSun, serif; line-height: 1.5; }"
 
     with zipfile.ZipFile(output_path, "w") as epub:
@@ -171,6 +184,8 @@ def convert_txt_to_epub(input_file: str, output_dir: str, title: str = None, aut
         os.makedirs(output_dir, exist_ok=True)
     if title is None:
         title = os.path.splitext(os.path.basename(input_file))[0]
+    if not author:
+        author = detect_author(input_file)
     chapters = parse_chapters(input_file)
     output_path = os.path.join(output_dir, f"{title}.epub")
     if os.path.exists(output_path):
@@ -179,29 +194,34 @@ def convert_txt_to_epub(input_file: str, output_dir: str, title: str = None, aut
     print(f"EPUB created: {output_path}")
 
 
-def batch_convert(input_dir: str, output_dir: str, author: str = ""):
+def batch_convert(input_dir: str, output_dir: str):
     """Convert all .txt files in *input_dir* and place EPUBs in *output_dir*."""
     if not os.path.isdir(input_dir):
-        raise FileNotFoundError(f"Input directory not found: {input_dir}")
+        print(f"Input directory not found: {input_dir}")
+        return
     os.makedirs(output_dir, exist_ok=True)
-
-    for filename in os.listdir(input_dir):
-        if filename.lower().endswith(".txt"):
-            in_path = os.path.join(input_dir, filename)
-            title = os.path.splitext(filename)[0]
-            convert_txt_to_epub(in_path, output_dir, title=title, author=author)
+    txt_files = [f for f in os.listdir(input_dir) if f.lower().endswith('.txt')]
+    if not txt_files:
+        print("No .txt files found in the input directory.")
+        return
+    for name in txt_files:
+        path = os.path.join(input_dir, name)
+        title = os.path.splitext(name)[0]
+        author = detect_author(path)
+        convert_txt_to_epub(path, output_dir, title, author)
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Batch convert Chinese novel .txt files in a folder to EPUB"
+        description="Batch convert Chinese novel .txt files to EPUB"
     )
-    parser.add_argument("input_dir", help="Folder containing .txt files")
-    parser.add_argument("output_dir", help="Destination folder for EPUB files")
-    parser.add_argument("-a", "--author", default="", help="Author name (optional)")
+    parser.add_argument("-i", "--input", help="Folder containing .txt files")
+    parser.add_argument("-o", "--output", help="Folder to place EPUB files")
     args = parser.parse_args()
 
-    batch_convert(args.input_dir, args.output_dir, args.author)
+    input_dir = args.input or input("输入txt文件夹路径: ").strip()
+    output_dir = args.output or input("输出EPUB文件夹路径: ").strip()
+    batch_convert(input_dir, output_dir)
 
 
 if __name__ == "__main__":
