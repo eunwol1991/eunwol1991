@@ -67,17 +67,21 @@ def clean_text(text: str) -> str:
 
 
 def is_chapter_heading(line: str) -> bool:
-    text = line.strip()
+    """Return True if *line* looks like a chapter heading."""
+    text = clean_text(line).strip()
     if not text or len(text) > 50:
         return False
-    if any(sym in text for sym in ('，', '。', '“', '”')):
-        return False
-    pattern = (
-        r"^第[0-9一二三四五六七八九十百千万零〇两]+(?:卷|季|集|部)?"
-        r"(?:\s*第[0-9一二三四五六七八九十百千万零〇两]+(?:章|回|篇|节))?"
-        r"(?:\s+\S+)?$"
+
+    norm = re.sub(r"[\s:：.-]+", "", text)
+    if norm in ("序", "序章", "楔子"):
+        return True
+
+    pat1 = (
+        r"^第[0-9零一二三四五六七八九十百千万〇两]+(?:卷|季|集|部|册)?"
+        r"(?:第[0-9零一二三四五六七八九十百千万〇两]+)?(?:章|回|篇|节|话).*"
     )
-    return bool(re.match(pattern, text))
+    pat2 = r"^[0-9一二三四五六七八九十百千万〇两]{1,4}[、.．]\S+"
+    return bool(re.match(pat1, norm) or re.match(pat2, text))
 
 
 def detect_author(file_path: str, max_lines: int = 20) -> str:
@@ -191,8 +195,7 @@ def create_epub(title: str, author: str, chapters: List[Tuple[str, str]], out_pa
         manifest_str = '\n    '.join(manifest)
         spine_str = '\n    '.join(spine)
 
-        epub.writestr(
-            'OEBPS/content.opf',
+        opf = (
             f"""<?xml version='1.0' encoding='utf-8'?>
 <package xmlns='http://www.idpf.org/2007/opf' unique-identifier='bookid' version='3.0'>
   <metadata xmlns:dc='http://purl.org/dc/elements/1.1/'>
@@ -209,12 +212,13 @@ def create_epub(title: str, author: str, chapters: List[Tuple[str, str]], out_pa
     {spine_str}
   </spine>
 </package>"""
+        )
         epub.writestr('OEBPS/content.opf', opf)
     os.replace(tmp_path, out_path)
     logging.info(f"EPUB generated: {out_path}")
 
 
-def convert_txt_file(in_file: str, out_dir: str):
+def convert_txt_file(in_file: str, out_dir: str, lang: str):
     if not os.path.isfile(in_file):
         logging.error(f"File not found: {in_file}")
         return
@@ -223,10 +227,10 @@ def convert_txt_file(in_file: str, out_dir: str):
     author = detect_author(in_file)
     chapters = parse_chapters(in_file)
     out_file = os.path.join(out_dir, f"{base}.epub")
-    create_epub(base, author, chapters, out_file)
+    create_epub(base, author, chapters, out_file, lang)
 
 
-def batch_convert(input_dir: str, output_dir: str):
+def batch_convert(input_dir: str, output_dir: str, lang: str):
     if not os.path.isdir(input_dir):
         logging.error(f"Invalid input directory: {input_dir}")
         return
@@ -235,7 +239,7 @@ def batch_convert(input_dir: str, output_dir: str):
         logging.info("No .txt files found in input directory")
         return
     for name in texts:
-        convert_txt_file(os.path.join(input_dir, name), output_dir)
+        convert_txt_file(os.path.join(input_dir, name), output_dir, lang)
 
 
 def main():
@@ -246,7 +250,7 @@ def main():
     parser.add_argument('-o', '--output', default=default_out, help='output directory')
     parser.add_argument('--lang', default='zh', help='language code')
     args = parser.parse_args()
-    batch_convert(args.input, args.output)
+    batch_convert(args.input, args.output, args.lang)
 
 if __name__ == '__main__':
     main()
