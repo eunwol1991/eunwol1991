@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """Convert Chinese novel text files to EPUB.
 Usage:
@@ -24,7 +25,7 @@ def detect_encoding(file_path: str) -> str:
             return enc
         except UnicodeDecodeError:
             continue
-    raise UnicodeDecodeError("Unable to decode file with common encodings")
+    raise RuntimeError("Unable to decode file with common encodings")
 
 
 def is_chapter_heading(line: str) -> bool:
