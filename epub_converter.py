@@ -1,228 +1,252 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Convert Chinese novel text files to EPUB.
-Run the script and it will ask for the input folder containing ``.txt`` novels
-and the output folder where EPUB files should be placed.  Optionally, you can
-specify ``--input`` and ``--output`` on the command line to skip the prompts."""
-
 import argparse
 import os
 import re
 import uuid
 import zipfile
+import functools
+import logging
+import html
+import codecs
 from datetime import datetime, timezone
+from typing import List, Tuple
 
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
-def detect_encoding(file_path: str) -> str:
-    """Try to detect encoding: UTF-8 first, then GBK."""
-    for enc in ("utf-8", "gbk", "gb18030"):
+@functools.lru_cache(maxsize=None)
+def detect_encoding(file_path: str, sample_size: int = 4096) -> str:
+    with open(file_path, 'rb') as f:
+        raw = f.read(sample_size)
+
+    boms = {
+        codecs.BOM_UTF8: 'utf-8-sig',
+        codecs.BOM_UTF16_LE: 'utf-16-le',
+        codecs.BOM_UTF16_BE: 'utf-16-be',
+        codecs.BOM_UTF32_LE: 'utf-32-le',
+        codecs.BOM_UTF32_BE: 'utf-32-be',
+    }
+    for bom, enc in boms.items():
+        if raw.startswith(bom):
+            return enc
+
+    if len(raw) >= 4:
+        null_even = raw[::2].count(0)
+        null_odd = raw[1::2].count(0)
+        if null_even > len(raw) * 0.3 and null_odd < len(raw) * 0.05:
+            return 'utf-16-le'
+        if null_odd > len(raw) * 0.3 and null_even < len(raw) * 0.05:
+            return 'utf-16-be'
+
+    for enc in ('utf-8', 'gb18030', 'gbk', 'big5'):
         try:
-            with open(file_path, "r", encoding=enc) as f:
-                f.read()
+            raw.decode(enc)
             return enc
         except UnicodeDecodeError:
             continue
-    raise UnicodeDecodeError("Unable to decode file with common encodings")
+
+    try:
+        import chardet
+        guess = chardet.detect(raw)
+        if guess and guess['confidence'] > 0.5 and guess['encoding']:
+            return guess['encoding']
+    except ImportError:
+        pass
+
+    logging.warning(f"{file_path} encoding not detected, falling back to utf-8 (ignore)")
+    return 'utf-8'
+
+
+def clean_text(text: str) -> str:
+    allowed_chars = []
+    for ch in text:
+        code = ord(ch)
+        if ch in ('\t', '\n', '\r', ' ') or 0x20 <= code <= 0xD7FF or 0xE000 <= code <= 0xFFFD:
+            allowed_chars.append(ch)
+    return ''.join(allowed_chars)
 
 
 def is_chapter_heading(line: str) -> bool:
-    """Heuristic check if a line is a chapter heading."""
-    line = line.strip()
-    if not line:
+    text = line.strip()
+    if not text or len(text) > 50:
         return False
-    patterns = [
-        r"^第[0-9一二三四五六七八九十百千万零〇两]+[章节卷回篇].*",
-        r"^[0-9]{1,4}\s*.*",
-    ]
-    for pattern in patterns:
-        if re.match(pattern, line):
-            return True
-    return False
+    if any(sym in text for sym in ('，', '。', '“', '”')):
+        return False
+    pattern = (
+        r"^第[0-9一二三四五六七八九十百千万零〇两]+(?:卷|季|集|部)?"
+        r"(?:\s*第[0-9一二三四五六七八九十百千万零〇两]+(?:章|回|篇|节))?"
+        r"(?:\s+\S+)?$"
+    )
+    return bool(re.match(pattern, text))
 
 
 def detect_author(file_path: str, max_lines: int = 20) -> str:
-    """Return the author name if found within the first few lines."""
-    encoding = detect_encoding(file_path)
-    author_re = re.compile(r"作者[:：]\s*(.+)")
-    with open(file_path, "r", encoding=encoding, errors="ignore") as f:
+    enc = detect_encoding(file_path)
+    pat = re.compile(r"作者[:：]\s*(.+)")
+    with open(file_path, 'r', encoding=enc, errors='ignore') as f:
         for _ in range(max_lines):
-            line = f.readline()
+            line = clean_text(f.readline())
             if not line:
                 break
-            m = author_re.search(line)
+            m = pat.search(line)
             if m:
-                author = m.group(1).strip()
-                if author:
-                    return author
-    return "无"
+                return m.group(1).strip()
+    return ''
 
 
-def parse_chapters(file_path: str):
-    encoding = detect_encoding(file_path)
-    chapters = []
+def parse_chapters(file_path: str) -> List[Tuple[str, str]]:
+    enc = detect_encoding(file_path)
+    chapters: List[Tuple[str, str]] = []
     title = None
-    content_lines = []
-    with open(file_path, "r", encoding=encoding) as f:
-        for raw_line in f:
-            line = raw_line.rstrip()  # keep spaces for indentation
+    buffer: List[str] = []
+    with open(file_path, 'r', encoding=enc, errors='ignore') as f:
+        for raw in f:
+            line = clean_text(raw.rstrip('\n'))
             if is_chapter_heading(line):
-                if title or content_lines:
-                    chapters.append((title or "前言", "\n".join(content_lines)))
-                title = line.strip()
-                content_lines = []
+                if title or buffer:
+                    chapters.append((title or '前言', '\n'.join(buffer)))
+                title = line
+                buffer = []
             else:
-                content_lines.append(line)
-    if title or content_lines:
-        chapters.append((title or "正文", "\n".join(content_lines)))
+                buffer.append(line)
+    if title or buffer:
+        chapters.append((title or '正文', '\n'.join(buffer)))
     return chapters
 
 
-def chapter_to_xhtml(index: int, title: str, text: str) -> str:
-    paragraphs = "\n".join(f"    <p>{p}</p>" for p in text.splitlines() if p.strip())
-    return f"""<?xml version='1.0' encoding='utf-8'?>
-<html xmlns='http://www.w3.org/1999/xhtml'>
-<head>
-  <title>{title}</title>
-  <link rel='stylesheet' type='text/css' href='style.css'/>
-</head>
-<body>
-  <h2 id='chapter{index}'>{title}</h2>
-{paragraphs}
-</body>
-</html>"""
+def chapter_to_xhtml(idx: int, title: str, text: str) -> str:
+    esc_title = html.escape(clean_text(title))
+    paras = [f"    <p>{html.escape(clean_text(p.strip()))}</p>" for p in text.splitlines() if p.strip()]
+    return (
+        "<?xml version='1.0' encoding='utf-8'?>\n"
+        "<html xmlns='http://www.w3.org/1999/xhtml'>\n<head>\n  <title>" + esc_title + "</title>\n  <link rel='stylesheet' type='text/css' href='style.css'/>\n</head>\n<body>\n  <h2 id='chap" + str(idx) + "'>" + esc_title + "</h2>\n" +
+        '\n'.join(paras) + "\n</body>\n</html>"
+    )
 
 
-def create_epub(title: str, author: str, chapters, output_path: str):
-    unique_id = str(uuid.uuid4())
-    modified = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    css = "body { font-family: SimSun, serif; line-height: 1.5; }"
+def create_epub(title: str, author: str, chapters: List[Tuple[str, str]], out_path: str, lang: str = 'zh'):
+    tmp_path = out_path + '.tmp'
+    uid = str(uuid.uuid4())
+    modified = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+    css = 'body { font-family: SimSun, serif; line-height:1.5; text-indent:2em; }'
 
-    with zipfile.ZipFile(output_path, "w") as epub:
-        # mimetype must be first and uncompressed
-        epub.writestr("mimetype", "application/epub+zip", compress_type=zipfile.ZIP_STORED)
-
-        container = """<?xml version='1.0' encoding='UTF-8'?>
+    with zipfile.ZipFile(tmp_path, 'w') as epub:
+        epub.writestr('mimetype', 'application/epub+zip', compress_type=zipfile.ZIP_STORED)
+        epub.writestr(
+            'META-INF/container.xml',
+            """<?xml version='1.0' encoding='UTF-8'?>
 <container version='1.0' xmlns='urn:oasis:names:tc:opendocument:xmlns:container'>
   <rootfiles>
     <rootfile full-path='OEBPS/content.opf' media-type='application/oebps-package+xml'/>
   </rootfiles>
-</container>"""
-        epub.writestr("META-INF/container.xml", container)
-        epub.writestr("OEBPS/style.css", css)
+</container>""",
+        )
+        epub.writestr('OEBPS/style.css', css)
 
-        manifest_items = ["<item id='nav' href='nav.xhtml' properties='nav' media-type='application/xhtml+xml'/>",
-                          "<item id='css' href='style.css' media-type='text/css'/>",
-                          "<item id='toc' href='toc.ncx' media-type='application/x-dtbncx+xml'/>"]
-        spine_items = []
-        nav_ol = []
+        manifest = [
+            "<item id='nav' href='nav.xhtml' properties='nav' media-type='application/xhtml+xml'/>",
+            "<item id='css' href='style.css' media-type='text/css'/>",
+        ]
+        spine = []
+        nav_list = []
 
-        for i, (ch_title, text) in enumerate(chapters, 1):
-            filename = f"chapter{i}.xhtml"
-            epub.writestr(f"OEBPS/{filename}", chapter_to_xhtml(i, ch_title, text))
-            manifest_items.append(f"<item id='chapter{i}' href='{filename}' media-type='application/xhtml+xml'/>")
-            spine_items.append(f"<itemref idref='chapter{i}'/>")
-            nav_ol.append(f"      <li><a href='{filename}#chapter{i}'>{ch_title}</a></li>")
+        for i, (ch_title, ch_text) in enumerate(chapters, 1):
+            fname = f'chapter{i}.xhtml'
+            epub.writestr(f'OEBPS/{fname}', chapter_to_xhtml(i, ch_title, ch_text))
+            manifest.append(f"<item id='c{i}' href='{fname}' media-type='application/xhtml+xml'/>")
+            spine.append(f"<itemref idref='c{i}'/>")
+            nav_list.append(f"      <li><a href='{fname}#chap{i}'>{html.escape(ch_title)}</a></li>")
 
-        nav_xhtml = """<?xml version='1.0' encoding='utf-8'?>
+        epub.writestr(
+            'OEBPS/nav.xhtml',
+            """<?xml version='1.0' encoding='utf-8'?>
 <html xmlns='http://www.w3.org/1999/xhtml'>
-<head>
-  <title>目录</title>
-  <link rel='stylesheet' type='text/css' href='style.css'/>
-</head>
-<body>
-  <nav epub:type='toc' id='toc'>
-    <h1>目录</h1>
-    <ol>
-{nav_items}
-    </ol>
-  </nav>
-</body>
-</html>""".format(nav_items="\n".join(nav_ol))
-        epub.writestr("OEBPS/nav.xhtml", nav_xhtml)
+<head><title>目录</title><link rel='stylesheet' type='text/css' href='style.css'/></head>
+<body><nav epub:type='toc' id='toc'><h1>目录</h1><ol>
+"""
+            + ''.join(nav_list)
+            + "\n</ol></nav></body></html>",
+        )
 
-        toc_entries = []
-        for i, (ch_title, _) in enumerate(chapters, 1):
-            toc_entries.append(f"    <navPoint id='navPoint-{i}' playOrder='{i}'>\n      <navLabel><text>{ch_title}</text></navLabel>\n      <content src='chapter{i}.xhtml'/></navPoint>")
-        toc_ncx = """<?xml version='1.0' encoding='utf-8'?>
+        nav_points = [
+            f"    <navPoint id='navPoint-{i}' playOrder='{i}'>\n      <navLabel><text>{html.escape(ch_title)}</text></navLabel>\n      <content src='chapter{i}.xhtml'/>\n    </navPoint>"
+            for i, (ch_title, _) in enumerate(chapters, 1)
+        ]
+        epub.writestr(
+            'OEBPS/toc.ncx',
+            """<?xml version='1.0' encoding='utf-8'?>
 <!DOCTYPE ncx PUBLIC '-//NISO//DTD ncx 2005-1//EN' 'http://www.daisy.org/z3986/2005/ncx-2005-1.dtd'>
 <ncx xmlns='http://www.daisy.org/z3986/2005/ncx/' version='2005-1'>
   <head>
-    <meta name='dtb:uid' content='{uid}'/>
-    <meta name='dtb:depth' content='1'/>
-    <meta name='dtb:totalPageCount' content='0'/>
-    <meta name='dtb:maxPageNumber' content='0'/>
-  </head>
-  <docTitle><text>{title}</text></docTitle>
-  <navMap>
-{points}
-  </navMap>
-</ncx>""".format(uid=unique_id, title=title, points="\n".join(toc_entries))
-        epub.writestr("OEBPS/toc.ncx", toc_ncx)
+    <meta name='dtb:uid' content='"""
+            + uid
+            + "'/>\n    <meta name='dtb:depth' content='1'/>\n    <meta name='dtb:totalPageCount' content='0'/>\n    <meta name='dtb:maxPageNumber' content='0'/>\n  </head>\n  <docTitle><text>"
+            + html.escape(title)
+            + "</text></docTitle>\n  <navMap>\n"
+            + '\n'.join(nav_points)
+            + "\n  </navMap>\n</ncx>",
+        )
 
-        content_opf = """<?xml version='1.0' encoding='utf-8'?>
+        manifest.append("<item id='ncx' href='toc.ncx' media-type='application/x-dtbncx+xml'/>")
+        manifest_str = '\n    '.join(manifest)
+        spine_str = '\n    '.join(spine)
+
+        epub.writestr(
+            'OEBPS/content.opf',
+            f"""<?xml version='1.0' encoding='utf-8'?>
 <package xmlns='http://www.idpf.org/2007/opf' unique-identifier='bookid' version='3.0'>
   <metadata xmlns:dc='http://purl.org/dc/elements/1.1/'>
     <dc:identifier id='bookid'>{uid}</dc:identifier>
-    <dc:title>{title}</dc:title>
-    <dc:creator>{author}</dc:creator>
-    <dc:language>zh</dc:language>
+    <dc:title>{html.escape(title)}</dc:title>
+    <dc:creator>{html.escape(author)}</dc:creator>
+    <dc:language>{lang}</dc:language>
     <meta property='dcterms:modified'>{modified}</meta>
   </metadata>
   <manifest>
-{manifest}
+    {manifest_str}
   </manifest>
-  <spine toc='toc'>
-{spine}
+  <spine toc='ncx'>
+    {spine_str}
   </spine>
-</package>""".format(uid=unique_id, title=title, author=author or "", modified=modified,
-                    manifest="\n".join(f"    {item}" for item in manifest_items),
-                    spine="\n".join(f"    {item}" for item in spine_items))
-        epub.writestr("OEBPS/content.opf", content_opf)
+</package>"""
+        epub.writestr('OEBPS/content.opf', opf)
+    os.replace(tmp_path, out_path)
+    logging.info(f"EPUB generated: {out_path}")
 
 
-def convert_txt_to_epub(input_file: str, output_dir: str, title: str = None, author: str = ""):
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir, exist_ok=True)
-    if title is None:
-        title = os.path.splitext(os.path.basename(input_file))[0]
-    if not author:
-        author = detect_author(input_file)
-    chapters = parse_chapters(input_file)
-    output_path = os.path.join(output_dir, f"{title}.epub")
-    if os.path.exists(output_path):
-        os.remove(output_path)
-    create_epub(title, author, chapters, output_path)
-    print(f"EPUB created: {output_path}")
+def convert_txt_file(in_file: str, out_dir: str):
+    if not os.path.isfile(in_file):
+        logging.error(f"File not found: {in_file}")
+        return
+    os.makedirs(out_dir, exist_ok=True)
+    base = os.path.splitext(os.path.basename(in_file))[0]
+    author = detect_author(in_file)
+    chapters = parse_chapters(in_file)
+    out_file = os.path.join(out_dir, f"{base}.epub")
+    create_epub(base, author, chapters, out_file)
 
 
 def batch_convert(input_dir: str, output_dir: str):
-    """Convert all .txt files in *input_dir* and place EPUBs in *output_dir*."""
     if not os.path.isdir(input_dir):
-        print(f"Input directory not found: {input_dir}")
+        logging.error(f"Invalid input directory: {input_dir}")
         return
-    os.makedirs(output_dir, exist_ok=True)
-    txt_files = [f for f in os.listdir(input_dir) if f.lower().endswith('.txt')]
-    if not txt_files:
-        print("No .txt files found in the input directory.")
+    texts = [f for f in os.listdir(input_dir) if f.lower().endswith('.txt')]
+    if not texts:
+        logging.info("No .txt files found in input directory")
         return
-    for name in txt_files:
-        path = os.path.join(input_dir, name)
-        title = os.path.splitext(name)[0]
-        author = detect_author(path)
-        convert_txt_to_epub(path, output_dir, title, author)
+    for name in texts:
+        convert_txt_file(os.path.join(input_dir, name), output_dir)
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Batch convert Chinese novel .txt files to EPUB"
-    )
-    parser.add_argument("-i", "--input", help="Folder containing .txt files")
-    parser.add_argument("-o", "--output", help="Folder to place EPUB files")
+    default_in = r'C:\Users\User\Desktop\txt to epub\txt file'
+    default_out = r'C:\Users\User\Desktop\txt to epub\epub file'
+    parser = argparse.ArgumentParser(description="Batch convert Chinese txt to EPUB")
+    parser.add_argument('-i', '--input', default=default_in, help='input directory')
+    parser.add_argument('-o', '--output', default=default_out, help='output directory')
+    parser.add_argument('--lang', default='zh', help='language code')
     args = parser.parse_args()
+    batch_convert(args.input, args.output)
 
-    input_dir = args.input or input("输入txt文件夹路径: ").strip()
-    output_dir = args.output or input("输出EPUB文件夹路径: ").strip()
-    batch_convert(input_dir, output_dir)
-
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
