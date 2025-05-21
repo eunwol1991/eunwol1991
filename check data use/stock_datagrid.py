@@ -172,7 +172,10 @@ with tab_stock:
                 "CTN": batch["CTN"].sum(),
                 "PKTS": batch["PKTS"].sum(),
             }, name="总计")
-            batch = pd.concat([batch, total.to_frame().T])
+            if batch.empty:
+                batch = total.to_frame().T
+            else:
+                batch = pd.concat([batch, total.to_frame().T])
 
             asc = st.radio(
                 "Expiry Date 排序", ["升序", "降序"], key="stk_sort_dir", horizontal=True
@@ -219,7 +222,8 @@ with tab_sales:
         def unique_ignore_case(series):
             seen, res = set(), []
             for x in series.dropna():
-                low = x.lower()
+                text = str(x).strip()
+                low = text.lower()
                 if low not in seen:
                     res.append(x)
                     seen.add(low)
@@ -250,6 +254,7 @@ with tab_sales:
             )
 
         df_d2 = filt(df, desc=desc_sel, code=code_sel)
+
         # -------- Step-3 / 4  年份 & 月份 --------
         col_year, col_month = col_r.columns(2)
 
@@ -275,6 +280,7 @@ with tab_sales:
 
 
         df_d4 = filt(df_d3, month=month_sel)
+
 
         # -------- Step-5 / 6  客户 & 门店 --------
         col_cust, col_out = st.columns(2)
