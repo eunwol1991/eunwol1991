@@ -110,118 +110,6 @@ with tab_stock:
         )
         desc_opts = sorted(
             {name.lower(): name for name in clean_names}.values(),
-import streamlit as st
-import pandas as pd
-import re
-def show_df(df, *, table=True, **st_kwargs):
-    """把展示版复制并转成纯字符串，Arrow 永远不会再报错"""
-    display = df.reset_index(drop=True).copy().astype(str)  # 统一索引避免类型冲突
-    if table:
-        st.table(display)
-    else:
-        st.dataframe(display, **st_kwargs)
-# ──────────────────────────────
-# 页面基础
-st.set_page_config("C宝库存神器", layout="wide", page_icon="📦")
-
-st.markdown("""
-<style>
-div[data-baseweb="select"] div { font-size:18px !important; }
-.scroll-table { max-height: 420px; overflow-y: auto; }
-</style>
-""", unsafe_allow_html=True)
-
-ALL = "全部（ALL）"
-NO_BRACKET = "（无备注）"
-
-# ──────────────────────────────
-# 读文件函数
-@st.cache_data(show_spinner="加载库存中…")
-def load_stock(file):
-    df = pd.read_excel(file, header=2)
-
-    df["Product Code"] = (
-        df["Product Code"].astype(str)
-        .fillna("NA")
-        .replace(["nan", "NaN", "NAN"], "NA")
-    )
-    if "Daily Updated stocks.1" in df.columns:
-        df["Daily Updated stocks"] = df["Daily Updated stocks.1"]
-
-    # ── 拆主描述 / 括号备注 ───────────────────
-    def split_desc(txt: str):
-        if not isinstance(txt, str):
-            return pd.Series([txt, NO_BRACKET])
-        s = txt.rstrip()
-        m = re.search(r"\(([^()]*)\)\s*$", s)     # 捕最后一对(...)
-        if m:
-            main = s[: m.start()].rstrip(" -")
-            bracket = m.group(1).strip()
-        else:
-            main, bracket = s, NO_BRACKET
-        return pd.Series([main, bracket])
-
-    # 根据真实列名选择
-    desc_col = "Description" if "Description" in df.columns else "Desciption"
-    df[["DescMain", "Bracket"]] = df[desc_col].apply(split_desc)
-    df.drop(columns=["Relabel to date"], errors="ignore", inplace=True)
-
-    df["Expiry_dt"] = pd.to_datetime(df["Expiry Date"], errors="coerce")
-
-    df["Expiry Date"] = df["Expiry_dt"].dt.strftime("%d-%b-%Y")
-    return df
-
-
-
-@st.cache_data(show_spinner="加载销售汇总中…")
-def load_sales(file):
-    df = pd.read_excel(file, header=3)
-
-    df["Year"] = (
-        pd.to_numeric(df["Year"], errors="coerce")
-          .astype("Int64").astype(str).str.replace("nan", "")
-    )
-
-    def clean_code(x):
-        if pd.isna(x): return ""
-        if isinstance(x, (int, float)) and float(x).is_integer():
-            return str(int(x))
-        return str(x).strip()
-
-    df["Product Code"] = df["Product Code"].apply(clean_code)
-
-    df["Month"] = df["Month"].astype(str)
-    df["Date"]  = pd.to_datetime(df["Date"], errors="coerce").dt.strftime("%Y/%m/%d")
-    return df
-
-# ──────────────────────────────
-# 侧边栏上传
-st.sidebar.header("📁 上传数据")
-stock_file = st.sidebar.file_uploader("Stock Report", type=["xlsx"])
-sales_file = st.sidebar.file_uploader("Sales Summary", type=["xlsx"])
-
-if stock_file: st.sidebar.success(f"库存已上传：{stock_file.name}")
-if sales_file: st.sidebar.success(f"销售已上传：{sales_file.name}")
-
-tab_stock, tab_sales = st.tabs(["库存查询", "销售分析"])
-
-# ================= Tab 1 =================
-with tab_stock:
-    st.subheader("🎯 三级筛选查库存")
-
-    if not stock_file:
-        st.info("请先上传库存文件（Stock Report）")
-    else:
-        df_stock = load_stock(stock_file)
-
-        # ── Step-1  产品名称（去重，大小写无关，跳过非字符串） ──
-        clean_names = (
-            df_stock["DescMain"]
-            .dropna()
-            .apply(lambda x: str(x).strip())
-        )
-        desc_opts = sorted(
-            {name.lower(): name for name in clean_names}.values(),
             key=str.lower,
         )
         desc_sel = st.selectbox("Step 1：产品名称", desc_opts, key="stk_desc")
@@ -350,30 +238,9 @@ with tab_sales:
             desc_sel = st.selectbox(
                 "Step 1：产品名称", [ALL] + desc_opts, key="desc"
             )
-        col_l, col_r = st.columns(2)
-
-        with col_l:
-            desc_opts = sorted(
-                unique_ignore_case(df["Product Description"]),
-                key=str.lower
-            )
-            old_desc = ss.get("desc", ALL)
-            if old_desc.lower() not in [x.lower() for x in desc_opts] and old_desc != ALL:
-                desc_opts.append(old_desc)
-            desc_sel = st.selectbox(
-                "Step 1：产品名称", [ALL] + desc_opts, key="desc"
-            )
 
             df_d1 = filt(df, desc=desc_sel)
-            df_d1 = filt(df, desc=desc_sel)
 
-            code_opts = sorted([c for c in df_d1["Product Code"].unique() if c])
-            old_code = ss.get("code", ALL)
-            if old_code not in code_opts and old_code != ALL:
-                code_opts.append(old_code)
-            code_sel = st.selectbox(
-                "Step 2：产品代码", [ALL] + code_opts, key="code"
-            )
             code_opts = sorted([c for c in df_d1["Product Code"].unique() if c])
             old_code = ss.get("code", ALL)
             if old_code not in code_opts and old_code != ALL:
@@ -412,11 +279,9 @@ with tab_sales:
         with col_year:
             year_opts = sorted([y for y in df_d2["Year"].unique() if y])
             old_year  = ss.get("year", ALL)
-            old_year  = ss.get("year", ALL)
             if old_year not in year_opts and old_year != ALL:
                 year_opts.append(old_year)
             year_sel = st.selectbox("Step 3：年份",
-                                    [ALL] + year_opts, key="year")
                                     [ALL] + year_opts, key="year")
 
         df_d3 = filt(df_d2, year=year_sel)
@@ -426,12 +291,9 @@ with tab_sales:
                            "Jul","Aug","Sep","Oct","Nov","Dec"]
             month_opts = [m for m in MONTH_ORDER if m in df_d3["Month"].unique()]
             old_month  = ss.get("month", ALL)
-            old_month  = ss.get("month", ALL)
             if old_month not in month_opts and old_month != ALL:
                 month_opts.append(old_month)
             month_sel = st.selectbox("Step 4：月份",
-                                     [ALL] + month_opts, key="month")
-
                                      [ALL] + month_opts, key="month")
 
 
@@ -513,7 +375,6 @@ with tab_sales:
                    .rename(columns={"Qty in Ctns":"CTN","Qty in Pcs":"PCS"})
                    .astype({"CTN":int,"PCS":int}))
             tbl.loc["总计"] = ["", "", "总计",
-                       tbl["CTN"].sum(), tbl["PCS"].sum()]
                        tbl["CTN"].sum(), tbl["PCS"].sum()]
 
             # -------- 排序选项 --------
