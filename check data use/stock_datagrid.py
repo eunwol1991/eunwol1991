@@ -135,6 +135,11 @@ with tab_stock:
             "Step 3：备注/子标签", [ALL] + bracket_display, key="stk_bracket"
         )
 
+        filt = cond.copy()
+        if bracket_sel_disp != ALL:
+            bracket_sel = NO_BRACKET if bracket_sel_disp == "（无备注）" else bracket_sel_disp
+            filt &= df_stock["Bracket"] == bracket_sel
+
         result = df_stock[filt]
 
         # ── 表格 or 提示 ──
