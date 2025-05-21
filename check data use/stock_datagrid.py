@@ -207,7 +207,11 @@ with tab_sales:
         def filt(d, desc=ALL, code=ALL, year=ALL, month=ALL,
                  cust=ALL, outlet=ALL):
             m = pd.Series(True, index=d.index)
-            if desc   != ALL: m &= d["Product Description"].str.lower() == desc.lower()
+            if desc != ALL:
+                m &= (
+                    d["Product Description"].astype(str).str.strip().str.lower()
+                    == str(desc).strip().lower()
+                )
             if code   != ALL: m &= d["Product Code"] == code
             if year   != ALL: m &= d["Year"] == year
             if month  != ALL: m &= d["Month"] == month
@@ -219,9 +223,10 @@ with tab_sales:
         def unique_ignore_case(series):
             seen, res = set(), []
             for x in series.dropna():
-                low = x.lower()
+                text = str(x).strip()
+                low = text.lower()
                 if low not in seen:
-                    res.append(x.strip())
+                    res.append(text)
                     seen.add(low)
             return res
 
