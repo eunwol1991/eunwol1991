@@ -28,6 +28,7 @@ NO_BRACKET = "（无备注）"
 def load_stock(file):
     df = pd.read_excel(file, header=2)
 
+
     df["Product Code"] = (
         df["Product Code"].astype(str)
         .fillna("NA")
@@ -106,34 +107,6 @@ with tab_stock:
         clean_names = (
             df_stock["DescMain"]
             .dropna()
-            .apply(lambda x: str(x).strip())
-        )
-        desc_opts = sorted(
-            {name.lower(): name for name in clean_names}.values(),
-            key=str.lower,
-        )
-        desc_sel = st.selectbox("Step 1：产品名称", desc_opts, key="stk_desc")
-
-        # ── Step-2  产品代码 ──
-        code_pool = (
-            df_stock.loc[df_stock["DescMain"] == desc_sel, "Product Code"]
-            .dropna()
-            .unique()
-        )
-        code_sel = st.selectbox(
-            "Step 2：产品代码", [ALL] + sorted(code_pool), key="stk_code"
-        )
-
-        # ── Step-3  备注 / 子标签（括号内容） ──
-        cond = df_stock["DescMain"] == desc_sel
-        if code_sel != ALL:
-            cond &= df_stock["Product Code"] == code_sel
-
-        bracket_pool = df_stock.loc[cond, "Bracket"].unique()
-        bracket_display = ["（无备注）" if x == NO_BRACKET else x for x in bracket_pool]
-        bracket_sel_disp = st.selectbox(
-            "Step 3：备注/子标签", [ALL] + bracket_display, key="stk_bracket"
-        )
 
         result = df_stock[filt]
 
@@ -158,34 +131,7 @@ with tab_stock:
                 pd.merge(df_ctn, df_pkt, how="outer", on=grp)
                 .fillna(0)
                 .astype({"CTN": int, "PKTS": int})
-            )
 
-            total = pd.Series({
-                "Expiry_dt": pd.NaT,
-                "Expiry Date": "总计",
-                "Pack Size": "",
-                "CTN": batch["CTN"].sum(),
-                "PKTS": batch["PKTS"].sum(),
-            }, name="总计")
-            batch = pd.concat([batch, total.to_frame().T])
-
-            asc = st.radio(
-                "Expiry Date 排序", ["升序", "降序"], key="stk_sort_dir", horizontal=True
-            ) == "升序"
-
-            data_rows = batch.drop(index="总计")
-            sorted_rows = data_rows.sort_values("Expiry_dt", ascending=asc)
-            summary_row = batch.loc[["总计"]]
-            batch_sorted = pd.concat([sorted_rows, summary_row])
-
-            show_df(batch_sorted.drop(columns="Expiry_dt"))
-
-
-        # ── 全量表 ──
-        st.write("## 📋 全量库存表")
-        st.markdown('<div class="scroll-table">', unsafe_allow_html=True)
-        show_df(df_stock, table=False, hide_index=True, use_container_width=True)
-        st.markdown("</div>", unsafe_allow_html=True)
 
 
 # ================= Tab 2 =================
@@ -230,7 +176,6 @@ with tab_sales:
 
         df_d1 = filt(df, desc=desc_sel)
 
-    # -------- Step-2 产品代码 --------
         code_opts = sorted([c for c in df_d1["Product Code"].unique() if c])
         old_code = ss.get("code", ALL)
         if old_code not in code_opts and old_code != ALL:
@@ -239,6 +184,7 @@ with tab_sales:
                                 [ALL] + code_opts, key="code")
 
         df_d2 = filt(df, desc=desc_sel, code=code_sel)
+
 
 
 
