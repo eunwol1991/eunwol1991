@@ -175,7 +175,8 @@ with tab_stock:
             if batch.empty:
                 batch = total.to_frame().T
             else:
-                batch = pd.concat([batch, total.to_frame().T])
+                if not total.to_frame().T.dropna(how='all').empty:
+                    batch = pd.concat([batch, total.to_frame().T])
 
             asc = st.radio(
                 "Expiry Date 排序", ["升序", "降序"], key="stk_sort_dir", horizontal=True
