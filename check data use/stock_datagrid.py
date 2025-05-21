@@ -221,7 +221,7 @@ with tab_sales:
             for x in series.dropna():
                 low = x.lower()
                 if low not in seen:
-                    res.append(text)
+                    res.append(x)
                     seen.add(low)
             return res
 
