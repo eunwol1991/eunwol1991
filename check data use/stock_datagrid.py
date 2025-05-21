@@ -3,7 +3,7 @@ import pandas as pd
 import re
 def show_df(df, *, table=True, **st_kwargs):
     """把展示版复制并转成纯字符串，Arrow 永远不会再报错"""
-    display = df.copy().astype(str)          # ← 加 .copy() 避免改到原表
+    display = df.reset_index(drop=True).copy().astype(str)  # 统一索引避免类型冲突
     if table:
         st.table(display)
     else:
@@ -135,6 +135,11 @@ with tab_stock:
             "Step 3：备注/子标签", [ALL] + bracket_display, key="stk_bracket"
         )
 
+        filt = cond.copy()
+        if bracket_sel_disp != ALL:
+            bracket_sel = NO_BRACKET if bracket_sel_disp == "（无备注）" else bracket_sel_disp
+            filt &= df_stock["Bracket"] == bracket_sel
+
         result = df_stock[filt]
 
         # ── 表格 or 提示 ──
@@ -220,26 +225,97 @@ with tab_sales:
                     seen.add(low)
             return res
 
-        desc_opts = sorted(unique_ignore_case(df["Product Description"]),
-                           key=str.lower)
-        old_desc = ss.get("desc", ALL)
-        if old_desc.lower() not in [x.lower() for x in desc_opts] and old_desc != ALL:
-            desc_opts.append(old_desc)
-        desc_sel = st.selectbox("Step 1：产品名称",
-                                [ALL] + desc_opts, key="desc")
+        col_l, col_r = st.columns(2)
 
-        df_d1 = filt(df, desc=desc_sel)
+        with col_l:
+            desc_opts = sorted(
+                unique_ignore_case(df["Product Description"]),
+                key=str.lower
+            )
+            old_desc = ss.get("desc", ALL)
+            if old_desc.lower() not in [x.lower() for x in desc_opts] and old_desc != ALL:
+                desc_opts.append(old_desc)
+            desc_sel = st.selectbox(
+                "Step 1：产品名称", [ALL] + desc_opts, key="desc"
+            )
 
-    # -------- Step-2 产品代码 --------
-        code_opts = sorted([c for c in df_d1["Product Code"].unique() if c])
-        old_code = ss.get("code", ALL)
-        if old_code not in code_opts and old_code != ALL:
-            code_opts.append(old_code)
-        code_sel = st.selectbox("Step 2：产品代码",
-                                [ALL] + code_opts, key="code")
+            df_d1 = filt(df, desc=desc_sel)
+
+            code_opts = sorted([c for c in df_d1["Product Code"].unique() if c])
+            old_code = ss.get("code", ALL)
+            if old_code not in code_opts and old_code != ALL:
+                code_opts.append(old_code)
+            code_sel = st.selectbox(
+                "Step 2：产品代码", [ALL] + code_opts, key="code"
+            )
 
         df_d2 = filt(df, desc=desc_sel, code=code_sel)
 
+        with col_r:
+            year_opts = sorted([y for y in df_d2["Year"].unique() if y])
+            old_year = ss.get("year", ALL)
+            if old_year not in year_opts and old_year != ALL:
+                year_opts.append(old_year)
+            year_sel = st.selectbox(
+                "Step 3：年份", [ALL] + year_opts, key="year"
+            )
 
+            df_d3 = filt(df_d2, year=year_sel)
 
+            MONTH_ORDER = [
+                "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+            ]
+            month_opts = [m for m in MONTH_ORDER if m in df_d3["Month"].unique()]
+            old_month = ss.get("month", ALL)
+            if old_month not in month_opts and old_month != ALL:
+                month_opts.append(old_month)
+            month_sel = st.selectbox(
+                "Step 4：月份", [ALL] + month_opts, key="month"
+            )
+
+        df_d4 = filt(df_d3, month=month_sel)
+
+        # -------- Step-5 / 6  客户 & 门店 --------
+        col_cust, col_out = st.columns(2)
+
+        with col_cust:
+            cust_opts = sorted(df_d4["Customer"].dropna().unique())
+            old_cust = ss.get("cust", ALL)
+            if old_cust not in cust_opts and old_cust != ALL:
+                cust_opts.append(old_cust)
+            cust_sel = st.selectbox(
+                "Step 5：客户", [ALL] + cust_opts, key="cust"
+            )
+
+        df_d5 = filt(df_d4, cust=cust_sel)
+
+        with col_out:
+            outlet_opts = sorted(df_d5["Outlet"].dropna().unique())
+            old_outlet = ss.get("outlet", ALL)
+            if old_outlet not in outlet_opts and old_outlet != ALL:
+                outlet_opts.append(old_outlet)
+            outlet_sel = st.selectbox(
+                "Step 6：门店", [ALL] + outlet_opts, key="outlet"
+            )
+
+        final_df = filt(df_d5, outlet=outlet_sel)
+
+        # -------- 结果区域 --------
+        if desc_sel == ALL:
+            st.info("👉 先选“产品名称”再查看数据")
+        elif final_df.empty:
+            st.warning("当前筛选无数据")
+        else:
+            tbl = (
+                final_df[["Customer", "Outlet", "Date", "Qty in Ctns", "Qty in Pcs"]]
+                .groupby(["Customer", "Outlet", "Date"], as_index=False)
+                .sum()
+                .rename(columns={"Qty in Ctns": "CTN", "Qty in Pcs": "PCS"})
+                .astype({"CTN": int, "PCS": int})
+                .sort_values("Date")
+            )
+            tbl.loc["总计"] = ["", "", "总计", tbl["CTN"].sum(), tbl["PCS"].sum()]
+
+            show_df(tbl)
 
