@@ -225,7 +225,7 @@ with tab_sales:
                 text = str(x).strip()
                 low = text.lower()
                 if low not in seen:
-                    res.append(text)
+                    res.append(x)
                     seen.add(low)
             return res
 
@@ -256,7 +256,7 @@ with tab_sales:
         df_d2 = filt(df, desc=desc_sel, code=code_sel)
 
         # -------- Step-3 / 4  年份 & 月份 --------
-        col_year, col_month = st.columns(2)
+        col_year, col_month = col_r.columns(2)
 
         with col_year:
             year_opts = sorted([y for y in df_d2["Year"].unique() if y])
@@ -281,6 +281,9 @@ with tab_sales:
 
         df_d4 = filt(df_d3, month=month_sel)
 
+
+        # -------- Step-5 / 6  客户 & 门店 --------
+        col_cust, col_out = st.columns(2)
 
         with col_cust:
             cust_opts = sorted(df_d4["Customer"].dropna().unique())
