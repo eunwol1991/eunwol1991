@@ -320,10 +320,13 @@ with tab_sales:
                        tbl["CTN"].sum(), tbl["PCS"].sum()]
 
             # -------- 排序选项 --------
+            sort_options = [c for c in tbl.columns if c != ""]
+            default_idx = sort_options.index("Date") if "Date" in sort_options else 0
             sort_col2 = st.selectbox(
                 "排序字段",
-                [c for c in tbl.columns if c != ""],
+                sort_options,
                 key="sale_sort_col",
+                index=default_idx,
             )
             asc2 = st.radio(
                 "排序方式", ["升序", "降序"], key="sale_sort_dir", horizontal=True
