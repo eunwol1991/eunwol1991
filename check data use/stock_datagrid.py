@@ -168,9 +168,23 @@ with tab_stock:
             .drop(columns="Expiry_dt")
         )
         batch.loc["总计"] = ["", "总计", batch["CTN"].sum(), batch["PKTS"].sum()]
+        # -------- 排序选项 --------
+        sort_col = st.selectbox(
+            "排序字段",
+            [c for c in batch.columns if c != ""],
+            key="stk_sort_col",
+        )
+        asc = st.radio(
+            "排序方式", ["升序", "降序"], key="stk_sort_dir", horizontal=True
+        ) == "升序"
 
-        display_batch = batch.astype(str)        # ← 新增：只给展示用
-        show_df(batch)            # 替换 st.table(display_batch)
+        data_rows = batch.drop(index="总计")
+        summary_row = batch.loc[["总计"]]
+        sorted_rows = data_rows.sort_values(sort_col, ascending=asc)
+        batch_sorted = pd.concat([sorted_rows, summary_row])
+
+        display_batch = batch_sorted.astype(str)
+        show_df(batch_sorted)
 
 
     # ── 全量表 ──
@@ -296,7 +310,22 @@ with tab_sales:
         tbl.loc["总计"] = ["", "", "总计",
                    tbl["CTN"].sum(), tbl["PCS"].sum()]
 
-        display_tbl = tbl.astype(str)            # ← 新增
-        show_df(tbl)  
+        # -------- 排序选项 --------
+        sort_col2 = st.selectbox(
+            "排序字段",
+            [c for c in tbl.columns if c != ""],
+            key="sale_sort_col",
+        )
+        asc2 = st.radio(
+            "排序方式", ["升序", "降序"], key="sale_sort_dir", horizontal=True
+        ) == "升序"
+
+        data_rows2 = tbl.drop(index="总计")
+        summary_row2 = tbl.loc[["总计"]]
+        sorted_rows2 = data_rows2.sort_values(sort_col2, ascending=asc2)
+        tbl_sorted = pd.concat([sorted_rows2, summary_row2])
+
+        display_tbl = tbl_sorted.astype(str)
+        show_df(tbl_sorted)
 
 
