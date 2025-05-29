@@ -26,7 +26,7 @@ def find_and_create_folders(base_path):
 
     # 创建 4. Apr 文件夹（如果不存在）
     for path in folders_to_create:
-        new_folder_path = os.path.join(path, '5. May')
+        new_folder_path = os.path.join(path, '6. Jun')
         if os.path.exists(new_folder_path):
             print(f"✅ Folder already exists: {new_folder_path}")
         else:

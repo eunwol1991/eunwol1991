@@ -15,7 +15,7 @@ def clean_empty_apr_folders(base_path):
         # Check if path includes 'format' or 'history'
         if 'format' in root_lower or 'history' in root_lower:
             for folder in dirs:
-                if folder.lower() == '5. may':
+                if folder.lower() == '6. may':
                     folder_path = os.path.join(root, folder)
 
                     # Check if folder is empty
