@@ -66,23 +66,38 @@ def clean_text(text: str) -> str:
     return ''.join(allowed_chars)
 
 
-CHAPTER_TITLE_RE = re.compile(
-    r"^第[0-9零一二三四五六七八九十百千万〇两]+(?:卷|季|集|部|册)?"
-    r"(?:第[0-9零一二三四五六七八九十百千万〇两]+)?(?:章|回|篇|节|话).*"
-)
+DEFAULT_PATTERN_STRS = [
+    r"^第[0-9零一二三四五六七八九十百千万〇两]+(?:卷|季|集|部|册)?(?:第[0-9零一二三四五六七八九十百千万〇两]+)?(?:章|回|篇|节|话).*",
+    r"^Chapter\s*\d+.*",
+    r"^番外.*",
+    r"^后记.*",
+    r"^前言.*",
+    r"^序$",
+    r"^序章$",
+    r"^楔子$",
+]
+
+def compile_patterns(extra: List[str]) -> List[re.Pattern]:
+    patterns = [re.compile(p) for p in DEFAULT_PATTERN_STRS]
+    for pat in extra:
+        try:
+            patterns.append(re.compile(pat))
+        except re.error as e:
+            logging.warning(f"Invalid pattern '{pat}': {e}")
+    return patterns
 
 
-def is_chapter_heading(line: str, pattern: re.Pattern = CHAPTER_TITLE_RE) -> bool:
+def is_chapter_heading(line: str, patterns: List[re.Pattern]) -> bool:
     """Return True if *line* looks like a chapter heading."""
     text = clean_text(line).strip()
     if not text or len(text) > 50:
         return False
 
     norm = re.sub(r"[\s:：.-]+", "", text)
-    if norm in ("序", "序章", "楔子"):
-        return True
-
-    return bool(pattern.match(norm))
+    for pat in patterns:
+        if pat.match(norm):
+            return True
+    return False
 
 
 def detect_author(file_path: str, max_lines: int = 20) -> str:
@@ -99,7 +114,7 @@ def detect_author(file_path: str, max_lines: int = 20) -> str:
     return ''
 
 
-def parse_chapters(file_path: str) -> List[Tuple[str, str]]:
+def parse_chapters(file_path: str, patterns: List[re.Pattern]) -> List[Tuple[str, str]]:
     enc = detect_encoding(file_path)
     chapters: List[Tuple[str, str]] = []
     title = None
@@ -107,7 +122,7 @@ def parse_chapters(file_path: str) -> List[Tuple[str, str]]:
     with open(file_path, 'r', encoding=enc, errors='ignore') as f:
         for raw in f:
             line = clean_text(raw.rstrip('\n'))
-            if is_chapter_heading(line):
+            if is_chapter_heading(line, patterns):
                 if title or buffer:
                     chapters.append((title or '前言', '\n'.join(buffer)))
                 title = line
@@ -219,19 +234,19 @@ def create_epub(title: str, author: str, chapters: List[Tuple[str, str]], out_pa
     logging.info(f"EPUB generated: {out_path}")
 
 
-def convert_txt_file(in_file: str, out_dir: str, lang: str):
+def convert_txt_file(in_file: str, out_dir: str, lang: str, patterns: List[re.Pattern]):
     if not os.path.isfile(in_file):
         logging.error(f"File not found: {in_file}")
         return
     os.makedirs(out_dir, exist_ok=True)
     base = os.path.splitext(os.path.basename(in_file))[0]
     author = detect_author(in_file)
-    chapters = parse_chapters(in_file)
+    chapters = parse_chapters(in_file, patterns)
     out_file = os.path.join(out_dir, f"{base}.epub")
     create_epub(base, author, chapters, out_file, lang)
 
 
-def batch_convert(input_dir: str, output_dir: str, lang: str):
+def batch_convert(input_dir: str, output_dir: str, lang: str, patterns: List[re.Pattern]):
     if not os.path.isdir(input_dir):
         logging.error(f"Invalid input directory: {input_dir}")
         return
@@ -240,7 +255,7 @@ def batch_convert(input_dir: str, output_dir: str, lang: str):
         logging.info("No .txt files found in input directory")
         return
     for name in texts:
-        convert_txt_file(os.path.join(input_dir, name), output_dir, lang)
+        convert_txt_file(os.path.join(input_dir, name), output_dir, lang, patterns)
 
 
 def main():
@@ -250,8 +265,10 @@ def main():
     parser.add_argument('-i', '--input', default=default_in, help='input directory')
     parser.add_argument('-o', '--output', default=default_out, help='output directory')
     parser.add_argument('--lang', default='zh', help='language code')
+    parser.add_argument('-p', '--pattern', action='append', default=[], help='additional chapter regex, can be used multiple times')
     args = parser.parse_args()
-    batch_convert(args.input, args.output, args.lang)
+    patterns = compile_patterns(args.pattern)
+    batch_convert(args.input, args.output, args.lang, patterns)
 
 if __name__ == '__main__':
     main()
