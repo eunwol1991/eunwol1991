@@ -22,7 +22,7 @@ for root, _, filenames in os.walk(BASE_DIR):
 
         match = pattern.match(filename)
         # 只保留指定月份年份的文件（例如 "0425"）
-        target_month = "0525" #editable variable
+        target_month = "0625" #editable variable
         if target_month not in filename:
             continue
 
