@@ -75,5 +75,5 @@ def update_Invoice_formulas(directory):
                     print(f"Failed to process {file_path}: {e}")
 
 # Example usage
-directory_path = r"C:\Users\User\Dropbox\DO & INV\DO & INV 2025\Melvin - Pezzo Singapore Pte Ltd"
+directory_path = r"C:\Users\User\Dropbox\DO & INV\DO & INV 2025\Melvin - MOS Burger\For Customer\MOS DOC (OTL) - Format"
 update_Invoice_formulas(directory_path)
