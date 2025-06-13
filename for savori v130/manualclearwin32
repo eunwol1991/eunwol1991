@@ -1,0 +1,5 @@
+import win32com.client
+
+# 清理缓存
+win32com.client.gencache.is_readonly = False
+win32com.client.gencache.Rebuild()

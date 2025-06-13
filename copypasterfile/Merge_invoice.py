@@ -6,7 +6,7 @@ from PyPDF2 import PdfMerger
 ROOT_DIR = r"C:\Users\User\Dropbox\DO & INV\DO & INV 2025"
 
 # 👇 改这里控制合并哪一月
-TARGET_MONTH = 5
+TARGET_MONTH = 6
 
 # 匹配发票 PDF 文件名
 invoice_pattern = re.compile(
