@@ -1,5 +1,4 @@
 import os
-import re
 import threading
 import tkinter as tk
 from tkinter import ttk, scrolledtext, font, filedialog
@@ -54,40 +53,28 @@ def clean_empty_month_folders(logger):
                     skipped += 1
     logger(f"汇总：本次删除 {deleted}，保留 {skipped}，失败 {failed}", "info")
 
-def matches_excel(name: str) -> bool:
-    pattern1 = re.compile(r"\d{2}25 - .*\.xls.*", re.IGNORECASE)
-    pattern2 = re.compile(r"\d{4} - .*\.xls.*", re.IGNORECASE)
-    return bool(pattern1.match(name) or pattern2.match(name))
-
 def create_month_folders(month: int, logger):
     month_name = MONTH_MAP.get(month)
     if not month_name:
         logger("Invalid month number")
         return
     created = skipped = failed = 0
-    for root, dirs, files in os.walk(BASE_DIR):
-        dirs[:] = [d for d in dirs if 'history' not in d.lower()]
-        for file in files:
-            if matches_excel(file):
-                file_dir = os.path.join(root)
-                target_dir = file_dir
-                if os.path.basename(file_dir).lower().find('format') != -1:
-                    target_dir = os.path.dirname(file_dir)
-                base = os.path.basename(target_dir).lower()
-                if 'format' in base or 'history' in base:
-                    continue
-                month_path = os.path.join(target_dir, month_name)
-                if not os.path.exists(month_path):
-                    try:
-                        os.makedirs(month_path, exist_ok=True)
-                        logger(f"✅ 已创建: {month_path}", "success")
-                        created += 1
-                    except Exception as e:
-                        logger(f"❌ 创建失败: {month_path} -> {e}", "fail")
-                        failed += 1
-                else:
-                    logger(f"⚠️ 已跳过: {month_path} (文件夹已存在)", "skip")
-                    skipped += 1
+    for name in os.listdir(BASE_DIR):
+        client_dir = os.path.join(BASE_DIR, name)
+        if not os.path.isdir(client_dir):
+            continue
+        month_path = os.path.join(client_dir, month_name)
+        if os.path.exists(month_path):
+            logger(f"⚠️ 已跳过: {month_path} (文件夹已存在)", "skip")
+            skipped += 1
+        else:
+            try:
+                os.makedirs(month_path)
+                logger(f"✅ 已创建: {month_path}", "success")
+                created += 1
+            except Exception as e:
+                logger(f"❌ 创建失败: {month_path} -> {e}", "fail")
+                failed += 1
     logger(f"汇总：本次创建 {created}，跳过 {skipped}，失败 {failed}", "info")
 
 class InfoApp:
