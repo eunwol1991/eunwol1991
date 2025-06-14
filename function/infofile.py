@@ -100,7 +100,7 @@ class InfoApp:
 
         master.title("Info File Utility")
         master.geometry("800x500")
-        master.minsize(600, 400)
+        master.minsize(1200, 600)
 
         master.columnconfigure(1, weight=1)
         master.rowconfigure(1, weight=1)
