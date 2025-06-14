@@ -1,8 +1,7 @@
 import os
-import re
 import threading
 import tkinter as tk
-from tkinter import ttk, scrolledtext, font
+from tkinter import ttk, scrolledtext, font, filedialog
 
 BASE_DIR = r"C:\\Users\\User\\Dropbox\\DO & INV\\DO & INV 2025"
 
@@ -36,6 +35,7 @@ def search_month_folder(month: int, logger):
         logger("未找到")
 
 def clean_empty_month_folders(logger):
+    deleted = skipped = failed = 0
     for root, dirs, _ in os.walk(BASE_DIR):
         for name in MONTH_MAP.values():
             path = os.path.join(root, name)
@@ -43,42 +43,46 @@ def clean_empty_month_folders(logger):
                 if not os.listdir(path):
                     try:
                         os.rmdir(path)
-                        logger(f"删除空文件夹: {path}")
+                        logger(f"✅ 已删除: {path}", "success")
+                        deleted += 1
                     except Exception as e:
-                        logger(f"删除失败: {path} -> {e}")
+                        logger(f"❌ 删除失败: {path} -> {e}", "fail")
+                        failed += 1
                 else:
-                    logger(f"未删除: {path} (非空)")
-
-def matches_excel(name: str) -> bool:
-    pattern1 = re.compile(r"\d{2}25 - .*\.xls.*", re.IGNORECASE)
-    pattern2 = re.compile(r"\d{4} - .*\.xls.*", re.IGNORECASE)
-    return bool(pattern1.match(name) or pattern2.match(name))
+                    logger(f"⚠️ 保留: {path} (非空)", "skip")
+                    skipped += 1
+    logger(f"汇总：本次删除 {deleted}，保留 {skipped}，失败 {failed}", "info")
 
 def create_month_folders(month: int, logger):
     month_name = MONTH_MAP.get(month)
     if not month_name:
         logger("Invalid month number")
         return
-    for root, dirs, files in os.walk(BASE_DIR):
-        dirs[:] = [d for d in dirs if 'history' not in d.lower()]
-        for file in files:
-            if matches_excel(file):
-                file_dir = os.path.join(root)
-                target_dir = file_dir
-                if os.path.basename(file_dir).lower().find('format') != -1:
-                    target_dir = os.path.dirname(file_dir)
-                base = os.path.basename(target_dir).lower()
-                if 'format' in base or 'history' in base:
-                    continue
-                month_path = os.path.join(target_dir, month_name)
-                if not os.path.exists(month_path):
-                    try:
-                        os.makedirs(month_path, exist_ok=True)
-                        logger(f"创建文件夹: {month_path}")
-                    except Exception as e:
-                        logger(f"创建失败: {month_path} -> {e}")
-                else:
-                    logger(f"跳过已存在: {month_path}")
+    created = skipped = failed = 0
+    month_dirs_lower = {m.lower() for m in MONTH_MAP.values()}
+    for root, dirs, _ in os.walk(BASE_DIR):
+        if root == BASE_DIR:
+            # 跳过根目录
+            continue
+
+        # 仅当当前目录已经包含任意月份文件夹时才补齐
+        has_month = any(d.lower() in month_dirs_lower for d in dirs)
+        if not has_month:
+            continue
+
+        month_path = os.path.join(root, month_name)
+        if os.path.exists(month_path):
+            logger(f"⚠️ 已跳过: {month_path} (文件夹已存在)", "skip")
+            skipped += 1
+        else:
+            try:
+                os.makedirs(month_path)
+                logger(f"✅ 已创建: {month_path}", "success")
+                created += 1
+            except Exception as e:
+                logger(f"❌ 创建失败: {month_path} -> {e}", "fail")
+                failed += 1
+    logger(f"汇总：本次创建 {created}，跳过 {skipped}，失败 {failed}", "info")
 
 class InfoApp:
     def __init__(self, master: tk.Tk):
@@ -90,6 +94,9 @@ class InfoApp:
         self.title_font = font.Font(family="Segoe UI", size=16, weight="bold")
         self.label_font = font.Font(family="Segoe UI", size=10)
         self.log_font = font.Font(family="Segoe UI", size=9)
+
+        self.style = ttk.Style()
+        self.style.theme_use("clam")
 
         master.title("Info File Utility")
         master.geometry("800x500")
@@ -124,31 +131,55 @@ class InfoApp:
         tk.Button(control, text="运行", command=self.start, width=15,
                   font=self.label_font).grid(row=5, column=0, pady=(15, 0))
 
+        tk.Button(control, text="导出日志", command=self.export_log, width=15,
+                  font=self.label_font).grid(row=6, column=0, pady=(5, 0))
+
         self.log_widget = scrolledtext.ScrolledText(log_frame, state=tk.DISABLED,
-                                                    font=self.log_font)
+                                                    font=self.log_font, background="#f8f8f8")
+        self.log_widget.tag_config("success", foreground="green")
+        self.log_widget.tag_config("fail", foreground="red")
+        self.log_widget.tag_config("skip", foreground="orange")
+        self.log_widget.tag_config("info", foreground="blue")
         self.log_widget.pack(fill=tk.BOTH, expand=True)
 
         self.status_label = ttk.Label(master, textvariable=self.status_var,
                                       font=self.label_font, anchor="w")
         self.status_label.grid(row=2, column=0, columnspan=2, sticky="ew", padx=10, pady=(0,5))
 
+        self.progress = ttk.Progressbar(master, mode="indeterminate")
+        self.progress.grid(row=3, column=0, columnspan=2, sticky="ew", padx=10, pady=(0,5))
+
         master.bind("<Configure>", self.on_resize)
 
-    def log(self, message: str):
-        self.log_widget.after(0, self._append_log, message)
+    def log(self, message: str, tag: str = None):
+        self.log_widget.after(0, self._append_log, message, tag)
 
-    def _append_log(self, message: str):
+    def _append_log(self, message: str, tag: str = None):
         self.log_widget.config(state=tk.NORMAL)
-        self.log_widget.insert(tk.END, message + "\n")
+        if tag:
+            self.log_widget.insert(tk.END, message + "\n", tag)
+        else:
+            self.log_widget.insert(tk.END, message + "\n")
         self.log_widget.see(tk.END)
         self.log_widget.config(state=tk.DISABLED)
 
     def start(self):
         self.status_var.set("正在处理...")
+        self.progress.start()
         self.log_widget.config(state=tk.NORMAL)
         self.log_widget.delete(1.0, tk.END)
         self.log_widget.config(state=tk.DISABLED)
         threading.Thread(target=self.execute).start()
+
+    def export_log(self):
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".txt",
+            filetypes=[("Text Files", "*.txt")]
+        )
+        if file_path:
+            with open(file_path, "w", encoding="utf-8") as f:
+                f.write(self.log_widget.get("1.0", tk.END))
+            self.status_var.set("日志已导出")
 
     def execute(self):
         try:
@@ -169,9 +200,11 @@ class InfoApp:
             else:
                 create_month_folders(month, self.log)
             self.status_var.set("完成")
+            self.progress.stop()
         except Exception as e:
-            self.log(f"发生异常: {e}")
+            self.log(f"发生异常: {e}", "fail")
             self.status_var.set("遇到异常")
+            self.progress.stop()
 
     def on_resize(self, event):
         width = max(event.width, 600)
