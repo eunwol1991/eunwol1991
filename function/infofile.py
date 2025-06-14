@@ -107,22 +107,22 @@ class InfoApp:
         log_frame = ttk.Frame(master)
         log_frame.grid(row=1, column=1, sticky="nsew", padx=10, pady=10)
 
-        ttk.Radiobutton(control, text="1. 子文件夹智能搜索",
-                        variable=self.option, value=1,
-                        font=self.label_font).grid(row=0, column=0, sticky="w", pady=2)
-        ttk.Radiobutton(control, text="2. 自动清理空月份文件夹",
-                        variable=self.option, value=2,
-                        font=self.label_font).grid(row=1, column=0, sticky="w", pady=2)
-        ttk.Radiobutton(control, text="3. 智能创建月份文件夹",
-                        variable=self.option, value=3,
-                        font=self.label_font).grid(row=2, column=0, sticky="w", pady=2)
+        tk.Radiobutton(control, text="1. 子文件夹智能搜索",
+                       variable=self.option, value=1,
+                       font=self.label_font, anchor="w").grid(row=0, column=0, sticky="w", pady=2)
+        tk.Radiobutton(control, text="2. 自动清理空月份文件夹",
+                       variable=self.option, value=2,
+                       font=self.label_font, anchor="w").grid(row=1, column=0, sticky="w", pady=2)
+        tk.Radiobutton(control, text="3. 智能创建月份文件夹",
+                       variable=self.option, value=3,
+                       font=self.label_font, anchor="w").grid(row=2, column=0, sticky="w", pady=2)
 
-        ttk.Label(control, text="月份:", font=self.label_font).grid(row=3, column=0, sticky="w", pady=(10,2))
-        ttk.Entry(control, textvariable=self.month_var, width=10,
-                  font=self.label_font).grid(row=4, column=0, sticky="w")
+        tk.Label(control, text="月份:", font=self.label_font).grid(row=3, column=0, sticky="w", pady=(10,2))
+        tk.Entry(control, textvariable=self.month_var, width=10,
+                 font=self.label_font).grid(row=4, column=0, sticky="w")
 
-        ttk.Button(control, text="运行", command=self.start, width=15,
-                   padding=5).grid(row=5, column=0, pady=(15, 0))
+        tk.Button(control, text="运行", command=self.start, width=15,
+                  font=self.label_font).grid(row=5, column=0, pady=(15, 0))
 
         self.log_widget = scrolledtext.ScrolledText(log_frame, state=tk.DISABLED,
                                                     font=self.log_font)
