@@ -63,6 +63,15 @@ def create_month_folders(month: int, logger):
         client_dir = os.path.join(BASE_DIR, name)
         if not os.path.isdir(client_dir):
             continue
+
+        # Only operate if the directory already contains any month folder
+        has_month = any(
+            os.path.isdir(os.path.join(client_dir, m))
+            for m in MONTH_MAP.values()
+        )
+        if not has_month:
+            continue
+
         month_path = os.path.join(client_dir, month_name)
         if os.path.exists(month_path):
             logger(f"⚠️ 已跳过: {month_path} (文件夹已存在)", "skip")
