@@ -26,25 +26,7 @@
 
 ---
 
-## 1. CODA Agent 配置
 
-```yaml
-# CODA Agent Configuration
-
-## Repository
-- git_url: https://github.com/eunwol1991/eunwol1991
-
-## Tasks
-- id: task_b_682d974ea4e88324a484fd1e095c2a5c
-  description: |
-    自动遍历 “check data use” 目录下所有 *sales summary*.xlsx，
-    对 F、G 列做 trim 操作并覆盖原文件。
-  entry_point: scripts/clean_sales_summaries.py
-  triggers:
-    - type: "on_push"
-      branches: [ "main" ]
-
----
 
 ## 参考示例流程
 
