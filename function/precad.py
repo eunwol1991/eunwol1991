@@ -132,9 +132,10 @@ def draw_3d(ax, mode="custom"):
     if mode == "custom":
         plot((0, 0, 0),        (L, W, H),    "b",     f"{L}×{W}×{H}", 0.07)
         plot((x2, y2, z2),     (l2, w2, h2), "r",     f"{l2}×{w2}×{h2}", 0.18)
-        plot((x3, y3, z3),     (l3, w3, h3), "g",     f"{l3}×{w3}×{h3}", 0.18)
+        # 斜梯和桌子的高度从上往下生长
+        plot((x3, y3, h2),     (l3, w3, -h3), "g",     f"{l3}×{w3}×{h3}", 0.18)
         plot((x4, y4, z4),     (l4, w4, h4), "brown", f"{l4}×{w4}×{h4}", 0.22)
-        plot((x5, y5, z5),     (l5, w5, h5), "c",     f"{l5}×{w5}×{h5}", 0.35)
+        plot((x5, y5, h2),     (l5, w5, -h5), "c",     f"{l5}×{w5}×{h5}", 0.35)
     else:                      # mode == 'remain'
         plot((0, 0, 0),        (L, W, H),    "b",     f"{L}×{W}×{H}", 0.07)
         for blk in remain_blocks:
