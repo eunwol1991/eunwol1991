@@ -59,20 +59,18 @@ def create_month_folders(month: int, logger):
         logger("Invalid month number")
         return
     created = skipped = failed = 0
-    for name in os.listdir(BASE_DIR):
-        client_dir = os.path.join(BASE_DIR, name)
-        if not os.path.isdir(client_dir):
+    month_dirs_lower = {m.lower() for m in MONTH_MAP.values()}
+    for root, dirs, _ in os.walk(BASE_DIR):
+        if root == BASE_DIR:
+            # 跳过根目录
             continue
 
-        # Only operate if the directory already contains any month folder
-        has_month = any(
-            os.path.isdir(os.path.join(client_dir, m))
-            for m in MONTH_MAP.values()
-        )
+        # 仅当当前目录已经包含任意月份文件夹时才补齐
+        has_month = any(d.lower() in month_dirs_lower for d in dirs)
         if not has_month:
             continue
 
-        month_path = os.path.join(client_dir, month_name)
+        month_path = os.path.join(root, month_name)
         if os.path.exists(month_path):
             logger(f"⚠️ 已跳过: {month_path} (文件夹已存在)", "skip")
             skipped += 1
