@@ -50,63 +50,7 @@ def draw_2d(ax, mode="custom"):
     ax.set_xticks([]); ax.set_yticks([])
     for spine in ax.spines.values():
         spine.set_visible(False)
-
-    if mode == "custom":
-        rects = [
-            {"xy": (0, 0),   "l": L,  "w": W,  "ec": "b",     "label": "主空间"},
-            {"xy": (x2, y2), "l": l2, "w": w2, "ec": "r",     "label": "loft bed"},
-            {"xy": (x3, y3), "l": l3, "w": w3, "ec": "g",     "label": "斜梯"},
-            {"xy": (x4, y4), "l": l4, "w": w4, "ec": "brown", "label": "门口"},
-            {"xy": (x5, y5), "l": l5, "w": w5, "ec": "c",     "label": "桌子"},
-        ]
-        handles, labels = [], []
-        for r in rects:
-            patch = plt.Rectangle(r["xy"], r["l"], r["w"], fill=None,
-                                  edgecolor=r["ec"], lw=2)
-            ax.add_patch(patch)
-            handles.append(patch); labels.append(r["label"])
-
-            # 标注长宽
-            cx, cy = r["xy"]
-            ax.text(cx + r["l"]/2, cy + r["w"], f"{r['l']} mm",
-                    color=r["ec"], va="bottom", ha="center", fontsize=9, fontweight="bold")
-            ax.text(cx + r["l"],   cy + r["w"]/2, f"{r['w']} mm",
-                    color=r["ec"], va="center", ha="left", fontsize=9, fontweight="bold")
-
-        ax.legend(handles, labels, loc="upper right", fontsize=10, frameon=True)
-
-    else:  # mode == 'remain'
-        main_patch = plt.Rectangle((0, 0), L, W, fill=None, edgecolor="b", lw=2)
-        ax.add_patch(main_patch)
-        handles, labels = [main_patch], ["主空间"]
-
-        for blk in remain_blocks:
-            patch = plt.Rectangle(blk["xy"], blk["l"], blk["w"],
-                                  fill=None, edgecolor=blk["color"],
-                                  lw=2, linestyle="--")
-            ax.add_patch(patch)
-            handles.append(patch); labels.append(blk["label"])
-
-            cx, cy = blk["xy"]
-            ax.text(cx + blk["l"]/2, cy + blk["w"]/2, blk["label"],
-                    color=blk["color"], ha="center", va="center",
-                    fontsize=9, fontweight="bold")
-
-        ax.legend(handles, labels, loc="upper right", fontsize=10, frameon=True)
-
-
-# ────────────────────── ❹ 绘制函数：3D ──────────────────────
-def draw_3d(ax, mode="custom"):
-    ax.clear()
-    ax.set_title("3D示意图")
-    ax.set_box_aspect([L, W, H])
-    ax.set_axis_off()
-
-    def cuboid(origin, size):
-        ox, oy, oz = origin
-        l, w, h = size
-        x = [ox, ox + l]; y = [oy, oy + w]; z = [oz, oz + h]
-        return [[
+@@ -110,50 +110,51 @@ def draw_3d(ax, mode="custom"):
             [x[0], y[0], z[0]], [x[1], y[0], z[0]], [x[1], y[1], z[0]], [x[0], y[1], z[0]],
             [x[0], y[0], z[1]], [x[1], y[0], z[1]], [x[1], y[1], z[1]], [x[0], y[1], z[1]]
         ]]
@@ -157,6 +101,7 @@ ax_btn   = plt.axes([0.82, 0.01, 0.15, 0.08])
 btn      = Button(ax_btn, "2D/3D切换", color="lightgray", hovercolor="orange")
 ax_radio = plt.axes([0.02, 0.01, 0.16, 0.18])
 radio    = RadioButtons(ax_radio, ("定制物体", "剩余空间"), active=0)
+
 
 # 颜色说明
 legend_texts = [
