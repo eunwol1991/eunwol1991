@@ -266,42 +266,7 @@ def draw_2d(ax, mode="custom"):
                 cx, cy = blk["xy"]
                 ax.text(cx + blk["l"]/2, cy + blk["w"]/2, blk["label"],
                         color=blk["color"], ha="center", va="center",
-                        fontsize=9, fontweight="bold")
-
-        ax.legend(handles, labels, loc="upper right", fontsize=10, frameon=True)
-
-
-# ────────────────────── ❹ 绘制函数：3D ──────────────────────
-def draw_3d(ax, mode="custom"):
-    ax.clear()
-    ax.set_title("3D示意图")
-    ax.set_box_aspect([L, W, H])
-    ax.set_axis_off()
-
-    def cuboid(origin, size):
-        ox, oy, oz = origin
-        l, w, h = size
-        x = [ox, ox + l]; y = [oy, oy + w]; z = [oz, oz + h]
-        return [[
-            [x[0], y[0], z[0]], [x[1], y[0], z[0]], [x[1], y[1], z[0]], [x[0], y[1], z[0]],
-            [x[0], y[0], z[1]], [x[1], y[0], z[1]], [x[1], y[1], z[1]], [x[0], y[1], z[1]]
-        ]]
-
-    def plot(origin, size, color, label=None, alpha=0.15, dashed=False):
-        p = cuboid(origin, size)[0]
-        faces = [
-            [p[0], p[1], p[2], p[3]], [p[4], p[5], p[6], p[7]],
-            [p[0], p[1], p[5], p[4]], [p[2], p[3], p[7], p[6]],
-            [p[1], p[2], p[6], p[5]], [p[3], p[0], p[4], p[7]],
-        ]
-        poly = Poly3DCollection(faces, facecolors=color, linewidths=1,
-                                edgecolors=color, alpha=alpha,
-                                linestyle="dashed" if dashed else "solid")
-        ax.add_collection3d(poly)
-        if label:
-            cx = origin[0] + size[0]/2
-            cy = origin[1] + size[1]/2
-            cz = origin[2] + size[2]/2
+@@ -126,50 +305,51 @@ def draw_3d(ax, mode="custom"):
             ax.text(cx, cy, cz, label, color=color, ha="center", va="center",
                     fontsize=9, fontweight="bold")
 
