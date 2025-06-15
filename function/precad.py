@@ -451,7 +451,7 @@ L, W, H = 3260, 1840, 2600            # 主空间 (长×宽×高)
 
 # 初始化物体列表
 objects: Dict[str, Object3D] = {
-    "loft bed": Object3D("loft bed", 2000, 1070, 576.5, L - 2000, W - 1070, 0, COLOR_LOFT),
+    "床": Object3D("床", 2000, 1070, 576.5, L - 2000, W - 1070, 0, COLOR_LOFT),
     "门口": Object3D("门口", 905, 30, 2060, L - 905, 0, 0, COLOR_DOOR),
     "桌子": Object3D("桌子", 1260, 500, 690, 0, W - 500, 0, COLOR_DESK),
 }
@@ -725,7 +725,7 @@ btn_import.pack(fill="x", pady=2)
 
 legend_labels = []
 for txt, col in [
-    ("loft bed", COLOR_LOFT),
+    ("床", COLOR_LOFT),
     ("门口", COLOR_DOOR),
     ("桌子", COLOR_DESK),
 ]:
