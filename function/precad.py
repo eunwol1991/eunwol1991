@@ -622,8 +622,10 @@ def apply_theme():
     control_frame.configure(bg=bg)
     prop_canvas.configure(bg=bg)
     fig.patch.set_facecolor(bg)
-    for w in [btn_toggle, btn_theme, rb_custom, rb_remain, btn_new]:
-        w.configure(bg=bg, fg=fg, activebackground=bg, activeforeground=fg, selectcolor=bg)
+    for w in [btn_toggle, btn_theme, btn_new]:
+        w.configure(bg=bg, fg=fg, activebackground=bg, activeforeground=fg)
+    for rb in [rb_custom, rb_remain]:
+        rb.configure(bg=bg, fg=fg, activebackground=bg, activeforeground=fg, selectcolor=bg)
     for lbl in legend_labels:
         lbl.configure(bg=bg)
 
