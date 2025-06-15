@@ -3,13 +3,14 @@ matplotlib.rcParams["font.family"] = "Microsoft YaHei"  # 中文字体
 matplotlib.rcParams["axes.unicode_minus"] = False       # 负号正常显示
 
 import matplotlib.pyplot as plt
-from matplotlib.widgets import Button, RadioButtons, TextBox
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Dict
 from matplotlib.backend_bases import cursors
 import tkinter as tk
 from tkinter import simpledialog, colorchooser
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.figure import Figure
 
 
 @dataclass
@@ -241,35 +242,46 @@ def update_remain_blocks():
 
 
 class PropertyPanel:
-    """Show and edit object properties in real time."""
+    """Show and edit object properties in real time using Tk widgets."""
 
-    def __init__(self, fig, objects: Dict[str, Object3D]):
-        self.fig = fig
+    def __init__(self, parent: tk.Frame, objects: Dict[str, Object3D]):
+        self.parent = parent
         self.objects = objects
-        self.textboxes: Dict[str, Dict[str, TextBox]] = {}
+        self.frames: Dict[str, tk.Frame] = {}
+        self.vars: Dict[str, Dict[str, tk.StringVar]] = {}
         self.build()
 
     def build(self):
-        start_y = 0.8
+        for child in self.parent.winfo_children():
+            child.destroy()
         for name, obj in self.objects.items():
-            self.add_object(name, start_y)
-            start_y -= 0.15
+            self._create_card(name, obj)
 
-    def add_object(self, name: str, base_y: float):
-        obj = self.objects[name]
-        props = ["x", "y", "l", "w", "h"]
-        self.textboxes[name] = {}
-        for i, p in enumerate(props):
-            axb = plt.axes([0.82, base_y - i * 0.03, 0.15, 0.03])
-            tb = TextBox(axb, f"{name}-{p}", initial=str(getattr(obj, p)))
-            tb.on_submit(lambda text, n=name, prop=p: self.update_prop(n, prop, text))
-            self.textboxes[name][p] = tb
+    def _create_card(self, name: str, obj: Object3D):
+        frame = tk.LabelFrame(self.parent, text=name, padx=5, pady=5)
+        frame.pack(fill="x", padx=5, pady=5, anchor="n")
+        self.frames[name] = frame
+        self.vars[name] = {}
+        props = [("X", "x"), ("Y", "y"), ("长", "l"), ("宽", "w"), ("高", "h")]
+        for i, (label, attr) in enumerate(props):
+            r = i // 2
+            c = (i % 2) * 2
+            tk.Label(frame, text=label, width=4, anchor="e").grid(row=r, column=c, sticky="e", padx=2, pady=2)
+            var = tk.StringVar(value=str(getattr(obj, attr)))
+            ent = tk.Entry(frame, textvariable=var, width=7, bg="#f7f7f7", relief="solid", bd=1)
+            ent.grid(row=r, column=c + 1, sticky="w", padx=(0, 8), pady=2)
+            ent.bind("<Return>", lambda e, n=name, p=attr, v=var: self.update_prop(n, p, v.get()))
+            ent.bind("<FocusOut>", lambda e, n=name, p=attr, v=var: self.update_prop(n, p, v.get()))
+            self.vars[name][attr] = var
 
-    def update_prop(self, name: str, prop: str, text: str):
+    def add_object(self, name: str):
+        self._create_card(name, self.objects[name])
+
+    def update_prop(self, name: str, prop: str, value: str):
         try:
-            val = float(text)
+            val = float(value)
         except ValueError:
-            self.textboxes[name][prop].set_val(str(getattr(self.objects[name], prop)))
+            self.vars[name][prop].set(str(getattr(self.objects[name], prop)))
             return
         setattr(self.objects[name], prop, val)
         update_remain_blocks()
@@ -277,8 +289,10 @@ class PropertyPanel:
 
     def update(self):
         for name, obj in self.objects.items():
-            for prop, tb in self.textboxes.get(name, {}).items():
-                tb.set_val(str(getattr(obj, prop)))
+            if name not in self.vars:
+                continue
+            for prop, var in self.vars[name].items():
+                var.set(str(getattr(obj, prop)))
 
 
 
@@ -480,30 +494,48 @@ def draw_3d(ax, mode="custom"):
     ax.set_zlim(0, H)
 
 # ────────────────────── ❺ 交互主界面 ──────────────────────
-fig = plt.figure(figsize=(10, 5))
-MAIN_REGION = [0.2, 0.15, 0.6, 0.8]          # 主绘图区
-state      = {"view": "custom", "dim": "2d"} # 初始 = 2D+定制
+root = tk.Tk()
+root.title("Precise CAD")
+root.geometry("1200x600")
+
+frame_left = tk.Frame(root)
+frame_left.pack(side="left", fill="both", expand=True)
+
+frame_right = tk.Frame(root)
+frame_right.pack(side="right", fill="y")
+
+control_frame = tk.Frame(frame_right)
+control_frame.pack(fill="x", pady=5)
+
+prop_frame = tk.Frame(frame_right)
+prop_frame.pack(fill="y", expand=True)
+
+fig = Figure(figsize=(8, 5))
+canvas = FigureCanvasTkAgg(fig, master=frame_left)
+canvas.get_tk_widget().pack(fill="both", expand=True)
+
+MAIN_REGION = [0.1, 0.1, 0.75, 0.8]
+state      = {"view": "custom", "dim": "2d"}
 active_ax  = {"ax": None}
 drag_mgr   = RectInteractor(fig)
-prop_panel = PropertyPanel(fig, objects)
+prop_panel = PropertyPanel(prop_frame, objects)
 
-# 按钮 & 单选框
-ax_btn   = plt.axes([0.82, 0.01, 0.15, 0.08])
-btn      = Button(ax_btn, "2D/3D切换", color="lightgray", hovercolor="orange")
-ax_radio = plt.axes([0.02, 0.01, 0.16, 0.18])
-radio    = RadioButtons(ax_radio, ("定制物体", "剩余空间"), active=0)
-ax_new   = plt.axes([0.82, 0.1, 0.15, 0.05])
-btn_new  = Button(ax_new, "新建物体", color="lightgray", hovercolor="orange")
+btn_toggle = tk.Button(control_frame, text="切换2D/3D")
+btn_toggle.pack(fill="x", pady=2)
 
-# 颜色说明
-legend_texts = [
-    ("红色：loft bed", "r"),
-    ("褐色：门口",    "brown"),
-    ("青色：桌子",    "c"),
-]
-for i, (txt, col) in enumerate(legend_texts):
-    fig.text(0.82, 0.35 + i * 0.05, txt, color=col,
-             ha="left", va="center", fontsize=9)
+view_var = tk.StringVar(value="custom")
+rb_custom = tk.Radiobutton(control_frame, text="定制物体", variable=view_var,
+                           value="custom")
+rb_remain = tk.Radiobutton(control_frame, text="剩余空间", variable=view_var,
+                           value="remain")
+rb_custom.pack(anchor="w")
+rb_remain.pack(anchor="w")
+
+btn_new = tk.Button(control_frame, text="新建物体")
+btn_new.pack(fill="x", pady=5)
+
+for txt, col in [("红色：loft bed", "r"), ("褐色：门口", "brown"), ("青色：桌子", "c")]:
+    tk.Label(control_frame, text=txt, fg=col).pack(anchor="w")
 
 
 # ──────────────── 重绘逻辑 ────────────────
@@ -522,17 +554,19 @@ def redraw():
         active_ax["ax"] = ax
 
     prop_panel.update()
-    fig.canvas.draw_idle()
+    canvas.draw_idle()
 
-btn.on_clicked(lambda event: (state.update({"dim": "3d" if state["dim"] == "2d" else "2d"}), redraw()))
-radio.on_clicked(lambda label: (state.update({"view": "custom" if label == "定制物体" else "remain"}), redraw()))
+def toggle_dim():
+    state["dim"] = "3d" if state["dim"] == "2d" else "2d"
+    redraw()
 
-def create_object(event):
-    root = tk.Tk()
-    root.withdraw()
+def on_view_change():
+    state["view"] = view_var.get()
+    redraw()
+
+def create_object():
     name = simpledialog.askstring("名称", "物体名称:", parent=root)
     if not name:
-        root.destroy()
         return
     try:
         l = float(simpledialog.askstring("尺寸", "长(mm):", parent=root))
@@ -541,20 +575,21 @@ def create_object(event):
         x = float(simpledialog.askstring("位置", "X(mm):", parent=root))
         y = float(simpledialog.askstring("位置", "Y(mm):", parent=root))
     except (TypeError, ValueError):
-        root.destroy()
         return
     color = colorchooser.askcolor(parent=root)[1] or "gray"
     objects[name] = Object3D(name, l, w, h, x, y, 0, color)
-    prop_panel.add_object(name, 0.8 - len(prop_panel.textboxes) * 0.15)
+    prop_panel.add_object(name)
     update_remain_blocks()
     redraw()
-    root.destroy()
 
-btn_new.on_clicked(create_object)
+btn_toggle.config(command=toggle_dim)
+rb_custom.config(command=on_view_change)
+rb_remain.config(command=on_view_change)
+btn_new.config(command=create_object)
 
 # 首次绘制
 ax_init = fig.add_axes(MAIN_REGION)
 draw_2d(ax_init, state["view"])
 active_ax["ax"] = ax_init
-
-plt.show()
+canvas.draw()
+root.mainloop()
