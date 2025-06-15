@@ -3,9 +3,8 @@ matplotlib.rcParams["font.family"] = "Microsoft YaHei"  # 中文字体
 matplotlib.rcParams["axes.unicode_minus"] = False       # 负号正常显示
 
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from dataclasses import dataclass
-from typing import Dict
+from typing import Dict, Optional
 from matplotlib.backend_bases import cursors
 import tkinter as tk
 from tkinter import simpledialog, colorchooser
@@ -15,6 +14,11 @@ from matplotlib.figure import Figure
 DARK_BG = "#353535"
 LIGHT_BG = "#F0F0F0"
 dark_mode = True
+
+COLOR_MAIN = "#00BFFF"
+COLOR_LOFT = "#FF5252"
+COLOR_DOOR = "#FFA07A"
+COLOR_DESK = "#00FFC6"
 
 
 @dataclass
@@ -27,6 +31,9 @@ class Object3D:
     y: float
     z: float
     color: str
+
+
+selected_name: Optional[str] = None
 
 
 class RectInteractor:
@@ -98,6 +105,9 @@ class RectInteractor:
                     'orig': (x0, y0, w0, h0),
                     'moved': False,
                 }
+                global selected_name
+                selected_name = item.obj.name
+                prop_panel.build(selected_name)
                 if mode == 'move':
                     self.fig.canvas.set_cursor(cursors.MOVE)
                 else:
@@ -229,6 +239,9 @@ class RectInteractor:
         else:
             self._apply_patch(item)
             redraw()
+        global selected_name
+        selected_name = item.obj.name
+        prop_panel.build(selected_name)
         self.active = None
         self.fig.canvas.set_cursor(cursors.POINTER)
 
@@ -252,41 +265,39 @@ class PropertyPanel:
         self.parent = parent
         self.parent.configure(bg="#F7F7F7")
         self.objects = objects
-        self.frames: Dict[str, tk.Frame] = {}
         self.vars: Dict[str, Dict[str, tk.StringVar]] = {}
         self.build()
 
-    def build(self):
+    def build(self, selected: Optional[str] = None):
         for child in self.parent.winfo_children():
             child.destroy()
-        for name, obj in self.objects.items():
-            self._create_card(name, obj)
+        self.vars.clear()
+        if selected is None or selected not in self.objects:
+            tk.Label(self.parent, text="请选择物体", bg="#F7F7F7").pack(pady=10)
+            return
+        self._create_card(selected, self.objects[selected])
 
     def _create_card(self, name: str, obj: Object3D):
         frame = tk.LabelFrame(self.parent, text=name, padx=5, pady=5, bg="#F7F7F7")
         frame.pack(fill="x", padx=5, pady=5, anchor="n")
-        self.frames[name] = frame
         self.vars[name] = {}
         props = [("X", "x"), ("Y", "y"), ("长", "l"), ("宽", "w"), ("高", "h")]
         for i, (label, attr) in enumerate(props):
             r = i // 2
             c = (i % 2) * 2
             tk.Label(frame, text=label, width=4, anchor="e", bg="#F7F7F7").grid(row=r, column=c, sticky="e", padx=2, pady=2)
-            var = tk.StringVar(value=str(getattr(obj, attr)))
+            var = tk.StringVar(value=f"{getattr(obj, attr):.1f}")
             ent = tk.Entry(frame, textvariable=var, width=7, bg="#f7f7f7", relief="solid", bd=1)
             ent.grid(row=r, column=c + 1, sticky="w", padx=(0, 8), pady=2)
             ent.bind("<Return>", lambda e, n=name, p=attr, v=var: self.update_prop(n, p, v.get()))
             ent.bind("<FocusOut>", lambda e, n=name, p=attr, v=var: self.update_prop(n, p, v.get()))
             self.vars[name][attr] = var
 
-    def add_object(self, name: str):
-        self._create_card(name, self.objects[name])
-
     def update_prop(self, name: str, prop: str, value: str):
         try:
             val = float(value)
         except ValueError:
-            self.vars[name][prop].set(str(getattr(self.objects[name], prop)))
+            self.vars[name][prop].set(f"{getattr(self.objects[name], prop):.1f}")
             return
         setattr(self.objects[name], prop, val)
         update_remain_blocks()
@@ -297,7 +308,7 @@ class PropertyPanel:
             if name not in self.vars:
                 continue
             for prop, var in self.vars[name].items():
-                var.set(str(getattr(obj, prop)))
+                var.set(f"{getattr(obj, prop):.1f}")
 
 
 
@@ -306,9 +317,9 @@ L, W, H = 3260, 1840, 2600            # 主空间 (长×宽×高)
 
 # 初始化物体列表
 objects: Dict[str, Object3D] = {
-    "loft bed": Object3D("loft bed", 2000, 1070, 576.5, L - 2000, W - 1070, 0, "red"),
-    "门口": Object3D("门口", 905, 30, 2060, L - 905, 0, 0, "brown"),
-    "桌子": Object3D("桌子", 1260, 500, 690, 0, W - 500, 0, "cyan"),
+    "loft bed": Object3D("loft bed", 2000, 1070, 576.5, L - 2000, W - 1070, 0, COLOR_LOFT),
+    "门口": Object3D("门口", 905, 30, 2060, L - 905, 0, 0, COLOR_DOOR),
+    "桌子": Object3D("桌子", 1260, 500, 690, 0, W - 500, 0, COLOR_DESK),
 }
 
 
@@ -334,14 +345,14 @@ def draw_2d(ax, mode="custom"):
     ax.set_aspect("equal")
     ax.set_xlim(0, L)
     ax.set_ylim(0, W)
-    ax.set_title("俯视图（长-宽）")
+    ax.set_title("俯视图（长-宽）", pad=20)
     ax.set_xticks([]); ax.set_yticks([])
     for spine in ax.spines.values():
         spine.set_visible(False)
 
     if mode == "custom":
         rects = [
-            {"xy": (0, 0), "l": L, "w": W, "ec": "b", "label": "主空间", "obj": None}
+            {"xy": (0, 0), "l": L, "w": W, "ec": COLOR_MAIN, "label": "主空间", "obj": None}
         ]
         for obj in objects.values():
             rects.append({
@@ -367,7 +378,7 @@ def draw_2d(ax, mode="custom"):
             ax.text(
                 cx + r["l"] / 2,
                 cy + r["w"],
-                f"{r['l']} mm",
+                f"{r['l']:.1f} mm",
                 color=r["ec"],
                 va="bottom",
                 ha="center",
@@ -377,7 +388,7 @@ def draw_2d(ax, mode="custom"):
             ax.text(
                 cx + r["l"],
                 cy + r["w"] / 2,
-                f"{r['w']} mm",
+                f"{r['w']:.1f} mm",
                 color=r["ec"],
                 va="center",
                 ha="left",
@@ -385,10 +396,10 @@ def draw_2d(ax, mode="custom"):
                 fontweight="bold",
             )
 
-        ax.legend(handles, labels, loc="upper right", fontsize=10, frameon=True)
+        # Legend shown in Tk control panel
 
     else:  # mode == 'remain'
-        main_patch = plt.Rectangle((0, 0), L, W, fill=None, edgecolor="b", lw=2)
+        main_patch = plt.Rectangle((0, 0), L, W, fill=None, edgecolor=COLOR_MAIN, lw=2)
         ax.add_patch(main_patch)
         handles, labels = [main_patch], ["主空间"]
 
@@ -410,7 +421,7 @@ def draw_2d(ax, mode="custom"):
                     fontsize=9,
                     fontweight="bold",
                 )
-        ax.legend(handles, labels, loc="upper right", fontsize=10, frameon=True)
+        # Legend shown in Tk control panel
 
 
 def draw_3d(ax, mode="custom"):
@@ -473,17 +484,17 @@ def draw_3d(ax, mode="custom"):
             )
 
     if mode == "custom":
-        plot((0, 0, 0), (L, W, H), "b", f"{L}×{W}×{H}", 0.07)
+        plot((0, 0, 0), (L, W, H), COLOR_MAIN, f"{L:.1f}×{W:.1f}×{H:.1f}", 0.07)
         for obj in objects.values():
             plot(
                 (obj.x, obj.y, obj.z),
                 (obj.l, obj.w, obj.h),
                 obj.color,
-                f"{obj.l}×{obj.w}×{obj.h}",
+                f"{obj.l:.1f}×{obj.w:.1f}×{obj.h:.1f}",
                 0.18,
             )
     else:  # mode == 'remain'
-        plot((0, 0, 0), (L, W, H), "b", f"{L}×{W}×{H}", 0.07)
+        plot((0, 0, 0), (L, W, H), COLOR_MAIN, f"{L:.1f}×{W:.1f}×{H:.1f}", 0.07)
         for blk in remain_blocks:
             if blk["label"]:
                 ox, oy = blk["xy"]
@@ -563,7 +574,11 @@ btn_new = tk.Button(control_frame, text="新建物体")
 btn_new.pack(fill="x", pady=5)
 
 legend_labels = []
-for txt, col in [("红色：loft bed", "red"), ("褐色：门口", "brown"), ("青色：桌子", "cyan")]:
+for txt, col in [
+    ("loft bed", COLOR_LOFT),
+    ("门口", COLOR_DOOR),
+    ("桌子", COLOR_DESK),
+]:
     lbl = tk.Label(control_frame, text=txt, fg=col)
     lbl.pack(anchor="w")
     legend_labels.append(lbl)
@@ -609,7 +624,9 @@ def create_object():
         return
     color = colorchooser.askcolor(parent=root)[1] or "gray"
     objects[name] = Object3D(name, l, w, h, x, y, 0, color)
-    prop_panel.add_object(name)
+    global selected_name
+    selected_name = name
+    prop_panel.build(selected_name)
     update_remain_blocks()
     redraw()
 
@@ -622,12 +639,14 @@ def apply_theme():
     control_frame.configure(bg=bg)
     prop_canvas.configure(bg=bg)
     fig.patch.set_facecolor(bg)
+    prop_frame.configure(bg="#F7F7F7")
     for w in [btn_toggle, btn_theme, btn_new]:
         w.configure(bg=bg, fg=fg, activebackground=bg, activeforeground=fg)
     for rb in [rb_custom, rb_remain]:
         rb.configure(bg=bg, fg=fg, activebackground=bg, activeforeground=fg, selectcolor=bg)
     for lbl in legend_labels:
         lbl.configure(bg=bg)
+    prop_panel.build(selected_name)
 
 def toggle_theme():
     global dark_mode
