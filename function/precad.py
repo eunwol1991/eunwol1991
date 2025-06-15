@@ -246,6 +246,7 @@ class PropertyPanel:
 
     def __init__(self, parent: tk.Frame, objects: Dict[str, Object3D]):
         self.parent = parent
+        self.parent.configure(bg="#F7F7F7")
         self.objects = objects
         self.frames: Dict[str, tk.Frame] = {}
         self.vars: Dict[str, Dict[str, tk.StringVar]] = {}
@@ -258,7 +259,7 @@ class PropertyPanel:
             self._create_card(name, obj)
 
     def _create_card(self, name: str, obj: Object3D):
-        frame = tk.LabelFrame(self.parent, text=name, padx=5, pady=5)
+        frame = tk.LabelFrame(self.parent, text=name, padx=5, pady=5, bg="#F7F7F7")
         frame.pack(fill="x", padx=5, pady=5, anchor="n")
         self.frames[name] = frame
         self.vars[name] = {}
@@ -266,7 +267,7 @@ class PropertyPanel:
         for i, (label, attr) in enumerate(props):
             r = i // 2
             c = (i % 2) * 2
-            tk.Label(frame, text=label, width=4, anchor="e").grid(row=r, column=c, sticky="e", padx=2, pady=2)
+            tk.Label(frame, text=label, width=4, anchor="e", bg="#F7F7F7").grid(row=r, column=c, sticky="e", padx=2, pady=2)
             var = tk.StringVar(value=str(getattr(obj, attr)))
             ent = tk.Entry(frame, textvariable=var, width=7, bg="#f7f7f7", relief="solid", bd=1)
             ent.grid(row=r, column=c + 1, sticky="w", padx=(0, 8), pady=2)
@@ -325,6 +326,7 @@ remain_blocks = [
 # ────────────────────── ❸ 绘制函数：2D ──────────────────────
 def draw_2d(ax, mode="custom"):
     ax.clear()
+    ax.set_facecolor("#F0F0F0")
     ax.set_aspect("equal")
     ax.set_xlim(0, L)
     ax.set_ylim(0, W)
@@ -409,6 +411,7 @@ def draw_2d(ax, mode="custom"):
 
 def draw_3d(ax, mode="custom"):
     ax.clear()
+    ax.set_facecolor("#F0F0F0")
     ax.set_box_aspect((L, W, H))
     ax.set_xticks([])
     ax.set_yticks([])
@@ -497,20 +500,38 @@ def draw_3d(ax, mode="custom"):
 root = tk.Tk()
 root.title("Precise CAD")
 root.geometry("1200x600")
+root.configure(bg="#DDDDDD")
 
-frame_left = tk.Frame(root)
+frame_left = tk.Frame(root, bg="#DDDDDD")
 frame_left.pack(side="left", fill="both", expand=True)
 
-frame_right = tk.Frame(root)
+frame_right = tk.Frame(root, bg="#DDDDDD")
 frame_right.pack(side="right", fill="y")
 
-control_frame = tk.Frame(frame_right)
+control_frame = tk.Frame(frame_right, bg="#DDDDDD")
 control_frame.pack(fill="x", pady=5)
 
-prop_frame = tk.Frame(frame_right)
-prop_frame.pack(fill="y", expand=True)
+prop_canvas = tk.Canvas(frame_right, bg="#F7F7F7", highlightthickness=0)
+scrollbar = tk.Scrollbar(frame_right, orient="vertical", command=prop_canvas.yview)
+prop_canvas.configure(yscrollcommand=scrollbar.set)
+scrollbar.pack(side="right", fill="y")
+prop_canvas.pack(side="left", fill="both", expand=True)
+
+prop_frame = tk.Frame(prop_canvas, bg="#F7F7F7")
+prop_canvas.create_window((0, 0), window=prop_frame, anchor="nw")
+
+def _update_scrollregion(event):
+    prop_canvas.configure(scrollregion=prop_canvas.bbox("all"))
+
+prop_frame.bind("<Configure>", _update_scrollregion)
+
+def _on_mousewheel(event):
+    prop_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+prop_canvas.bind_all("<MouseWheel>", _on_mousewheel)
 
 fig = Figure(figsize=(8, 5))
+fig.patch.set_facecolor("#F0F0F0")
 canvas = FigureCanvasTkAgg(fig, master=frame_left)
 canvas.get_tk_widget().pack(fill="both", expand=True)
 
