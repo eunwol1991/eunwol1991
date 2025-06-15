@@ -7,7 +7,7 @@ from dataclasses import dataclass, asdict
 from typing import Dict, Optional
 from matplotlib.backend_bases import cursors
 import tkinter as tk
-from tkinter import simpledialog, colorchooser, filedialog
+from tkinter import simpledialog, colorchooser, filedialog, messagebox
 import json
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
@@ -265,10 +265,22 @@ def update_remain_blocks():
     desk = objects.get("桌子")
     if door:
         remain_blocks[0]["l"] = door.x
+        remain_blocks[0]["w"] = door.w
         remain_blocks[1]["xy"] = (door.x + door.l, 0)
         remain_blocks[1]["l"] = L - (door.x + door.l)
+        remain_blocks[1]["w"] = door.w
+    else:
+        remain_blocks[0]["l"] = 0
+        remain_blocks[0]["w"] = 0
+        remain_blocks[1]["xy"] = (0, 0)
+        remain_blocks[1]["l"] = L
+        remain_blocks[1]["w"] = 0
     if desk:
         remain_blocks[2]["xy"] = (0, W - desk.w)
+        remain_blocks[2]["w"] = desk.w
+    else:
+        remain_blocks[2]["xy"] = (0, W)
+        remain_blocks[2]["w"] = 0
 
 
 def clamp_position(x, y, w, h):
@@ -362,6 +374,7 @@ class PropertyPanel:
     def _create_card(self, name: str, obj: Object3D):
         frame = tk.LabelFrame(self.parent, text=name, padx=5, pady=5, bg="#F7F7F7")
         frame.pack(fill="x", padx=5, pady=5, anchor="n")
+        frame.grid_columnconfigure(4, weight=1)
         self.vars[name] = {}
         self.entries[name] = {}
         self.cards[name] = frame
@@ -377,6 +390,14 @@ class PropertyPanel:
             ent.bind("<FocusOut>", lambda e, n=name, p=attr, v=var: self.update_prop(n, p, v.get()))
             self.vars[name][attr] = var
             self.entries[name][attr] = ent
+
+        btn_del = tk.Button(
+            frame,
+            text="删除",
+            command=lambda n=name: self.delete_object(n),
+            width=4,
+        )
+        btn_del.grid(row=0, column=4, rowspan=2, sticky="ne")
 
     def update_prop(self, name: str, prop: str, value: str):
         if not self.editable:
@@ -411,6 +432,17 @@ class PropertyPanel:
         for entry_dict in self.entries.values():
             for ent in entry_dict.values():
                 ent.configure(state=state_val)
+
+    def delete_object(self, name: str):
+        if messagebox.askyesno("删除确认", f"确定删除{name}吗?", parent=root):
+            if name in self.objects:
+                del self.objects[name]
+                global selected_name
+                selected_name = next(iter(self.objects.keys()), None)
+                self.build()
+                self.set_editable(state["mode"] == "edit")
+                update_remain_blocks()
+                redraw()
 
 
 
@@ -659,7 +691,7 @@ canvas = FigureCanvasTkAgg(fig, master=frame_left)
 canvas.get_tk_widget().pack(fill="both", expand=True)
 
 MAIN_REGION = [0.1, 0.1, 0.75, 0.8]
-state      = {"view": "custom", "dim": "2d", "mode": "edit"}
+state      = {"view": "custom", "dim": "2d", "mode": "view"}
 active_ax  = {"ax": None}
 drag_mgr   = RectInteractor(fig)
 cube_mgr   = CubeInteractor(fig)
