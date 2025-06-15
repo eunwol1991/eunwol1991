@@ -1,10 +1,27 @@
 import matplotlib
-matplotlib.rcParams["font.family"] = "Microsoft YaHei"     # 中文字体
-matplotlib.rcParams["axes.unicode_minus"] = False          # 负号正常显示
+matplotlib.rcParams["font.family"] = "Microsoft YaHei"  # 中文字体
+matplotlib.rcParams["axes.unicode_minus"] = False       # 负号正常显示
 
 import matplotlib.pyplot as plt
-from matplotlib.widgets import Button, RadioButtons
+from matplotlib.widgets import Button, RadioButtons, TextBox
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+from dataclasses import dataclass, field
+from typing import Dict
+from matplotlib.backend_bases import cursors
+import tkinter as tk
+from tkinter import simpledialog, colorchooser
+
+
+@dataclass
+class Object3D:
+    name: str
+    l: float
+    w: float
+    h: float
+    x: float
+    y: float
+    z: float
+    color: str
 
 
 class RectInteractor:
@@ -13,9 +30,9 @@ class RectInteractor:
     EDGE_TOL = 30  # px distance considered near an edge
 
     class Item:
-        def __init__(self, patch, refs):
+        def __init__(self, patch, obj: Object3D):
             self.patch = patch
-            self.refs = refs  # names of globals for x,y,l,w
+            self.obj = obj
 
     def __init__(self, fig):
         self.fig = fig
@@ -28,8 +45,8 @@ class RectInteractor:
     def clear(self):
         self.items.clear()
 
-    def register(self, patch, refs):
-        self.items.append(self.Item(patch, refs))
+    def register(self, patch, obj: Object3D):
+        self.items.append(self.Item(patch, obj))
 
     def _clamp(self, x, y, w, h):
         x = min(max(0, x), L - w)
@@ -76,13 +93,51 @@ class RectInteractor:
                     'orig': (x0, y0, w0, h0),
                     'moved': False,
                 }
+                if mode == 'move':
+                    self.fig.canvas.set_cursor(cursors.MOVE)
+                else:
+                    if (
+                        ('left' in edges or 'right' in edges)
+                        and ('top' in edges or 'bottom' in edges)
+                    ):
+                        cur = cursors.MOVE
+                    elif 'left' in edges or 'right' in edges:
+                        cur = cursors.RESIZE_HORIZONTAL
+                    else:
+                        cur = cursors.RESIZE_VERTICAL
+                    self.fig.canvas.set_cursor(cur)
                 break
 
     def on_motion(self, event):
-        if not self.active:
-            return
         if event.inaxes != active_ax.get('ax'):
             return
+
+        if not self.active:
+            for item in self.items:
+                contains, _ = item.patch.contains(event)
+                if contains:
+                    x0 = item.patch.get_x()
+                    y0 = item.patch.get_y()
+                    w0 = item.patch.get_width()
+                    h0 = item.patch.get_height()
+                    near_left = abs(event.xdata - x0) < self.EDGE_TOL
+                    near_right = abs(event.xdata - (x0 + w0)) < self.EDGE_TOL
+                    near_bottom = abs(event.ydata - y0) < self.EDGE_TOL
+                    near_top = abs(event.ydata - (y0 + h0)) < self.EDGE_TOL
+                    if (near_left or near_right) and (near_top or near_bottom):
+                        cur = cursors.MOVE
+                    elif near_left or near_right:
+                        cur = cursors.RESIZE_HORIZONTAL
+                    elif near_top or near_bottom:
+                        cur = cursors.RESIZE_VERTICAL
+                    else:
+                        cur = cursors.MOVE
+                    self.fig.canvas.set_cursor(cur)
+                    break
+            else:
+                self.fig.canvas.set_cursor(cursors.POINTER)
+            return
+
         xpress, ypress = self.active['press']
         dx = event.xdata - xpress
         dy = event.ydata - ypress
@@ -94,11 +149,20 @@ class RectInteractor:
         ox, oy, ow, oh = self.active['orig']
 
         if self.active['mode'] == 'move':
+            self.fig.canvas.set_cursor(cursors.MOVE)
             nx, ny = ox + dx, oy + dy
             nx, ny, _, _ = self._clamp(nx, ny, ow, oh)
             patch.set_x(nx)
             patch.set_y(ny)
         else:  # resize
+            edges = self.active['edges']
+            if ('left' in edges or 'right' in edges) and ('top' in edges or 'bottom' in edges):
+                cur = cursors.MOVE
+            elif 'left' in edges or 'right' in edges:
+                cur = cursors.RESIZE_HORIZONTAL
+            else:
+                cur = cursors.RESIZE_VERTICAL
+            self.fig.canvas.set_cursor(cur)
             nx, ny, nw, nh = ox, oy, ow, oh
             if 'left' in self.active['edges']:
                 nx = ox + dx
@@ -120,15 +184,13 @@ class RectInteractor:
 
     def _apply_patch(self, item):
         p = item.patch
-        refs = item.refs
-        if 'x' in refs:
-            globals()[refs['x']] = p.get_x()
-        if 'y' in refs:
-            globals()[refs['y']] = p.get_y()
-        if 'l' in refs:
-            globals()[refs['l']] = p.get_width()
-        if 'w' in refs:
-            globals()[refs['w']] = p.get_height()
+        obj = item.obj
+        obj.x = p.get_x()
+        obj.y = p.get_y()
+        obj.l = p.get_width()
+        obj.w = p.get_height()
+        update_remain_blocks()
+        prop_panel.update()
 
     def _rotate(self, item):
         p = item.patch
@@ -144,16 +206,13 @@ class RectInteractor:
         p.set_y(ny)
         p.set_width(new_w)
         p.set_height(new_h)
-        refs = item.refs
-        if 'x' in refs:
-            globals()[refs['x']] = nx
-        if 'y' in refs:
-            globals()[refs['y']] = ny
-        if 'l' in refs:
-            globals()[refs['l']] = new_w
-        if 'w' in refs:
-            globals()[refs['w']] = new_h
+        obj = item.obj
+        obj.x = nx
+        obj.y = ny
+        obj.l = new_w
+        obj.w = new_h
         update_remain_blocks()
+        prop_panel.update()
         redraw()
 
     def on_release(self, event):
@@ -164,48 +223,88 @@ class RectInteractor:
             self._rotate(item)
         else:
             self._apply_patch(item)
-            update_remain_blocks()
             redraw()
         self.active = None
+        self.fig.canvas.set_cursor(cursors.POINTER)
 
 
 def update_remain_blocks():
     """Recalculate remain_blocks using updated coordinates."""
-    remain_blocks[0]['l'] = x4
-    remain_blocks[1]['xy'] = (x4 + l4, 0)
-    remain_blocks[1]['l'] = L - (x4 + l4)
-    remain_blocks[2]['xy'] = (0, W - w5)
+    door = objects.get("门口")
+    desk = objects.get("桌子")
+    if door:
+        remain_blocks[0]["l"] = door.x
+        remain_blocks[1]["xy"] = (door.x + door.l, 0)
+        remain_blocks[1]["l"] = L - (door.x + door.l)
+    if desk:
+        remain_blocks[2]["xy"] = (0, W - desk.w)
+
+
+class PropertyPanel:
+    """Show and edit object properties in real time."""
+
+    def __init__(self, fig, objects: Dict[str, Object3D]):
+        self.fig = fig
+        self.objects = objects
+        self.textboxes: Dict[str, Dict[str, TextBox]] = {}
+        self.build()
+
+    def build(self):
+        start_y = 0.8
+        for name, obj in self.objects.items():
+            self.add_object(name, start_y)
+            start_y -= 0.15
+
+    def add_object(self, name: str, base_y: float):
+        obj = self.objects[name]
+        props = ["x", "y", "l", "w", "h"]
+        self.textboxes[name] = {}
+        for i, p in enumerate(props):
+            axb = plt.axes([0.82, base_y - i * 0.03, 0.15, 0.03])
+            tb = TextBox(axb, f"{name}-{p}", initial=str(getattr(obj, p)))
+            tb.on_submit(lambda text, n=name, prop=p: self.update_prop(n, prop, text))
+            self.textboxes[name][p] = tb
+
+    def update_prop(self, name: str, prop: str, text: str):
+        try:
+            val = float(text)
+        except ValueError:
+            self.textboxes[name][prop].set_val(str(getattr(self.objects[name], prop)))
+            return
+        setattr(self.objects[name], prop, val)
+        update_remain_blocks()
+        redraw()
+
+    def update(self):
+        for name, obj in self.objects.items():
+            for prop, tb in self.textboxes.get(name, {}).items():
+                tb.set_val(str(getattr(obj, prop)))
 
 
 
 # ────────────────────── ❶ 主空间 & 物体参数 ──────────────────────
 L, W, H = 3260, 1840, 2600            # 主空间 (长×宽×高)
 
-# loft bed（移到右上角）
-l2, w2, h2 = 2000, 1070, 576.5
-x2, y2, z2 = L - l2, W - w2, 0        # 右上角
-
-# 斜梯：已移除，不再使用
-l3 = w3 = h3 = 0
-x3 = y3 = z3 = 0
-
-# 门口
-l4, w4, h4 = 905, 30, 2060
-x4, y4, z4 = L - l4, 0, 0
-
-# 桌子（放在左上角）
-l5, w5, h5 = 1260, 500, 690
-x5, y5, z5 = 0, W - w5, 0            # 左上角
+# 初始化物体列表
+objects: Dict[str, Object3D] = {
+    "loft bed": Object3D("loft bed", 2000, 1070, 576.5, L - 2000, W - 1070, 0, "r"),
+    "门口": Object3D("门口", 905, 30, 2060, L - 905, 0, 0, "brown"),
+    "桌子": Object3D("桌子", 1260, 500, 690, 0, W - 500, 0, "c"),
+}
 
 
 # ─────────────── ❷ 剩余空间近似区块（可继续补充） ───────────────
+door = objects.get("门口")
+desk = objects.get("桌子")
 remain_blocks = [
-    {"xy": (0, 0),        "l": x4,            "w": w4, "h": H,
+    {"xy": (0, 0),        "l": door.x if door else 0, "w": door.w if door else 0, "h": H,
      "label": "左下剩余空间", "color": "purple"},
-    {"xy": (x4 + l4, 0),  "l": L - (x4 + l4), "w": w4, "h": H,
+    {"xy": (door.x + door.l, 0) if door else (0, 0),
+     "l": L - (door.x + door.l) if door else L,
+     "w": door.w if door else 0, "h": H,
      "label": "底边剩余空间", "color": "lime"},
-    {"xy": (0, W - w5),   "l": 0,              "w": 0,  "h": H,
-     "label": "",            "color": ""},  # 示例，无其他区块
+    {"xy": (0, W - desk.w) if desk else (0, 0), "l": 0, "w": 0, "h": H,
+     "label": "", "color": ""},  # 示例，无其他区块
 ]
 
 
@@ -222,32 +321,49 @@ def draw_2d(ax, mode="custom"):
 
     if mode == "custom":
         rects = [
-            {"xy": (0, 0),   "l": L,  "w": W,  "ec": "b",     "label": "主空间"},
-            {"xy": (x2, y2), "l": l2, "w": w2, "ec": "r",     "label": "loft bed"},
-            {"xy": (x4, y4), "l": l4, "w": w4, "ec": "brown", "label": "门口"},
-            {"xy": (x5, y5), "l": l5, "w": w5, "ec": "c",     "label": "桌子"},
+            {"xy": (0, 0), "l": L, "w": W, "ec": "b", "label": "主空间", "obj": None}
         ]
+        for obj in objects.values():
+            rects.append({
+                "xy": (obj.x, obj.y),
+                "l": obj.l,
+                "w": obj.w,
+                "ec": obj.color,
+                "label": obj.name,
+                "obj": obj,
+            })
         handles, labels = [], []
         drag_mgr.clear()
         for r in rects:
-            patch = plt.Rectangle(r["xy"], r["l"], r["w"], fill=None,
-                                  edgecolor=r["ec"], lw=2)
+            patch = plt.Rectangle(r["xy"], r["l"], r["w"], fill=None, edgecolor=r["ec"], lw=2)
             ax.add_patch(patch)
-            handles.append(patch); labels.append(r["label"])
-            if r["label"] != "主空间":
-                if r["label"] == "loft bed":
-                    drag_mgr.register(patch, {"x": "x2", "y": "y2", "l": "l2", "w": "w2"})
-                elif r["label"] == "门口":
-                    drag_mgr.register(patch, {"x": "x4", "y": "y4", "l": "l4", "w": "w4"})
-                elif r["label"] == "桌子":
-                    drag_mgr.register(patch, {"x": "x5", "y": "y5", "l": "l5", "w": "w5"})
+            handles.append(patch)
+            labels.append(r["label"])
+            if r["obj"] is not None:
+                drag_mgr.register(patch, r["obj"])
 
             # 标注长宽
             cx, cy = r["xy"]
-            ax.text(cx + r["l"]/2, cy + r["w"], f"{r['l']} mm",
-                    color=r["ec"], va="bottom", ha="center", fontsize=9, fontweight="bold")
-            ax.text(cx + r["l"],   cy + r["w"]/2, f"{r['w']} mm",
-                    color=r["ec"], va="center", ha="left", fontsize=9, fontweight="bold")
+            ax.text(
+                cx + r["l"] / 2,
+                cy + r["w"],
+                f"{r['l']} mm",
+                color=r["ec"],
+                va="bottom",
+                ha="center",
+                fontsize=9,
+                fontweight="bold",
+            )
+            ax.text(
+                cx + r["l"],
+                cy + r["w"] / 2,
+                f"{r['w']} mm",
+                color=r["ec"],
+                va="center",
+                ha="left",
+                fontsize=9,
+                fontweight="bold",
+            )
 
         ax.legend(handles, labels, loc="upper right", fontsize=10, frameon=True)
 
@@ -337,9 +453,14 @@ def draw_3d(ax, mode="custom"):
 
     if mode == "custom":
         plot((0, 0, 0), (L, W, H), "b", f"{L}×{W}×{H}", 0.07)
-        plot((x2, y2, z2), (l2, w2, h2), "r", f"{l2}×{w2}×{h2}", 0.18)
-        plot((x4, y4, z4), (l4, w4, h4), "brown", f"{l4}×{w4}×{h4}", 0.22)
-        plot((x5, y5, z5), (l5, w5, h5), "c", f"{l5}×{w5}×{h5}", 0.35)
+        for obj in objects.values():
+            plot(
+                (obj.x, obj.y, obj.z),
+                (obj.l, obj.w, obj.h),
+                obj.color,
+                f"{obj.l}×{obj.w}×{obj.h}",
+                0.18,
+            )
     else:  # mode == 'remain'
         plot((0, 0, 0), (L, W, H), "b", f"{L}×{W}×{H}", 0.07)
         for blk in remain_blocks:
@@ -364,12 +485,15 @@ MAIN_REGION = [0.2, 0.15, 0.6, 0.8]          # 主绘图区
 state      = {"view": "custom", "dim": "2d"} # 初始 = 2D+定制
 active_ax  = {"ax": None}
 drag_mgr   = RectInteractor(fig)
+prop_panel = PropertyPanel(fig, objects)
 
 # 按钮 & 单选框
 ax_btn   = plt.axes([0.82, 0.01, 0.15, 0.08])
 btn      = Button(ax_btn, "2D/3D切换", color="lightgray", hovercolor="orange")
 ax_radio = plt.axes([0.02, 0.01, 0.16, 0.18])
 radio    = RadioButtons(ax_radio, ("定制物体", "剩余空间"), active=0)
+ax_new   = plt.axes([0.82, 0.1, 0.15, 0.05])
+btn_new  = Button(ax_new, "新建物体", color="lightgray", hovercolor="orange")
 
 # 颜色说明
 legend_texts = [
@@ -397,10 +521,36 @@ def redraw():
         draw_3d(ax, state["view"])
         active_ax["ax"] = ax
 
+    prop_panel.update()
     fig.canvas.draw_idle()
 
 btn.on_clicked(lambda event: (state.update({"dim": "3d" if state["dim"] == "2d" else "2d"}), redraw()))
 radio.on_clicked(lambda label: (state.update({"view": "custom" if label == "定制物体" else "remain"}), redraw()))
+
+def create_object(event):
+    root = tk.Tk()
+    root.withdraw()
+    name = simpledialog.askstring("名称", "物体名称:", parent=root)
+    if not name:
+        root.destroy()
+        return
+    try:
+        l = float(simpledialog.askstring("尺寸", "长(mm):", parent=root))
+        w = float(simpledialog.askstring("尺寸", "宽(mm):", parent=root))
+        h = float(simpledialog.askstring("尺寸", "高(mm):", parent=root))
+        x = float(simpledialog.askstring("位置", "X(mm):", parent=root))
+        y = float(simpledialog.askstring("位置", "Y(mm):", parent=root))
+    except (TypeError, ValueError):
+        root.destroy()
+        return
+    color = colorchooser.askcolor(parent=root)[1] or "gray"
+    objects[name] = Object3D(name, l, w, h, x, y, 0, color)
+    prop_panel.add_object(name, 0.8 - len(prop_panel.textboxes) * 0.15)
+    update_remain_blocks()
+    redraw()
+    root.destroy()
+
+btn_new.on_clicked(create_object)
 
 # 首次绘制
 ax_init = fig.add_axes(MAIN_REGION)
