@@ -73,7 +73,11 @@ class RectInteractor:
         return x, y, w, h
 
     def on_press(self, event):
-        if state.get('dim') != '2d' or state.get('view') != 'custom':
+        if (
+            state.get('dim') != '2d'
+            or state.get('view') != 'custom'
+            or state.get('mode') != 'edit'
+        ):
             return
         if event.inaxes != active_ax.get('ax'):
             return
@@ -125,7 +129,7 @@ class RectInteractor:
                 break
 
     def on_motion(self, event):
-        if event.inaxes != active_ax.get('ax'):
+        if event.inaxes != active_ax.get('ax') or state.get('mode') != 'edit':
             return
 
         if not self.active:
@@ -234,6 +238,9 @@ class RectInteractor:
     def on_release(self, event):
         if not self.active:
             return
+        if state.get('mode') != 'edit':
+            self.active = None
+            return
         item = self.active['item']
         if self.active['mode'] == 'move' and not self.active['moved']:
             self._rotate(item)
@@ -259,6 +266,65 @@ def update_remain_blocks():
         remain_blocks[2]["xy"] = (0, W - desk.w)
 
 
+def clamp_position(x, y, w, h):
+    x = min(max(0, x), L - w)
+    y = min(max(0, y), W - h)
+    if x + w > L:
+        x = L - w
+    if y + h > W:
+        y = W - h
+    return x, y
+
+
+class CubeInteractor:
+    """Simple XY-plane move interaction in 3D view."""
+
+    def __init__(self, fig):
+        self.fig = fig
+        self.active = None
+        self.cid_press = fig.canvas.mpl_connect("button_press_event", self.on_press)
+        self.cid_release = fig.canvas.mpl_connect("button_release_event", self.on_release)
+        self.cid_motion = fig.canvas.mpl_connect("motion_notify_event", self.on_motion)
+
+    def on_press(self, event):
+        if (
+            state.get("dim") != "3d"
+            or state.get("view") != "custom"
+            or state.get("mode") != "edit"
+        ):
+            return
+        if event.inaxes != active_ax.get("ax"):
+            return
+        for obj in objects.values():
+            if obj.x <= event.xdata <= obj.x + obj.l and obj.y <= event.ydata <= obj.y + obj.w:
+                self.active = {
+                    "obj": obj,
+                    "press": (event.xdata, event.ydata),
+                    "orig": (obj.x, obj.y),
+                }
+                global selected_name
+                selected_name = obj.name
+                prop_panel.highlight(selected_name)
+                self.fig.canvas.set_cursor(cursors.MOVE)
+                break
+
+    def on_motion(self, event):
+        if not self.active or event.inaxes != active_ax.get("ax"):
+            return
+        dx = event.xdata - self.active["press"][0]
+        dy = event.ydata - self.active["press"][1]
+        obj = self.active["obj"]
+        nx, ny = clamp_position(self.active["orig"][0] + dx, self.active["orig"][1] + dy, obj.l, obj.w)
+        obj.x, obj.y = nx, ny
+        redraw()
+
+    def on_release(self, event):
+        if not self.active:
+            return
+        self.active = None
+        self.fig.canvas.set_cursor(cursors.POINTER)
+
+
 class PropertyPanel:
     """Show and edit object properties in real time using Tk widgets."""
 
@@ -267,22 +333,27 @@ class PropertyPanel:
         self.parent.configure(bg="#F7F7F7")
         self.objects = objects
         self.vars: Dict[str, Dict[str, tk.StringVar]] = {}
+        self.entries: Dict[str, Dict[str, tk.Entry]] = {}
         self.cards: Dict[str, tk.LabelFrame] = {}
+        self.editable = True
         self.build()
 
     def build(self):
         for child in self.parent.winfo_children():
             child.destroy()
         self.vars.clear()
+        self.entries.clear()
         self.cards.clear()
         for name, obj in self.objects.items():
             self._create_card(name, obj)
         self.highlight(selected_name)
+        self.set_editable(self.editable)
 
     def _create_card(self, name: str, obj: Object3D):
         frame = tk.LabelFrame(self.parent, text=name, padx=5, pady=5, bg="#F7F7F7")
         frame.pack(fill="x", padx=5, pady=5, anchor="n")
         self.vars[name] = {}
+        self.entries[name] = {}
         self.cards[name] = frame
         props = [("X", "x"), ("Y", "y"), ("长", "l"), ("宽", "w"), ("高", "h")]
         for i, (label, attr) in enumerate(props):
@@ -295,8 +366,11 @@ class PropertyPanel:
             ent.bind("<Return>", lambda e, n=name, p=attr, v=var: self.update_prop(n, p, v.get()))
             ent.bind("<FocusOut>", lambda e, n=name, p=attr, v=var: self.update_prop(n, p, v.get()))
             self.vars[name][attr] = var
+            self.entries[name][attr] = ent
 
     def update_prop(self, name: str, prop: str, value: str):
+        if not self.editable:
+            return
         try:
             val = float(value)
         except ValueError:
@@ -320,6 +394,13 @@ class PropertyPanel:
                 frame.configure(highlightbackground="orange", highlightthickness=2)
             else:
                 frame.configure(highlightthickness=0)
+
+    def set_editable(self, editable: bool):
+        self.editable = editable
+        state_val = "normal" if editable else "readonly"
+        for entry_dict in self.entries.values():
+            for ent in entry_dict.values():
+                ent.configure(state=state_val)
 
 
 
@@ -568,13 +649,17 @@ canvas = FigureCanvasTkAgg(fig, master=frame_left)
 canvas.get_tk_widget().pack(fill="both", expand=True)
 
 MAIN_REGION = [0.1, 0.1, 0.75, 0.8]
-state      = {"view": "custom", "dim": "2d"}
+state      = {"view": "custom", "dim": "2d", "mode": "edit"}
 active_ax  = {"ax": None}
 drag_mgr   = RectInteractor(fig)
+cube_mgr   = CubeInteractor(fig)
 prop_panel = PropertyPanel(prop_frame, objects)
 
 btn_toggle = tk.Button(control_frame, text="切换2D/3D")
 btn_toggle.pack(fill="x", pady=2)
+
+btn_mode = tk.Button(control_frame, text="切换到查看模式")
+btn_mode.pack(fill="x", pady=2)
 
 btn_theme = tk.Button(control_frame, text="切换主题")
 btn_theme.pack(fill="x", pady=2)
@@ -629,6 +714,15 @@ def toggle_dim():
     state["dim"] = "3d" if state["dim"] == "2d" else "2d"
     redraw()
 
+def toggle_mode():
+    state["mode"] = "view" if state["mode"] == "edit" else "edit"
+    prop_panel.set_editable(state["mode"] == "edit")
+    if state["mode"] == "edit":
+        btn_mode.config(text="切换到查看模式")
+    else:
+        btn_mode.config(text="切换到编辑模式")
+    redraw()
+
 def on_view_change():
     state["view"] = view_var.get()
     redraw()
@@ -650,6 +744,7 @@ def create_object():
     global selected_name
     selected_name = name
     prop_panel.build()
+    prop_panel.set_editable(state["mode"] == "edit")
     update_remain_blocks()
     redraw()
 
@@ -684,6 +779,7 @@ def import_scene():
     global selected_name
     selected_name = next(iter(objects.keys()), None)
     prop_panel.build()
+    prop_panel.set_editable(state["mode"] == "edit")
     update_remain_blocks()
     redraw()
 
@@ -699,13 +795,18 @@ def apply_theme():
     prop_frame.configure(bg="#F7F7F7")
     separator_lr.configure(bg="#666666")
     separator_hr.configure(bg="#666666")
-    for w in [btn_toggle, btn_theme, btn_new, btn_export, btn_import]:
+    for w in [btn_toggle, btn_mode, btn_theme, btn_new, btn_export, btn_import]:
         w.configure(bg=bg, fg=fg, activebackground=bg, activeforeground=fg)
     for rb in [rb_custom, rb_remain]:
         rb.configure(bg=bg, fg=fg, activebackground=bg, activeforeground=fg, selectcolor=bg)
     for lbl in legend_labels:
         lbl.configure(bg=bg)
     prop_panel.build()
+    prop_panel.set_editable(state["mode"] == "edit")
+    if state["mode"] == "edit":
+        btn_mode.config(text="切换到查看模式")
+    else:
+        btn_mode.config(text="切换到编辑模式")
 
 def toggle_theme():
     global dark_mode
@@ -714,6 +815,7 @@ def toggle_theme():
     redraw()
 
 btn_toggle.config(command=toggle_dim)
+btn_mode.config(command=toggle_mode)
 btn_theme.config(command=toggle_theme)
 rb_custom.config(command=on_view_change)
 rb_remain.config(command=on_view_change)
