@@ -7,6 +7,81 @@ from matplotlib.widgets import Button, RadioButtons
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 
+class DragManager:
+    """Handle drag behaviour for rectangles in 2D view."""
+
+    class Draggable:
+        def __init__(self, patch, refs):
+            self.patch = patch
+            self.refs = refs  # {'x': 'x2', 'y': 'y2'} etc
+
+    def __init__(self, fig):
+        self.fig = fig
+        self.rectangles = []
+        self.dragging = None
+        self.cid_press = fig.canvas.mpl_connect('button_press_event', self.on_press)
+        self.cid_release = fig.canvas.mpl_connect('button_release_event', self.on_release)
+        self.cid_motion = fig.canvas.mpl_connect('motion_notify_event', self.on_motion)
+
+    def clear(self):
+        self.rectangles.clear()
+
+    def register(self, patch, refs):
+        self.rectangles.append(self.Draggable(patch, refs))
+
+    def on_press(self, event):
+        if state.get('dim') != '2d' or state.get('view') != 'custom':
+            return
+        if event.inaxes != active_ax.get('ax'):
+            return
+        for dr in self.rectangles:
+            contains, _ = dr.patch.contains(event)
+            if contains:
+                x0 = dr.patch.get_x()
+                y0 = dr.patch.get_y()
+                self.dragging = {
+                    'dr': dr,
+                    'press': (event.xdata, event.ydata),
+                    'orig': (x0, y0),
+                }
+                break
+
+    def on_motion(self, event):
+        if not self.dragging:
+            return
+        if event.inaxes != active_ax.get('ax'):
+            return
+        xpress, ypress = self.dragging['press']
+        xorig, yorig = self.dragging['orig']
+        dx = event.xdata - xpress
+        dy = event.ydata - ypress
+        rect = self.dragging['dr'].patch
+        rect.set_x(xorig + dx)
+        rect.set_y(yorig + dy)
+        self.fig.canvas.draw_idle()
+
+    def on_release(self, event):
+        if not self.dragging:
+            return
+        dr = self.dragging['dr']
+        new_x = dr.patch.get_x()
+        new_y = dr.patch.get_y()
+        globals()[dr.refs['x']] = new_x
+        globals()[dr.refs['y']] = new_y
+        update_remain_blocks()
+        self.dragging = None
+        redraw()
+
+
+def update_remain_blocks():
+    """Recalculate remain_blocks using updated coordinates."""
+    remain_blocks[0]['l'] = x4
+    remain_blocks[1]['xy'] = (x4 + l4, 0)
+    remain_blocks[1]['l'] = L - (x4 + l4)
+    remain_blocks[2]['xy'] = (0, W - w5)
+
+
+
 # ────────────────────── ❶ 主空间 & 物体参数 ──────────────────────
 L, W, H = 3260, 1840, 2600            # 主空间 (长×宽×高)
 
@@ -57,11 +132,19 @@ def draw_2d(ax, mode="custom"):
             {"xy": (x5, y5), "l": l5, "w": w5, "ec": "c",     "label": "桌子"},
         ]
         handles, labels = [], []
+        drag_mgr.clear()
         for r in rects:
             patch = plt.Rectangle(r["xy"], r["l"], r["w"], fill=None,
                                   edgecolor=r["ec"], lw=2)
             ax.add_patch(patch)
             handles.append(patch); labels.append(r["label"])
+            if r["label"] != "主空间":
+                if r["label"] == "loft bed":
+                    drag_mgr.register(patch, {"x": "x2", "y": "y2"})
+                elif r["label"] == "门口":
+                    drag_mgr.register(patch, {"x": "x4", "y": "y4"})
+                elif r["label"] == "桌子":
+                    drag_mgr.register(patch, {"x": "x5", "y": "y5"})
 
             # 标注长宽
             cx, cy = r["xy"]
@@ -148,6 +231,7 @@ fig = plt.figure(figsize=(10, 5))
 MAIN_REGION = [0.2, 0.15, 0.6, 0.8]          # 主绘图区
 state      = {"view": "custom", "dim": "2d"} # 初始 = 2D+定制
 active_ax  = {"ax": None}
+drag_mgr   = DragManager(fig)
 
 # 按钮 & 单选框
 ax_btn   = plt.axes([0.82, 0.01, 0.15, 0.08])
