@@ -12,6 +12,10 @@ from tkinter import simpledialog, colorchooser
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 
+DARK_BG = "#353535"
+LIGHT_BG = "#F0F0F0"
+dark_mode = True
+
 
 @dataclass
 class Object3D:
@@ -326,7 +330,7 @@ remain_blocks = [
 # ────────────────────── ❸ 绘制函数：2D ──────────────────────
 def draw_2d(ax, mode="custom"):
     ax.clear()
-    ax.set_facecolor("#F0F0F0")
+    ax.set_facecolor(DARK_BG if dark_mode else LIGHT_BG)
     ax.set_aspect("equal")
     ax.set_xlim(0, L)
     ax.set_ylim(0, W)
@@ -411,7 +415,7 @@ def draw_2d(ax, mode="custom"):
 
 def draw_3d(ax, mode="custom"):
     ax.clear()
-    ax.set_facecolor("#F0F0F0")
+    ax.set_facecolor(DARK_BG if dark_mode else LIGHT_BG)
     ax.set_box_aspect((L, W, H))
     ax.set_xticks([])
     ax.set_yticks([])
@@ -500,18 +504,18 @@ def draw_3d(ax, mode="custom"):
 root = tk.Tk()
 root.title("Precise CAD")
 root.geometry("1200x600")
-root.configure(bg="#DDDDDD")
+root.configure(bg=DARK_BG if dark_mode else LIGHT_BG)
 
-frame_left = tk.Frame(root, bg="#DDDDDD")
+frame_left = tk.Frame(root, bg=DARK_BG if dark_mode else LIGHT_BG)
 frame_left.pack(side="left", fill="both", expand=True)
 
-frame_right = tk.Frame(root, bg="#DDDDDD")
+frame_right = tk.Frame(root, bg=DARK_BG if dark_mode else LIGHT_BG)
 frame_right.pack(side="right", fill="y")
 
-control_frame = tk.Frame(frame_right, bg="#DDDDDD")
+control_frame = tk.Frame(frame_right, bg=DARK_BG if dark_mode else LIGHT_BG)
 control_frame.pack(fill="x", pady=5)
 
-prop_canvas = tk.Canvas(frame_right, bg="#F7F7F7", highlightthickness=0)
+prop_canvas = tk.Canvas(frame_right, bg=DARK_BG if dark_mode else LIGHT_BG, highlightthickness=0)
 scrollbar = tk.Scrollbar(frame_right, orient="vertical", command=prop_canvas.yview)
 prop_canvas.configure(yscrollcommand=scrollbar.set)
 scrollbar.pack(side="right", fill="y")
@@ -531,7 +535,7 @@ def _on_mousewheel(event):
 prop_canvas.bind_all("<MouseWheel>", _on_mousewheel)
 
 fig = Figure(figsize=(8, 5))
-fig.patch.set_facecolor("#F0F0F0")
+fig.patch.set_facecolor(DARK_BG if dark_mode else LIGHT_BG)
 canvas = FigureCanvasTkAgg(fig, master=frame_left)
 canvas.get_tk_widget().pack(fill="both", expand=True)
 
@@ -544,6 +548,9 @@ prop_panel = PropertyPanel(prop_frame, objects)
 btn_toggle = tk.Button(control_frame, text="切换2D/3D")
 btn_toggle.pack(fill="x", pady=2)
 
+btn_theme = tk.Button(control_frame, text="切换主题")
+btn_theme.pack(fill="x", pady=2)
+
 view_var = tk.StringVar(value="custom")
 rb_custom = tk.Radiobutton(control_frame, text="定制物体", variable=view_var,
                            value="custom")
@@ -555,8 +562,11 @@ rb_remain.pack(anchor="w")
 btn_new = tk.Button(control_frame, text="新建物体")
 btn_new.pack(fill="x", pady=5)
 
+legend_labels = []
 for txt, col in [("红色：loft bed", "red"), ("褐色：门口", "brown"), ("青色：桌子", "cyan")]:
-    tk.Label(control_frame, text=txt, fg=col).pack(anchor="w")
+    lbl = tk.Label(control_frame, text=txt, fg=col)
+    lbl.pack(anchor="w")
+    legend_labels.append(lbl)
 
 
 # ──────────────── 重绘逻辑 ────────────────
@@ -603,7 +613,28 @@ def create_object():
     update_remain_blocks()
     redraw()
 
+def apply_theme():
+    bg = DARK_BG if dark_mode else LIGHT_BG
+    fg = "#FFFFFF" if dark_mode else "#000000"
+    root.configure(bg=bg)
+    frame_left.configure(bg=bg)
+    frame_right.configure(bg=bg)
+    control_frame.configure(bg=bg)
+    prop_canvas.configure(bg=bg)
+    fig.patch.set_facecolor(bg)
+    for w in [btn_toggle, btn_theme, rb_custom, rb_remain, btn_new]:
+        w.configure(bg=bg, fg=fg, activebackground=bg, activeforeground=fg, selectcolor=bg)
+    for lbl in legend_labels:
+        lbl.configure(bg=bg)
+
+def toggle_theme():
+    global dark_mode
+    dark_mode = not dark_mode
+    apply_theme()
+    redraw()
+
 btn_toggle.config(command=toggle_dim)
+btn_theme.config(command=toggle_theme)
 rb_custom.config(command=on_view_change)
 rb_remain.config(command=on_view_change)
 btn_new.config(command=create_object)
@@ -612,5 +643,7 @@ btn_new.config(command=create_object)
 ax_init = fig.add_axes(MAIN_REGION)
 draw_2d(ax_init, state["view"])
 active_ax["ax"] = ax_init
+apply_theme()
+redraw()
 canvas.draw()
 root.mainloop()
