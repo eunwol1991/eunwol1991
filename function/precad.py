@@ -7,6 +7,177 @@ from matplotlib.widgets import Button, RadioButtons
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 
+class RectInteractor:
+    """Handle move/rotate/resize for rectangles in 2D view."""
+
+    EDGE_TOL = 30  # px distance considered near an edge
+
+    class Item:
+        def __init__(self, patch, refs):
+            self.patch = patch
+            self.refs = refs  # names of globals for x,y,l,w
+
+    def __init__(self, fig):
+        self.fig = fig
+        self.items = []
+        self.active = None
+        self.cid_press = fig.canvas.mpl_connect('button_press_event', self.on_press)
+        self.cid_release = fig.canvas.mpl_connect('button_release_event', self.on_release)
+        self.cid_motion = fig.canvas.mpl_connect('motion_notify_event', self.on_motion)
+
+    def clear(self):
+        self.items.clear()
+
+    def register(self, patch, refs):
+        self.items.append(self.Item(patch, refs))
+
+    def _clamp(self, x, y, w, h):
+        x = min(max(0, x), L - w)
+        y = min(max(0, y), W - h)
+        w = max(10, min(w, L))
+        h = max(10, min(h, W))
+        if x + w > L:
+            x = L - w
+        if y + h > W:
+            y = W - h
+        return x, y, w, h
+
+    def on_press(self, event):
+        if state.get('dim') != '2d' or state.get('view') != 'custom':
+            return
+        if event.inaxes != active_ax.get('ax'):
+            return
+        for item in self.items:
+            contains, _ = item.patch.contains(event)
+            if contains:
+                x0 = item.patch.get_x()
+                y0 = item.patch.get_y()
+                w0 = item.patch.get_width()
+                h0 = item.patch.get_height()
+                near_left = abs(event.xdata - x0) < self.EDGE_TOL
+                near_right = abs(event.xdata - (x0 + w0)) < self.EDGE_TOL
+                near_bottom = abs(event.ydata - y0) < self.EDGE_TOL
+                near_top = abs(event.ydata - (y0 + h0)) < self.EDGE_TOL
+                edges = set()
+                if near_left:
+                    edges.add('left')
+                if near_right:
+                    edges.add('right')
+                if near_bottom:
+                    edges.add('bottom')
+                if near_top:
+                    edges.add('top')
+                mode = 'resize' if edges else 'move'
+                self.active = {
+                    'item': item,
+                    'mode': mode,
+                    'edges': edges,
+                    'press': (event.xdata, event.ydata),
+                    'orig': (x0, y0, w0, h0),
+                    'moved': False,
+                }
+                break
+
+    def on_motion(self, event):
+        if not self.active:
+            return
+        if event.inaxes != active_ax.get('ax'):
+            return
+        xpress, ypress = self.active['press']
+        dx = event.xdata - xpress
+        dy = event.ydata - ypress
+        if abs(dx) > 1 or abs(dy) > 1:
+            self.active['moved'] = True
+
+        item = self.active['item']
+        patch = item.patch
+        ox, oy, ow, oh = self.active['orig']
+
+        if self.active['mode'] == 'move':
+            nx, ny = ox + dx, oy + dy
+            nx, ny, _, _ = self._clamp(nx, ny, ow, oh)
+            patch.set_x(nx)
+            patch.set_y(ny)
+        else:  # resize
+            nx, ny, nw, nh = ox, oy, ow, oh
+            if 'left' in self.active['edges']:
+                nx = ox + dx
+                nw = ow - dx
+            if 'right' in self.active['edges']:
+                nw = ow + dx
+            if 'bottom' in self.active['edges']:
+                ny = oy + dy
+                nh = oh - dy
+            if 'top' in self.active['edges']:
+                nh = oh + dy
+            nx, ny, nw, nh = self._clamp(nx, ny, nw, nh)
+            patch.set_x(nx)
+            patch.set_y(ny)
+            patch.set_width(nw)
+            patch.set_height(nh)
+
+        self.fig.canvas.draw_idle()
+
+    def _apply_patch(self, item):
+        p = item.patch
+        refs = item.refs
+        if 'x' in refs:
+            globals()[refs['x']] = p.get_x()
+        if 'y' in refs:
+            globals()[refs['y']] = p.get_y()
+        if 'l' in refs:
+            globals()[refs['l']] = p.get_width()
+        if 'w' in refs:
+            globals()[refs['w']] = p.get_height()
+
+    def _rotate(self, item):
+        p = item.patch
+        cx = p.get_x() + p.get_width() / 2
+        cy = p.get_y() + p.get_height() / 2
+        new_w = p.get_width()
+        new_h = p.get_height()
+        new_w, new_h = new_h, new_w
+        nx = cx - new_w / 2
+        ny = cy - new_h / 2
+        nx, ny, new_w, new_h = self._clamp(nx, ny, new_w, new_h)
+        p.set_x(nx)
+        p.set_y(ny)
+        p.set_width(new_w)
+        p.set_height(new_h)
+        refs = item.refs
+        if 'x' in refs:
+            globals()[refs['x']] = nx
+        if 'y' in refs:
+            globals()[refs['y']] = ny
+        if 'l' in refs:
+            globals()[refs['l']] = new_w
+        if 'w' in refs:
+            globals()[refs['w']] = new_h
+        update_remain_blocks()
+        redraw()
+
+    def on_release(self, event):
+        if not self.active:
+            return
+        item = self.active['item']
+        if self.active['mode'] == 'move' and not self.active['moved']:
+            self._rotate(item)
+        else:
+            self._apply_patch(item)
+            update_remain_blocks()
+            redraw()
+        self.active = None
+
+
+def update_remain_blocks():
+    """Recalculate remain_blocks using updated coordinates."""
+    remain_blocks[0]['l'] = x4
+    remain_blocks[1]['xy'] = (x4 + l4, 0)
+    remain_blocks[1]['l'] = L - (x4 + l4)
+    remain_blocks[2]['xy'] = (0, W - w5)
+
+
+
 # ────────────────────── ❶ 主空间 & 物体参数 ──────────────────────
 L, W, H = 3260, 1840, 2600            # 主空间 (长×宽×高)
 
@@ -57,11 +228,19 @@ def draw_2d(ax, mode="custom"):
             {"xy": (x5, y5), "l": l5, "w": w5, "ec": "c",     "label": "桌子"},
         ]
         handles, labels = [], []
+        drag_mgr.clear()
         for r in rects:
             patch = plt.Rectangle(r["xy"], r["l"], r["w"], fill=None,
                                   edgecolor=r["ec"], lw=2)
             ax.add_patch(patch)
             handles.append(patch); labels.append(r["label"])
+            if r["label"] != "主空间":
+                if r["label"] == "loft bed":
+                    drag_mgr.register(patch, {"x": "x2", "y": "y2", "l": "l2", "w": "w2"})
+                elif r["label"] == "门口":
+                    drag_mgr.register(patch, {"x": "x4", "y": "y4", "l": "l4", "w": "w4"})
+                elif r["label"] == "桌子":
+                    drag_mgr.register(patch, {"x": "x5", "y": "y5", "l": "l5", "w": "w5"})
 
             # 标注长宽
             cx, cy = r["xy"]
@@ -148,6 +327,7 @@ fig = plt.figure(figsize=(10, 5))
 MAIN_REGION = [0.2, 0.15, 0.6, 0.8]          # 主绘图区
 state      = {"view": "custom", "dim": "2d"} # 初始 = 2D+定制
 active_ax  = {"ax": None}
+drag_mgr   = RectInteractor(fig)
 
 # 按钮 & 单选框
 ax_btn   = plt.axes([0.82, 0.01, 0.15, 0.08])
