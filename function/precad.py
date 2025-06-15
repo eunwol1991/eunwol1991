@@ -301,9 +301,9 @@ L, W, H = 3260, 1840, 2600            # 主空间 (长×宽×高)
 
 # 初始化物体列表
 objects: Dict[str, Object3D] = {
-    "loft bed": Object3D("loft bed", 2000, 1070, 576.5, L - 2000, W - 1070, 0, "r"),
+    "loft bed": Object3D("loft bed", 2000, 1070, 576.5, L - 2000, W - 1070, 0, "red"),
     "门口": Object3D("门口", 905, 30, 2060, L - 905, 0, 0, "brown"),
-    "桌子": Object3D("桌子", 1260, 500, 690, 0, W - 500, 0, "c"),
+    "桌子": Object3D("桌子", 1260, 500, 690, 0, W - 500, 0, "cyan"),
 }
 
 
@@ -534,7 +534,7 @@ rb_remain.pack(anchor="w")
 btn_new = tk.Button(control_frame, text="新建物体")
 btn_new.pack(fill="x", pady=5)
 
-for txt, col in [("红色：loft bed", "r"), ("褐色：门口", "brown"), ("青色：桌子", "c")]:
+for txt, col in [("红色：loft bed", "red"), ("褐色：门口", "brown"), ("青色：桌子", "cyan")]:
     tk.Label(control_frame, text=txt, fg=col).pack(anchor="w")
 
 
