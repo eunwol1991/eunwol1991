@@ -3,11 +3,12 @@ matplotlib.rcParams["font.family"] = "Microsoft YaHei"  # 中文字体
 matplotlib.rcParams["axes.unicode_minus"] = False       # 负号正常显示
 
 import matplotlib.pyplot as plt
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from typing import Dict, Optional
 from matplotlib.backend_bases import cursors
 import tkinter as tk
-from tkinter import simpledialog, colorchooser
+from tkinter import simpledialog, colorchooser, filedialog
+import json
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 
@@ -107,7 +108,7 @@ class RectInteractor:
                 }
                 global selected_name
                 selected_name = item.obj.name
-                prop_panel.build(selected_name)
+                prop_panel.highlight(selected_name)
                 if mode == 'move':
                     self.fig.canvas.set_cursor(cursors.MOVE)
                 else:
@@ -241,7 +242,7 @@ class RectInteractor:
             redraw()
         global selected_name
         selected_name = item.obj.name
-        prop_panel.build(selected_name)
+        prop_panel.highlight(selected_name)
         self.active = None
         self.fig.canvas.set_cursor(cursors.POINTER)
 
@@ -266,21 +267,23 @@ class PropertyPanel:
         self.parent.configure(bg="#F7F7F7")
         self.objects = objects
         self.vars: Dict[str, Dict[str, tk.StringVar]] = {}
+        self.cards: Dict[str, tk.LabelFrame] = {}
         self.build()
 
-    def build(self, selected: Optional[str] = None):
+    def build(self):
         for child in self.parent.winfo_children():
             child.destroy()
         self.vars.clear()
-        if selected is None or selected not in self.objects:
-            tk.Label(self.parent, text="请选择物体", bg="#F7F7F7").pack(pady=10)
-            return
-        self._create_card(selected, self.objects[selected])
+        self.cards.clear()
+        for name, obj in self.objects.items():
+            self._create_card(name, obj)
+        self.highlight(selected_name)
 
     def _create_card(self, name: str, obj: Object3D):
         frame = tk.LabelFrame(self.parent, text=name, padx=5, pady=5, bg="#F7F7F7")
         frame.pack(fill="x", padx=5, pady=5, anchor="n")
         self.vars[name] = {}
+        self.cards[name] = frame
         props = [("X", "x"), ("Y", "y"), ("长", "l"), ("宽", "w"), ("高", "h")]
         for i, (label, attr) in enumerate(props):
             r = i // 2
@@ -309,6 +312,14 @@ class PropertyPanel:
                 continue
             for prop, var in self.vars[name].items():
                 var.set(f"{getattr(obj, prop):.1f}")
+        self.highlight(selected_name)
+
+    def highlight(self, selected: Optional[str]):
+        for name, frame in self.cards.items():
+            if name == selected:
+                frame.configure(highlightbackground="orange", highlightthickness=2)
+            else:
+                frame.configure(highlightthickness=0)
 
 
 
@@ -520,11 +531,17 @@ root.configure(bg=DARK_BG if dark_mode else LIGHT_BG)
 frame_left = tk.Frame(root, bg=DARK_BG if dark_mode else LIGHT_BG)
 frame_left.pack(side="left", fill="both", expand=True)
 
+separator_lr = tk.Frame(root, width=3, bg="#666666")
+separator_lr.pack(side="left", fill="y")
+
 frame_right = tk.Frame(root, bg=DARK_BG if dark_mode else LIGHT_BG)
-frame_right.pack(side="right", fill="y")
+frame_right.pack(side="left", fill="y")
 
 control_frame = tk.Frame(frame_right, bg=DARK_BG if dark_mode else LIGHT_BG)
 control_frame.pack(fill="x", pady=5)
+
+separator_hr = tk.Frame(frame_right, height=3, bg="#666666")
+separator_hr.pack(fill="x")
 
 prop_canvas = tk.Canvas(frame_right, bg=DARK_BG if dark_mode else LIGHT_BG, highlightthickness=0)
 scrollbar = tk.Scrollbar(frame_right, orient="vertical", command=prop_canvas.yview)
@@ -572,6 +589,12 @@ rb_remain.pack(anchor="w")
 
 btn_new = tk.Button(control_frame, text="新建物体")
 btn_new.pack(fill="x", pady=5)
+
+btn_export = tk.Button(control_frame, text="导出")
+btn_export.pack(fill="x", pady=2)
+
+btn_import = tk.Button(control_frame, text="导入")
+btn_import.pack(fill="x", pady=2)
 
 legend_labels = []
 for txt, col in [
@@ -626,7 +649,41 @@ def create_object():
     objects[name] = Object3D(name, l, w, h, x, y, 0, color)
     global selected_name
     selected_name = name
-    prop_panel.build(selected_name)
+    prop_panel.build()
+    update_remain_blocks()
+    redraw()
+
+def export_scene():
+    file_path = filedialog.asksaveasfilename(
+        defaultextension=".json",
+        filetypes=[("JSON", "*.json"), ("All files", "*.*")],
+        parent=root,
+    )
+    if not file_path:
+        return
+    data = {name: asdict(obj) for name, obj in objects.items()}
+    with open(file_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+def import_scene():
+    file_path = filedialog.askopenfilename(
+        filetypes=[("JSON", "*.json"), ("All files", "*.*")],
+        parent=root,
+    )
+    if not file_path:
+        return
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception:
+        return
+    objects.clear()
+    for name, info in data.items():
+        objects[name] = Object3D(**info)
+    global selected_name
+    selected_name = next(iter(objects.keys()), None)
+    prop_panel.build()
     update_remain_blocks()
     redraw()
 
@@ -640,13 +697,15 @@ def apply_theme():
     prop_canvas.configure(bg=bg)
     fig.patch.set_facecolor(bg)
     prop_frame.configure(bg="#F7F7F7")
-    for w in [btn_toggle, btn_theme, btn_new]:
+    separator_lr.configure(bg="#666666")
+    separator_hr.configure(bg="#666666")
+    for w in [btn_toggle, btn_theme, btn_new, btn_export, btn_import]:
         w.configure(bg=bg, fg=fg, activebackground=bg, activeforeground=fg)
     for rb in [rb_custom, rb_remain]:
         rb.configure(bg=bg, fg=fg, activebackground=bg, activeforeground=fg, selectcolor=bg)
     for lbl in legend_labels:
         lbl.configure(bg=bg)
-    prop_panel.build(selected_name)
+    prop_panel.build()
 
 def toggle_theme():
     global dark_mode
@@ -659,6 +718,8 @@ btn_theme.config(command=toggle_theme)
 rb_custom.config(command=on_view_change)
 rb_remain.config(command=on_view_change)
 btn_new.config(command=create_object)
+btn_export.config(command=export_scene)
+btn_import.config(command=import_scene)
 
 # 首次绘制
 ax_init = fig.add_axes(MAIN_REGION)
