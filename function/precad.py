@@ -129,7 +129,11 @@ class RectInteractor:
                 break
 
     def on_motion(self, event):
-        if event.inaxes != active_ax.get('ax') or state.get('mode') != 'edit':
+        if state.get('mode') != 'edit':
+            self.active = None
+            self.fig.canvas.set_cursor(cursors.POINTER)
+            return
+        if event.inaxes != active_ax.get('ax'):
             return
 
         if not self.active:
@@ -237,6 +241,7 @@ class RectInteractor:
 
     def on_release(self, event):
         if not self.active:
+            self.fig.canvas.set_cursor(cursors.POINTER)
             return
         if state.get('mode') != 'edit':
             self.active = None
@@ -309,6 +314,10 @@ class CubeInteractor:
                 break
 
     def on_motion(self, event):
+        if state.get("mode") != "edit":
+            self.active = None
+            self.fig.canvas.set_cursor(cursors.POINTER)
+            return
         if not self.active or event.inaxes != active_ax.get("ax"):
             return
         dx = event.xdata - self.active["press"][0]
@@ -320,6 +329,7 @@ class CubeInteractor:
 
     def on_release(self, event):
         if not self.active:
+            self.fig.canvas.set_cursor(cursors.POINTER)
             return
         self.active = None
         self.fig.canvas.set_cursor(cursors.POINTER)
@@ -721,6 +731,7 @@ def toggle_mode():
         btn_mode.config(text="切换到查看模式")
     else:
         btn_mode.config(text="切换到编辑模式")
+        fig.canvas.set_cursor(cursors.POINTER)
     redraw()
 
 def on_view_change():
