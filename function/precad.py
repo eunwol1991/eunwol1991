@@ -264,28 +264,99 @@ def draw_2d(ax, mode="custom"):
                 ax.add_patch(patch)
                 handles.append(patch); labels.append(blk["label"])
                 cx, cy = blk["xy"]
-                ax.text(cx + blk["l"]/2, cy + blk["w"]/2, blk["label"],
-                        color=blk["color"], ha="center", va="center",
-@@ -126,50 +305,51 @@ def draw_3d(ax, mode="custom"):
-            ax.text(cx, cy, cz, label, color=color, ha="center", va="center",
-                    fontsize=9, fontweight="bold")
+                ax.text(
+                    cx + blk["l"] / 2,
+                    cy + blk["w"] / 2,
+                    blk["label"],
+                    color=blk["color"],
+                    ha="center",
+                    va="center",
+                    fontsize=9,
+                    fontweight="bold",
+                )
+        ax.legend(handles, labels, loc="upper right", fontsize=10, frameon=True)
+
+
+def draw_3d(ax, mode="custom"):
+    ax.clear()
+    ax.set_box_aspect((L, W, H))
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.set_zticks([])
+
+    def plot(origin, size, color, label="", offset=0.05, dashed=False):
+        ox, oy, oz = origin
+        l, w, h = size
+        verts = [
+            (ox, oy, oz),
+            (ox + l, oy, oz),
+            (ox + l, oy + w, oz),
+            (ox, oy + w, oz),
+            (ox, oy, oz + h),
+            (ox + l, oy, oz + h),
+            (ox + l, oy + w, oz + h),
+            (ox, oy + w, oz + h),
+        ]
+        edges = [
+            (0, 1),
+            (1, 2),
+            (2, 3),
+            (3, 0),
+            (4, 5),
+            (5, 6),
+            (6, 7),
+            (7, 4),
+            (0, 4),
+            (1, 5),
+            (2, 6),
+            (3, 7),
+        ]
+        for s, e in edges:
+            xs = [verts[s][0], verts[e][0]]
+            ys = [verts[s][1], verts[e][1]]
+            zs = [verts[s][2], verts[e][2]]
+            ax.plot(
+                xs,
+                ys,
+                zs,
+                color=color,
+                linestyle="--" if dashed else "-",
+            )
+        if label:
+            ax.text(
+                ox + l / 2,
+                oy + w / 2,
+                oz + h + offset * H,
+                label,
+                color=color,
+                ha="center",
+                va="bottom",
+                fontsize=9,
+                fontweight="bold",
+            )
 
     if mode == "custom":
-        plot((0, 0, 0),        (L, W, H),    "b",     f"{L}×{W}×{H}", 0.07)
-        plot((x2, y2, z2),     (l2, w2, h2), "r",     f"{l2}×{w2}×{h2}", 0.18)
-        plot((x4, y4, z4),     (l4, w4, h4), "brown", f"{l4}×{w4}×{h4}", 0.22)
-        plot((x5, y5, z5),     (l5, w5, h5), "c",     f"{l5}×{w5}×{h5}", 0.35)
-
+        plot((0, 0, 0), (L, W, H), "b", f"{L}×{W}×{H}", 0.07)
+        plot((x2, y2, z2), (l2, w2, h2), "r", f"{l2}×{w2}×{h2}", 0.18)
+        plot((x4, y4, z4), (l4, w4, h4), "brown", f"{l4}×{w4}×{h4}", 0.22)
+        plot((x5, y5, z5), (l5, w5, h5), "c", f"{l5}×{w5}×{h5}", 0.35)
     else:  # mode == 'remain'
-        plot((0, 0, 0),        (L, W, H),    "b",     f"{L}×{W}×{H}", 0.07)
+        plot((0, 0, 0), (L, W, H), "b", f"{L}×{W}×{H}", 0.07)
         for blk in remain_blocks:
             if blk["label"]:
                 ox, oy = blk["xy"]
-                plot((ox, oy, 0),  (blk["l"], blk["w"], blk["h"]),
-                     blk["color"], blk["label"], 0.28, dashed=True)
+                plot(
+                    (ox, oy, 0),
+                    (blk["l"], blk["w"], blk["h"]),
+                    blk["color"],
+                    blk["label"],
+                    0.28,
+                    dashed=True,
+                )
 
-    ax.set_xlim(0, L); ax.set_ylim(0, W); ax.set_zlim(0, H)
-
+    ax.set_xlim(0, L)
+    ax.set_ylim(0, W)
+    ax.set_zlim(0, H)
 
 # ────────────────────── ❺ 交互主界面 ──────────────────────
 fig = plt.figure(figsize=(10, 5))
