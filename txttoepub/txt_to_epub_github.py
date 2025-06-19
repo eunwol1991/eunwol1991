@@ -156,16 +156,24 @@ def detect_title_author(file_path: str, max_lines: int = 10) -> Tuple[str, str]:
     return title, author
 
 
-def safe_move(src: str, dst_dir: str) -> str:
-    """Move *src* into *dst_dir* avoiding name conflicts."""
+def safe_move(src: str, dst_dir: str, *, overwrite: bool = False) -> str:
+    """Move *src* into *dst_dir*.
+
+    If *overwrite* is True and a file with the same name exists in
+    *dst_dir*, it will be replaced. Otherwise a numerical suffix is added
+    to avoid conflicts."""
     os.makedirs(dst_dir, exist_ok=True)
     base = os.path.basename(src)
     dst = os.path.join(dst_dir, base)
-    name, ext = os.path.splitext(base)
-    count = 1
-    while os.path.exists(dst):
-        dst = os.path.join(dst_dir, f"{name}_{count}{ext}")
-        count += 1
+    if overwrite:
+        if os.path.exists(dst):
+            os.remove(dst)
+    else:
+        name, ext = os.path.splitext(base)
+        count = 1
+        while os.path.exists(dst):
+            dst = os.path.join(dst_dir, f"{name}_{count}{ext}")
+            count += 1
     shutil.move(src, dst)
     return dst
 
@@ -308,7 +316,7 @@ def convert_txt_file(
     out_file = os.path.join(out_dir, f"{base}.epub")
     create_epub(title, author, chapters, out_file, lang)
     if final_dir:
-        final_path = safe_move(out_file, final_dir)
+        final_path = safe_move(out_file, final_dir, overwrite=True)
         logging.info(f"EPUB moved to {final_path}")
     if history_dir:
         hist_path = safe_move(in_file, history_dir)
