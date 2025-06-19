@@ -9,10 +9,15 @@ import functools
 import logging
 import html
 import codecs
+import shutil
 from datetime import datetime, timezone
 from typing import List, Tuple
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+
+# Default folders used after conversion
+HISTORY_DIR = r"C:\Users\User\Desktop\txt to epub\history"
+FINAL_EPUB_DIR = r"C:\Users\User\iCloudDrive\Downloads\中文小说"
 
 @functools.lru_cache(maxsize=None)
 def detect_encoding(file_path: str, sample_size: int = 4096) -> str:
@@ -67,14 +72,13 @@ def clean_text(text: str) -> str:
 
 
 DEFAULT_PATTERN_STRS = [
-    r"^第[0-9零一二三四五六七八九十百千万〇两]+(?:卷|季|集|部|册)?(?:第[0-9零一二三四五六七八九十百千万〇两]+)?(?:章|回|篇|节|话).*",
-    r"^Chapter\s*\d+.*",
+    r"^第[0-9零一二三四五六七八九十百千万〇两]+(?:[卷部集])?(?:第[0-9零一二三四五六七八九十百千万〇两]+)?[章节回篇节话].*",
+    r"^楔子$",
+    r"^序章?$",
     r"^番外.*",
     r"^后记.*",
     r"^前言.*",
-    r"^序$",
-    r"^序章$",
-    r"^楔子$",
+    r"^Chapter\s*\d+.*",
 ]
 
 def compile_patterns(extra: List[str]) -> List[re.Pattern]:
@@ -112,6 +116,66 @@ def detect_author(file_path: str, max_lines: int = 20) -> str:
             if m:
                 return m.group(1).strip()
     return ''
+
+
+def detect_title_author(file_path: str, max_lines: int = 10) -> Tuple[str, str]:
+    """Try to detect book title and author from filename or the first few lines."""
+    base = os.path.splitext(os.path.basename(file_path))[0]
+    title = ''
+    author = ''
+
+    m = re.match(r"《(.+?)》(.+)", base)
+    if m:
+        title, author = m.group(1).strip(), m.group(2).strip()
+    else:
+        m = re.match(r"(.+?)[-_](.+)", base)
+        if m:
+            title, author = m.group(1).strip(), m.group(2).strip()
+
+    enc = detect_encoding(file_path)
+    try:
+        with open(file_path, 'r', encoding=enc, errors='ignore') as f:
+            lines = [clean_text(f.readline()).strip() for _ in range(max_lines)]
+    except Exception:
+        lines = []
+
+    for line in lines:
+        if not title:
+            m = re.search(r"《([^》]+)》", line)
+            if m:
+                title = m.group(1).strip()
+        if not author:
+            m = re.search(r"作者[:：]?\s*(\S+)", line)
+            if m:
+                author = m.group(1).strip()
+        if title and author:
+            break
+
+    if not title:
+        title = base
+    return title, author
+
+
+def safe_move(src: str, dst_dir: str, *, overwrite: bool = False) -> str:
+    """Move *src* into *dst_dir*.
+
+    If *overwrite* is True and a file with the same name exists in
+    *dst_dir*, it will be replaced. Otherwise a numerical suffix is added
+    to avoid conflicts."""
+    os.makedirs(dst_dir, exist_ok=True)
+    base = os.path.basename(src)
+    dst = os.path.join(dst_dir, base)
+    if overwrite:
+        if os.path.exists(dst):
+            os.remove(dst)
+    else:
+        name, ext = os.path.splitext(base)
+        count = 1
+        while os.path.exists(dst):
+            dst = os.path.join(dst_dir, f"{name}_{count}{ext}")
+            count += 1
+    shutil.move(src, dst)
+    return dst
 
 
 def parse_chapters(file_path: str, patterns: List[re.Pattern]) -> List[Tuple[str, str]]:
@@ -234,19 +298,39 @@ def create_epub(title: str, author: str, chapters: List[Tuple[str, str]], out_pa
     logging.info(f"EPUB generated: {out_path}")
 
 
-def convert_txt_file(in_file: str, out_dir: str, lang: str, patterns: List[re.Pattern]):
+def convert_txt_file(
+    in_file: str,
+    out_dir: str,
+    lang: str,
+    patterns: List[re.Pattern],
+    history_dir: str,
+    final_dir: str,
+):
     if not os.path.isfile(in_file):
         logging.error(f"File not found: {in_file}")
         return
     os.makedirs(out_dir, exist_ok=True)
-    base = os.path.splitext(os.path.basename(in_file))[0]
-    author = detect_author(in_file)
+    title, author = detect_title_author(in_file)
     chapters = parse_chapters(in_file, patterns)
+    base = os.path.splitext(os.path.basename(in_file))[0]
     out_file = os.path.join(out_dir, f"{base}.epub")
-    create_epub(base, author, chapters, out_file, lang)
+    create_epub(title, author, chapters, out_file, lang)
+    if final_dir:
+        final_path = safe_move(out_file, final_dir, overwrite=True)
+        logging.info(f"EPUB moved to {final_path}")
+    if history_dir:
+        hist_path = safe_move(in_file, history_dir)
+        logging.info(f"Source moved to {hist_path}")
 
 
-def batch_convert(input_dir: str, output_dir: str, lang: str, patterns: List[re.Pattern]):
+def batch_convert(
+    input_dir: str,
+    output_dir: str,
+    lang: str,
+    patterns: List[re.Pattern],
+    history_dir: str,
+    final_dir: str,
+):
     if not os.path.isdir(input_dir):
         logging.error(f"Invalid input directory: {input_dir}")
         return
@@ -255,7 +339,14 @@ def batch_convert(input_dir: str, output_dir: str, lang: str, patterns: List[re.
         logging.info("No .txt files found in input directory")
         return
     for name in texts:
-        convert_txt_file(os.path.join(input_dir, name), output_dir, lang, patterns)
+        convert_txt_file(
+            os.path.join(input_dir, name),
+            output_dir,
+            lang,
+            patterns,
+            history_dir,
+            final_dir,
+        )
 
 
 def main():
@@ -263,12 +354,14 @@ def main():
     default_out = r'C:\Users\User\Desktop\txt to epub\epub file'
     parser = argparse.ArgumentParser(description="Batch convert Chinese txt to EPUB")
     parser.add_argument('-i', '--input', default=default_in, help='input directory')
-    parser.add_argument('-o', '--output', default=default_out, help='output directory')
+    parser.add_argument('-o', '--output', default=default_out, help='temporary output directory')
+    parser.add_argument('--history', default=HISTORY_DIR, help='directory to move processed txt files')
+    parser.add_argument('--dest', default=FINAL_EPUB_DIR, help='directory to move generated EPUB files')
     parser.add_argument('--lang', default='zh', help='language code')
     parser.add_argument('-p', '--pattern', action='append', default=[], help='additional chapter regex, can be used multiple times')
     args = parser.parse_args()
     patterns = compile_patterns(args.pattern)
-    batch_convert(args.input, args.output, args.lang, patterns)
+    batch_convert(args.input, args.output, args.lang, patterns, args.history, args.dest)
 
 if __name__ == '__main__':
     main()
