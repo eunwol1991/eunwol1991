@@ -39,6 +39,14 @@ class InvoiceExtractorApp:
         # 开始处理 GUI 队列
         self.root.after(100, self.process_gui_queue)
 
+    def _get_column_index(self, x):
+        """Return the zero-based TreeView column index from an event x position."""
+        return int(self.tree.identify_column(x).replace("#", "")) - 1
+
+    def _strip_arrow(self, header):
+        """Remove sort arrow from a header label."""
+        return header.split()[0]
+
     def build_gui(self):
         """构建 GUI 界面组件"""
         style = ttk.Style()
@@ -57,7 +65,14 @@ class InvoiceExtractorApp:
         ttk.Label(frame, text="选择文件夹:").grid(row=0, column=0, padx=10, pady=5, sticky=tk.W)
         ttk.Entry(frame, textvariable=self.folder_path, width=50).grid(row=0, column=1, padx=10, pady=5, sticky=tk.W)
         ttk.Button(frame, text="浏览", command=self.browse_folder).grid(row=0, column=2, padx=10, pady=5)
-@@ -95,119 +98,118 @@ class InvoiceExtractorApp:
+
+        check_button = ttk.Checkbutton(frame, text="仅搜索选定月份的子文件夹", variable=self.search_in_month_var)
+        check_button.grid(row=1, column=0, columnspan=3, padx=10, pady=10)
+
+        ttk.Label(frame, text="选择月份:").grid(row=2, column=0, padx=10, pady=5, sticky=tk.W)
+        self.month_combobox = ttk.Combobox(frame, values=[str(i).zfill(2) for i in range(1, 13)], width=5)
+        self.month_combobox.grid(row=2, column=1, padx=10, pady=5, sticky=tk.W)
+@@ -95,119 +106,118 @@ class InvoiceExtractorApp:
         # ✅ 正确顺序：先定义再布局
         self.tree.grid(row=0, column=0, sticky='nsew')
         scrollbar.grid(row=0, column=1, sticky='ns')
@@ -176,7 +191,7 @@ class InvoiceExtractorApp:
             self.sort_descending = False
             self.results_df = self.original_df.sort_values(by=self.sort_column, ascending=True)
             self.gui_queue.put(('display_results', self.results_df))
-@@ -277,50 +279,53 @@ class InvoiceExtractorApp:
+@@ -277,50 +287,53 @@ class InvoiceExtractorApp:
                     invoice_no = match.group(1).strip()
                     break
 
@@ -230,7 +245,7 @@ class InvoiceExtractorApp:
         self.show_missing_numbers_window(result_text.strip())
 
     def show_missing_numbers_window(self, text):
-@@ -382,50 +387,57 @@ class InvoiceExtractorApp:
+@@ -382,50 +395,57 @@ class InvoiceExtractorApp:
             return "Not found"
 
         except Exception as e:
@@ -288,7 +303,7 @@ class InvoiceExtractorApp:
             ), tags=tags)
 
 
-@@ -453,145 +465,170 @@ class InvoiceExtractorApp:
+@@ -453,145 +473,170 @@ class InvoiceExtractorApp:
             self.results_df["Total_sortable"] = self.results_df["Total"].apply(
                 lambda x: float(str(x).replace(",", "").replace("$", "")) if pd.notnull(x) else 0
             )
@@ -342,7 +357,7 @@ class InvoiceExtractorApp:
     def on_heading_click(self, event):
         region = self.tree.identify("region", event.x, event.y)
         if region == "heading":
-            col_index = int(self.tree.identify_column(event.x).replace("#", "")) - 1
+            col_index = self._get_column_index(event.x)
             col_name = self.tree["columns"][col_index]
             self.sort_treeview_column(col_name)
 
@@ -384,12 +399,12 @@ class InvoiceExtractorApp:
         """显示右键菜单"""
         region = self.tree.identify("region", event.x, event.y)
         if region == "heading":
-            col_id = int(self.tree.identify_column(event.x).replace("#", "")) - 1
+            col_id = self._get_column_index(event.x)
             self.context_column = self.tree["columns"][col_id]
             self.header_menu.post(event.x_root, event.y_root)
         elif region == "cell":
             row_id = self.tree.identify_row(event.y)
-            col_id = int(self.tree.identify_column(event.x).replace("#", "")) - 1
+            col_id = self._get_column_index(event.x)
             self.context_column = self.tree["columns"][col_id]
             values = self.tree.item(row_id, "values")
             self.context_value = values[col_id]
@@ -399,7 +414,7 @@ class InvoiceExtractorApp:
 
     def filter_column(self, col):
         """过滤列数据"""
-        col = col.split()[0]  # remove sorting arrow if present
+        col = self._strip_arrow(col)
         values = list(set(self.results_df[col]))
         filter_window = tk.Toplevel(self.root)
         filter_window.title(f"Filter {col}")
