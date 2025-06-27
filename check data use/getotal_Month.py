@@ -34,21 +34,7 @@ class InvoiceExtractorApp:
         self.data_displayed = False  # 标记数据是否已显示
         self.context_column = None  # 右键菜单当前列
         self.context_value = None   # 右键菜单选中的值
-
-        # 构建 GUI 界面
-        self.build_gui()
-
-        # 开始处理 GUI 队列
-        self.root.after(100, self.process_gui_queue)
-
-    def _get_column_index(self, x):
-        """Return the zero-based TreeView column index from an event x position."""
-        return int(self.tree.identify_column(x).replace("#", "")) - 1
-
-    def _strip_arrow(self, header):
-        """Remove sort arrow from a header label."""
-        return header.split()[0]
-
+@@ -50,51 +52,78 @@ class InvoiceExtractorApp:
     def build_gui(self):
         """构建 GUI 界面组件"""
         style = ttk.Style()
@@ -127,74 +113,7 @@ class InvoiceExtractorApp:
         ttk.Button(frame, text="按关键字过滤", command=self.keyword_filter).grid(row=9, column=2, padx=10, pady=5)
 
         ttk.Button(self.root, text="导出到 Excel", command=self.export_to_excel).grid(row=10, column=0, padx=20, pady=10)
-        ttk.Button(self.root, text="清除过滤", command=self.clear_filters).grid(row=12, column=0, padx=20, pady=10)
-
-        self.tree.tag_configure("error", background="pink")  # 可改为 foreground="red"
-       # self.tree.bind("<ButtonRelease-1>", self.on_heading_click)
-        self.tree.bind("<Double-1>", self.open_selected_pdf)
-        self.setup_context_menu()
-
-
-    def browse_folder(self):
-        """浏览文件夹"""
-        folder_selected = filedialog.askdirectory()
-        self.folder_path.set(folder_selected)
-
-    def search_and_display_results(self):
-        """开始搜索并显示结果"""
-        folder = self.folder_path.get()
-
-        if not folder or not os.path.exists(folder):
-            messagebox.showwarning("警告", "请选择有效的文件夹。")
-            return
-
-        selected_month = self.month_combobox.get()
-        selected_year = self.year_combobox.get()[-2:]
-        if not selected_month or not selected_year:
-            messagebox.showwarning("警告", "请选择月份和年份。")
-            return
-
-        self.Month = f"{selected_month}{selected_year}"
-
-        # 重置变量
-        self.original_df = pd.DataFrame()
-        self.results_df = pd.DataFrame()
-        self.filters = {}
-        self.keyword = ""
-        self.keyword_entry.delete(0, tk.END)
-        self.sort_column = None
-        self.sort_descending = False
-        self.data_displayed = False
-
-        self.progress_var.set(0)
-        self.gui_queue = queue.Queue()
-
-        # 在单独的线程中开始搜索发票，防止阻塞 GUI
-        self.executor = ThreadPoolExecutor(max_workers=4)
-        self.executor.submit(self.search_invoices, folder)
-
-    def search_invoices(self, folder):
-        """搜索发票"""
-        extracted_data = []
-        pdf_files = []
-
-        month_map = {
-            '01': 'jan', '02': 'feb', '03': 'mar', '04': 'apr',
-            '05': 'may', '06': 'jun', '07': 'jul', '08': 'aug',
-            '09': 'sep', '10': 'oct', '11': 'nov', '12': 'dec'
-        }
-
-        selected_month_name = month_map.get(self.month_combobox.get(), '').lower()
-
-        for root, _, files in os.walk(folder):
-            if self.search_in_month_var.get() and selected_month_name not in root.lower():
-                continue
-            for file in files:
-                if file.lower().endswith('.pdf') and self.Month.lower() in file.lower() and 'inv' in file.lower() and 'invoice' not in file.lower():
-                    pdf_path = os.path.join(root, file)
-                    pdf_files.append(pdf_path)
-                    context = f"'{selected_month_name}' 子文件夹" if self.search_in_month_var.get() else '任意文件夹'
-                    logging.info(f"在 {context} 中找到 PDF: {pdf_path}")
+@@ -169,163 +198,202 @@ class InvoiceExtractorApp:
 
         pdf_files = list(set(pdf_files))
         total_files = len(pdf_files)
