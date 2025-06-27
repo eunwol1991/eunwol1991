@@ -74,6 +74,34 @@ class InvoiceExtractorApp:
         ttk.Label(frame, text="选择月份:").grid(row=2, column=0, padx=10, pady=5, sticky=tk.W)
         self.month_combobox = ttk.Combobox(frame, values=[str(i).zfill(2) for i in range(1, 13)], width=5)
         self.month_combobox.grid(row=2, column=1, padx=10, pady=5, sticky=tk.W)
+
+        ttk.Label(frame, text="选择年份:").grid(row=3, column=0, padx=10, pady=5, sticky=tk.W)
+        self.year_combobox = ttk.Combobox(frame, values=[str(i) for i in range(2000, datetime.now().year + 1)], width=10)
+        self.year_combobox.grid(row=3, column=1, padx=10, pady=5, sticky=tk.W)
+
+        ttk.Button(frame, text="搜索发票", command=self.search_and_display_results).grid(row=4, column=0, columnspan=3, padx=10, pady=20)
+        ttk.Button(self.root, text="检查缺号", command=self.check_missing_invoice_numbers).grid(row=11, column=0, padx=20, pady=10)
+
+        self.progress_bar = ttk.Progressbar(self.root, orient="horizontal", length=400, mode="determinate", variable=self.progress_var)
+        self.progress_bar.grid(row=5, column=0, padx=20, pady=10)
+
+        tree_frame = ttk.Frame(self.root)
+        tree_frame.grid(row=6, column=0, padx=20, pady=20, sticky=(tk.W, tk.E, tk.N, tk.S))
+        self.tree = ttk.Treeview(tree_frame, columns=("Invoice Date", "Invoice No", "Total", "Account", "File"), show='headings')
+        self.tree.heading("Invoice Date", text="Invoice Date", command=lambda: self.sort_treeview_column("Invoice Date"))
+        self.tree.heading("Invoice No", text="Invoice No", command=lambda: self.sort_treeview_column("Invoice No"))
+        self.tree.heading("Total", text="Total", command=lambda: self.sort_treeview_column("Total"))
+        self.tree.heading("Account", text="Account", command=lambda: self.sort_treeview_column("Account"))
+        self.tree.heading("File", text="File")
+        self.tree.column("Invoice Date", width=100)
+        self.tree.column("Invoice No", width=150)
+        self.tree.column("Total", width=100)
+        self.tree.column("Account", width=100)
+        self.tree.column("File", width=200)
+
+        scrollbar = ttk.Scrollbar(tree_frame, orient=tk.VERTICAL, command=self.tree.yview)
+        self.tree.configure(yscrollcommand=scrollbar.set)
+
         # ✅ 正确顺序：先定义再布局
         self.tree.grid(row=0, column=0, sticky='nsew')
         scrollbar.grid(row=0, column=1, sticky='ns')
