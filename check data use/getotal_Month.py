@@ -557,21 +557,22 @@ class InvoiceExtractorApp:
         """显示右键菜单"""
         region = self.tree.identify("region", event.x, event.y)
         if region == "heading":
-            col = self.tree.identify_column(event.x)
-            self.context_column = self.tree.heading(col, "text")
+            col_id = int(self.tree.identify_column(event.x).replace("#", "")) - 1
+            self.context_column = self.tree["columns"][col_id]
             self.header_menu.post(event.x_root, event.y_root)
         elif region == "cell":
             row_id = self.tree.identify_row(event.y)
-            col = self.tree.identify_column(event.x)
-            self.context_column = self.tree.heading(col, "text")
+            col_id = int(self.tree.identify_column(event.x).replace("#", "")) - 1
+            self.context_column = self.tree["columns"][col_id]
             values = self.tree.item(row_id, "values")
-            col_index = self.tree["columns"].index(self.context_column)
-            self.context_value = values[col_index]
-            self.cell_menu.entryconfigure(0, label=f"Filter {self.context_column}: {self.context_value}")
+            self.context_value = values[col_id]
+            label = f"Filter {self.context_column}: {self.context_value}"
+            self.cell_menu.entryconfigure(0, label=label)
             self.cell_menu.post(event.x_root, event.y_root)
 
     def filter_column(self, col):
         """过滤列数据"""
+        col = col.split()[0]  # remove sorting arrow if present
         values = list(set(self.results_df[col]))
         filter_window = tk.Toplevel(self.root)
         filter_window.title(f"Filter {col}")
