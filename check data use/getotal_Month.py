@@ -25,12 +25,15 @@ class InvoiceExtractorApp:
         self.original_df = pd.DataFrame()
         self.results_df = pd.DataFrame()
         self.filters = {}
+        self.keyword = ""  # 当前的关键词过滤
         self.Month = ''
         self.sort_column = None
         self.sort_descending = False
         self.progress_var = tk.DoubleVar()
         self.gui_queue = queue.Queue()
         self.data_displayed = False  # 标记数据是否已显示
+        self.context_column = None  # 右键菜单当前列
+        self.context_value = None   # 右键菜单选中的值
 
         # 构建 GUI 界面
         self.build_gui()
@@ -117,6 +120,7 @@ class InvoiceExtractorApp:
         ttk.Button(frame, text="按关键字过滤", command=self.keyword_filter).grid(row=9, column=2, padx=10, pady=5)
 
         ttk.Button(self.root, text="导出到 Excel", command=self.export_to_excel).grid(row=10, column=0, padx=20, pady=10)
+        ttk.Button(self.root, text="清除过滤", command=self.clear_filters).grid(row=12, column=0, padx=20, pady=10)
 
         self.tree.tag_configure("error", background="pink")  # 可改为 foreground="red"
        # self.tree.bind("<ButtonRelease-1>", self.on_heading_click)
@@ -149,6 +153,8 @@ class InvoiceExtractorApp:
         self.original_df = pd.DataFrame()
         self.results_df = pd.DataFrame()
         self.filters = {}
+        self.keyword = ""
+        self.keyword_entry.delete(0, tk.END)
         self.sort_column = None
         self.sort_descending = False
         self.data_displayed = False
@@ -173,19 +179,15 @@ class InvoiceExtractorApp:
 
         selected_month_name = month_map.get(self.month_combobox.get(), '').lower()
 
-        for root, dirs, files in os.walk(folder):
-            if self.search_in_month_var.get() and selected_month_name in root.lower():
-                for file in files:
-                    if file.lower().endswith('.pdf') and self.Month.lower() in file.lower() and 'inv' in file.lower() and 'invoice' not in file.lower():
-                        pdf_path = os.path.join(root, file)
-                        pdf_files.append(pdf_path)
-                        logging.info(f"在 '{selected_month_name}' 子文件夹中找到 PDF: {pdf_path}")
-            elif not self.search_in_month_var.get():
-                for file in files:
-                    if file.lower().endswith('.pdf') and self.Month.lower() in file.lower() and 'inv' in file.lower() and 'invoice' not in file.lower():
-                        pdf_path = os.path.join(root, file)
-                        pdf_files.append(pdf_path)
-                        logging.info(f"在任意文件夹中找到 PDF: {pdf_path}")
+        for root, _, files in os.walk(folder):
+            if self.search_in_month_var.get() and selected_month_name not in root.lower():
+                continue
+            for file in files:
+                if file.lower().endswith('.pdf') and self.Month.lower() in file.lower() and 'inv' in file.lower() and 'invoice' not in file.lower():
+                    pdf_path = os.path.join(root, file)
+                    pdf_files.append(pdf_path)
+                    context = f"'{selected_month_name}' 子文件夹" if self.search_in_month_var.get() else '任意文件夹'
+                    logging.info(f"在 {context} 中找到 PDF: {pdf_path}")
 
         pdf_files = list(set(pdf_files))
         total_files = len(pdf_files)
@@ -299,6 +301,9 @@ class InvoiceExtractorApp:
         except Exception as e:
             logging.error(f"处理 {pdf_path} 时出错: {e}")
             return None
+        finally:
+            if 'doc' in locals() and doc:
+                doc.close()
         
     def check_missing_invoice_numbers(self):
         grouped = {}
@@ -404,6 +409,13 @@ class InvoiceExtractorApp:
         filtered_df = self.original_df.copy()
         for col, selected_values in self.filters.items():
             filtered_df = filtered_df[filtered_df[col].isin(selected_values)]
+        if self.keyword:
+            filtered_df = filtered_df[
+                filtered_df.apply(
+                    lambda row: row.astype(str).str.contains(self.keyword, case=False).any(),
+                    axis=1,
+                )
+            ]
         self.results_df = filtered_df
         self.display_results(self.results_df)
 
@@ -475,17 +487,11 @@ class InvoiceExtractorApp:
 
     def keyword_filter(self):
         """按关键字过滤"""
-        keyword = self.keyword_entry.get()
-        if keyword:
-            filtered_data = self.original_df[self.original_df.apply(lambda row: row.astype(str).str.contains(keyword, case=False).any(), axis=1)]
-            self.results_df = filtered_data
-            if filtered_data.empty:
-                messagebox.showinfo("结果", "未找到匹配关键字的发票。")
-                logging.info(f"未找到关键字 '{keyword}' 的发票")
-            else:
-                self.display_results(filtered_data)
-        else:
-            self.apply_filters()
+        self.keyword = self.keyword_entry.get().strip()
+        self.apply_filters()
+        if self.results_df.empty and self.keyword:
+            messagebox.showinfo("结果", "未找到匹配关键字的发票。")
+            logging.info(f"未找到关键字 '{self.keyword}' 的发票")
 
     def export_to_excel(self):
         """导出结果到 Excel"""
@@ -497,6 +503,14 @@ class InvoiceExtractorApp:
                 self.results_df.to_excel(file_path, index=False)
                 messagebox.showinfo("导出成功", f"数据已成功导出到 {file_path}")
                 logging.info(f"数据已导出到 {file_path}")
+
+    def clear_filters(self):
+        """清除所有过滤条件"""
+        self.filters.clear()
+        self.keyword = ""
+        self.keyword_entry.delete(0, tk.END)
+        self.account_combobox.current(0)
+        self.apply_filters()
 
     def on_heading_click(self, event):
         region = self.tree.identify("region", event.x, event.y)
@@ -531,8 +545,12 @@ class InvoiceExtractorApp:
 
     def setup_context_menu(self):
         """设置右键菜单"""
-        self.menu = tk.Menu(self.root, tearoff=0)
-        self.menu.add_command(label="Filter", command=lambda: self.filter_column(self.sort_column))
+        self.header_menu = tk.Menu(self.root, tearoff=0)
+        self.header_menu.add_command(label="Filter...", command=lambda: self.filter_column(self.context_column))
+
+        self.cell_menu = tk.Menu(self.root, tearoff=0)
+        self.cell_menu.add_command(label="Filter by value", command=self.filter_by_cell_value)
+
         self.tree.bind("<Button-3>", self.show_context_menu)
 
     def show_context_menu(self, event):
@@ -540,8 +558,17 @@ class InvoiceExtractorApp:
         region = self.tree.identify("region", event.x, event.y)
         if region == "heading":
             col = self.tree.identify_column(event.x)
-            self.sort_column = self.tree.heading(col, "text")
-            self.menu.post(event.x_root, event.y_root)
+            self.context_column = self.tree.heading(col, "text")
+            self.header_menu.post(event.x_root, event.y_root)
+        elif region == "cell":
+            row_id = self.tree.identify_row(event.y)
+            col = self.tree.identify_column(event.x)
+            self.context_column = self.tree.heading(col, "text")
+            values = self.tree.item(row_id, "values")
+            col_index = self.tree["columns"].index(self.context_column)
+            self.context_value = values[col_index]
+            self.cell_menu.entryconfigure(0, label=f"Filter {self.context_column}: {self.context_value}")
+            self.cell_menu.post(event.x_root, event.y_root)
 
     def filter_column(self, col):
         """过滤列数据"""
@@ -571,6 +598,15 @@ class InvoiceExtractorApp:
         ttk.Button(filter_window, text="全选", command=select_all).pack(pady=5)
         ttk.Button(filter_window, text="全不选", command=deselect_all).pack(pady=5)
         ttk.Button(filter_window, text="应用过滤器", command=apply_filter).pack(pady=10)
+
+    def filter_by_cell_value(self):
+        """根据所选单元格的值进行过滤"""
+        if self.context_column and self.context_value is not None:
+            current = self.filters.get(self.context_column, [])
+            if self.context_value not in current:
+                current.append(self.context_value)
+            self.filters[self.context_column] = current
+            self.apply_filters()
 
     def process_gui_queue(self):
         """处理 GUI 队列"""
