@@ -34,21 +34,7 @@ class InvoiceExtractorApp:
         self.data_displayed = False  # 标记数据是否已显示
         self.context_column = None  # 右键菜单当前列
         self.context_value = None   # 右键菜单选中的值
-
-        # 构建 GUI 界面
-        self.build_gui()
-
-        # 开始处理 GUI 队列
-        self.root.after(100, self.process_gui_queue)
-
-    def _get_column_index(self, x):
-        """Return the zero-based TreeView column index from an event x position."""
-        return int(self.tree.identify_column(x).replace("#", "")) - 1
-
-    def _strip_arrow(self, header):
-        """Remove sort arrow from a header label."""
-        return header.split()[0]
-
+@@ -50,51 +52,78 @@ class InvoiceExtractorApp:
     def build_gui(self):
         """构建 GUI 界面组件"""
         style = ttk.Style()
@@ -74,6 +60,34 @@ class InvoiceExtractorApp:
         ttk.Label(frame, text="选择月份:").grid(row=2, column=0, padx=10, pady=5, sticky=tk.W)
         self.month_combobox = ttk.Combobox(frame, values=[str(i).zfill(2) for i in range(1, 13)], width=5)
         self.month_combobox.grid(row=2, column=1, padx=10, pady=5, sticky=tk.W)
+
+        ttk.Label(frame, text="选择年份:").grid(row=3, column=0, padx=10, pady=5, sticky=tk.W)
+        self.year_combobox = ttk.Combobox(frame, values=[str(i) for i in range(2000, datetime.now().year + 1)], width=10)
+        self.year_combobox.grid(row=3, column=1, padx=10, pady=5, sticky=tk.W)
+
+        ttk.Button(frame, text="搜索发票", command=self.search_and_display_results).grid(row=4, column=0, columnspan=3, padx=10, pady=20)
+        ttk.Button(self.root, text="检查缺号", command=self.check_missing_invoice_numbers).grid(row=11, column=0, padx=20, pady=10)
+
+        self.progress_bar = ttk.Progressbar(self.root, orient="horizontal", length=400, mode="determinate", variable=self.progress_var)
+        self.progress_bar.grid(row=5, column=0, padx=20, pady=10)
+
+        tree_frame = ttk.Frame(self.root)
+        tree_frame.grid(row=6, column=0, padx=20, pady=20, sticky=(tk.W, tk.E, tk.N, tk.S))
+        self.tree = ttk.Treeview(tree_frame, columns=("Invoice Date", "Invoice No", "Total", "Account", "File"), show='headings')
+        self.tree.heading("Invoice Date", text="Invoice Date", command=lambda: self.sort_treeview_column("Invoice Date"))
+        self.tree.heading("Invoice No", text="Invoice No", command=lambda: self.sort_treeview_column("Invoice No"))
+        self.tree.heading("Total", text="Total", command=lambda: self.sort_treeview_column("Total"))
+        self.tree.heading("Account", text="Account", command=lambda: self.sort_treeview_column("Account"))
+        self.tree.heading("File", text="File")
+        self.tree.column("Invoice Date", width=100)
+        self.tree.column("Invoice No", width=150)
+        self.tree.column("Total", width=100)
+        self.tree.column("Account", width=100)
+        self.tree.column("File", width=200)
+
+        scrollbar = ttk.Scrollbar(tree_frame, orient=tk.VERTICAL, command=self.tree.yview)
+        self.tree.configure(yscrollcommand=scrollbar.set)
+
         # ✅ 正确顺序：先定义再布局
         self.tree.grid(row=0, column=0, sticky='nsew')
         scrollbar.grid(row=0, column=1, sticky='ns')
@@ -99,74 +113,7 @@ class InvoiceExtractorApp:
         ttk.Button(frame, text="按关键字过滤", command=self.keyword_filter).grid(row=9, column=2, padx=10, pady=5)
 
         ttk.Button(self.root, text="导出到 Excel", command=self.export_to_excel).grid(row=10, column=0, padx=20, pady=10)
-        ttk.Button(self.root, text="清除过滤", command=self.clear_filters).grid(row=12, column=0, padx=20, pady=10)
-
-        self.tree.tag_configure("error", background="pink")  # 可改为 foreground="red"
-       # self.tree.bind("<ButtonRelease-1>", self.on_heading_click)
-        self.tree.bind("<Double-1>", self.open_selected_pdf)
-        self.setup_context_menu()
-
-
-    def browse_folder(self):
-        """浏览文件夹"""
-        folder_selected = filedialog.askdirectory()
-        self.folder_path.set(folder_selected)
-
-    def search_and_display_results(self):
-        """开始搜索并显示结果"""
-        folder = self.folder_path.get()
-
-        if not folder or not os.path.exists(folder):
-            messagebox.showwarning("警告", "请选择有效的文件夹。")
-            return
-
-        selected_month = self.month_combobox.get()
-        selected_year = self.year_combobox.get()[-2:]
-        if not selected_month or not selected_year:
-            messagebox.showwarning("警告", "请选择月份和年份。")
-            return
-
-        self.Month = f"{selected_month}{selected_year}"
-
-        # 重置变量
-        self.original_df = pd.DataFrame()
-        self.results_df = pd.DataFrame()
-        self.filters = {}
-        self.keyword = ""
-        self.keyword_entry.delete(0, tk.END)
-        self.sort_column = None
-        self.sort_descending = False
-        self.data_displayed = False
-
-        self.progress_var.set(0)
-        self.gui_queue = queue.Queue()
-
-        # 在单独的线程中开始搜索发票，防止阻塞 GUI
-        self.executor = ThreadPoolExecutor(max_workers=4)
-        self.executor.submit(self.search_invoices, folder)
-
-    def search_invoices(self, folder):
-        """搜索发票"""
-        extracted_data = []
-        pdf_files = []
-
-        month_map = {
-            '01': 'jan', '02': 'feb', '03': 'mar', '04': 'apr',
-            '05': 'may', '06': 'jun', '07': 'jul', '08': 'aug',
-            '09': 'sep', '10': 'oct', '11': 'nov', '12': 'dec'
-        }
-
-        selected_month_name = month_map.get(self.month_combobox.get(), '').lower()
-
-        for root, _, files in os.walk(folder):
-            if self.search_in_month_var.get() and selected_month_name not in root.lower():
-                continue
-            for file in files:
-                if file.lower().endswith('.pdf') and self.Month.lower() in file.lower() and 'inv' in file.lower() and 'invoice' not in file.lower():
-                    pdf_path = os.path.join(root, file)
-                    pdf_files.append(pdf_path)
-                    context = f"'{selected_month_name}' 子文件夹" if self.search_in_month_var.get() else '任意文件夹'
-                    logging.info(f"在 {context} 中找到 PDF: {pdf_path}")
+@@ -169,163 +198,202 @@ class InvoiceExtractorApp:
 
         pdf_files = list(set(pdf_files))
         total_files = len(pdf_files)
