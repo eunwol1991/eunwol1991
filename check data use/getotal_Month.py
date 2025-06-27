@@ -10,6 +10,11 @@ from datetime import datetime
 import logging
 import queue
 
+# 优化与功能增强：
+# - 支持关键词与列筛选组合，可多级连续过滤
+# - 右键菜单新增按值快速过滤
+# - 增加“一键清除筛选”按钮
+
 class InvoiceExtractorApp:
     def __init__(self, root):
         self.root = root
@@ -25,6 +30,7 @@ class InvoiceExtractorApp:
         self.original_df = pd.DataFrame()
         self.results_df = pd.DataFrame()
         self.filters = {}
+        self.keyword = ""
         self.Month = ''
         self.sort_column = None
         self.sort_descending = False
@@ -117,6 +123,7 @@ class InvoiceExtractorApp:
         ttk.Button(frame, text="按关键字过滤", command=self.keyword_filter).grid(row=9, column=2, padx=10, pady=5)
 
         ttk.Button(self.root, text="导出到 Excel", command=self.export_to_excel).grid(row=10, column=0, padx=20, pady=10)
+        ttk.Button(self.root, text="清除筛选", command=self.clear_all_filters).grid(row=12, column=0, padx=20, pady=10)
 
         self.tree.tag_configure("error", background="pink")  # 可改为 foreground="red"
        # self.tree.bind("<ButtonRelease-1>", self.on_heading_click)
@@ -149,12 +156,14 @@ class InvoiceExtractorApp:
         self.original_df = pd.DataFrame()
         self.results_df = pd.DataFrame()
         self.filters = {}
+        self.keyword = ""
         self.sort_column = None
         self.sort_descending = False
         self.data_displayed = False
 
         self.progress_var.set(0)
         self.gui_queue = queue.Queue()
+        self.keyword_entry.delete(0, tk.END)
 
         # 在单独的线程中开始搜索发票，防止阻塞 GUI
         self.executor = ThreadPoolExecutor(max_workers=4)
@@ -402,8 +411,16 @@ class InvoiceExtractorApp:
     def apply_filters(self):
         """应用过滤器"""
         filtered_df = self.original_df.copy()
+
+        if self.keyword:
+            filtered_df = filtered_df[filtered_df.apply(
+                lambda row: row.astype(str).str.contains(self.keyword, case=False).any(),
+                axis=1
+            )]
+
         for col, selected_values in self.filters.items():
             filtered_df = filtered_df[filtered_df[col].isin(selected_values)]
+
         self.results_df = filtered_df
         self.display_results(self.results_df)
 
@@ -475,17 +492,16 @@ class InvoiceExtractorApp:
 
     def keyword_filter(self):
         """按关键字过滤"""
-        keyword = self.keyword_entry.get()
-        if keyword:
-            filtered_data = self.original_df[self.original_df.apply(lambda row: row.astype(str).str.contains(keyword, case=False).any(), axis=1)]
-            self.results_df = filtered_data
-            if filtered_data.empty:
-                messagebox.showinfo("结果", "未找到匹配关键字的发票。")
-                logging.info(f"未找到关键字 '{keyword}' 的发票")
-            else:
-                self.display_results(filtered_data)
-        else:
-            self.apply_filters()
+        self.keyword = self.keyword_entry.get().strip()
+        self.apply_filters()
+
+    def clear_all_filters(self):
+        """清除关键词和所有列过滤"""
+        self.filters = {}
+        self.keyword = ""
+        self.keyword_entry.delete(0, tk.END)
+        self.account_combobox.current(0)
+        self.apply_filters()
 
     def export_to_excel(self):
         """导出结果到 Excel"""
@@ -532,16 +548,31 @@ class InvoiceExtractorApp:
     def setup_context_menu(self):
         """设置右键菜单"""
         self.menu = tk.Menu(self.root, tearoff=0)
-        self.menu.add_command(label="Filter", command=lambda: self.filter_column(self.sort_column))
         self.tree.bind("<Button-3>", self.show_context_menu)
 
     def show_context_menu(self, event):
         """显示右键菜单"""
+        self.menu.delete(0, tk.END)
         region = self.tree.identify("region", event.x, event.y)
         if region == "heading":
             col = self.tree.identify_column(event.x)
-            self.sort_column = self.tree.heading(col, "text")
+            self.context_col = self.tree.heading(col, "text")
+            self.menu.add_command(label=f"Filter {self.context_col}",
+                                  command=lambda: self.filter_column(self.context_col))
+        elif region == "cell":
+            col = self.tree.identify_column(event.x)
+            row = self.tree.identify_row(event.y)
+            self.context_col = self.tree.heading(col, "text")
+            value = self.tree.item(row, "values")[int(col[1:]) - 1]
+            self.menu.add_command(label=f"Filter by '{value}'",
+                                  command=lambda: self.quick_filter(self.context_col, value))
+        if self.menu.index("end") is not None:
             self.menu.post(event.x_root, event.y_root)
+
+    def quick_filter(self, col, value):
+        """按指定值快速过滤"""
+        self.filters[col] = [value]
+        self.apply_filters()
 
     def filter_column(self, col):
         """过滤列数据"""
