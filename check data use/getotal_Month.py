@@ -7,6 +7,8 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 import logging
 import queue
+import re
+import pdfplumber
 
 class InvoiceExtractorApp:
     def __init__(self, root):
@@ -72,7 +74,6 @@ class InvoiceExtractorApp:
         ttk.Label(frame, text="选择月份:").grid(row=2, column=0, padx=10, pady=5, sticky=tk.W)
         self.month_combobox = ttk.Combobox(frame, values=[str(i).zfill(2) for i in range(1, 13)], width=5)
         self.month_combobox.grid(row=2, column=1, padx=10, pady=5, sticky=tk.W)
-@@ -95,119 +106,118 @@ class InvoiceExtractorApp:
         # ✅ 正确顺序：先定义再布局
         self.tree.grid(row=0, column=0, sticky='nsew')
         scrollbar.grid(row=0, column=1, sticky='ns')
@@ -191,7 +192,43 @@ class InvoiceExtractorApp:
             self.sort_descending = False
             self.results_df = self.original_df.sort_values(by=self.sort_column, ascending=True)
             self.gui_queue.put(('display_results', self.results_df))
-@@ -277,50 +287,53 @@ class InvoiceExtractorApp:
+
+    def process_batch(self, batch_files, total_files, start_idx):
+        """Process a batch of PDF files and update progress"""
+        batch_data = []
+        for i, pdf_path in enumerate(batch_files, start=start_idx):
+            info = self.extract_invoice_info(pdf_path)
+            if info:
+                batch_data.append(info)
+            progress = ((i + 1) / total_files) * 100
+            self.gui_queue.put(('update_progress', progress))
+        return batch_data
+
+    def extract_invoice_info(self, pdf_path):
+        """Extract invoice information from a single PDF"""
+        invoice_no = "Not found"
+        date = "Not found"
+        total = "Not found"
+        account = self.extract_account_from_path(pdf_path)
+
+        try:
+            with pdfplumber.open(pdf_path) as doc:
+                text = "\n".join(page.extract_text() or "" for page in doc.pages)
+
+            invoice_patterns = [
+                re.compile(r"Invoice\s*No\s*[:\-]?\s*([A-Z0-9\-/ ]+)", re.IGNORECASE),
+                re.compile(r"Invoice#\s*([A-Z0-9\-/ ]+)", re.IGNORECASE),
+            ]
+            date_patterns = [
+                re.compile(r"Invoice\s*Date\s*[:\-]?\s*(\d{2}/\d{2}/\d{4})", re.IGNORECASE)
+            ]
+            total_patterns = [
+                re.compile(r"Total\s*[:\-]?\s*\$?([\d,\.]+)", re.IGNORECASE)
+            ]
+
+            for pattern in invoice_patterns:
+                match = pattern.search(text)
+                if match:
                     invoice_no = match.group(1).strip()
                     break
 
@@ -201,25 +238,28 @@ class InvoiceExtractorApp:
                     date = match.group(1).strip()
                     break
 
-            # 如果有任一字段未找到，记录日志提醒你哪一个文件出了问题
-            if invoice_no == "Not found" or date == "Not found" or total == "Not found":
-                logging.info(f"【错误】文件 {pdf_path} 缺少信息：Invoice No: {invoice_no}, Invoice Date: {date}, Total: {total}")
+            for pattern in total_patterns:
+                match = pattern.search(text)
+                if match:
+                    total = match.group(1).strip()
+                    break
 
-            extracted_info = {
+            if invoice_no == "Not found" or date == "Not found" or total == "Not found":
+                logging.info(
+                    f"【错误】文件 {pdf_path} 缺少信息：Invoice No: {invoice_no}, Invoice Date: {date}, Total: {total}"
+                )
+
+            return {
                 "Invoice Date": date,
                 "Invoice No": invoice_no,
                 "Total": total,
                 "Account": account,
-                "File": os.path.basename(pdf_path)  # 新增：显示文件名
+                "File": os.path.basename(pdf_path),
             }
-            return extracted_info
 
         except Exception as e:
             logging.error(f"处理 {pdf_path} 时出错: {e}")
             return None
-        finally:
-            if 'doc' in locals() and doc:
-                doc.close()
         
     def check_missing_invoice_numbers(self):
         grouped = {}
@@ -245,14 +285,15 @@ class InvoiceExtractorApp:
         self.show_missing_numbers_window(result_text.strip())
 
     def show_missing_numbers_window(self, text):
-@@ -382,50 +395,57 @@ class InvoiceExtractorApp:
-            return "Not found"
+        """Display missing invoice numbers in a popup window"""
+        window = tk.Toplevel(self.root)
+        window.title("Missing Invoice Numbers")
+        txt = tk.Text(window, wrap="word", font=("Helvetica", 12))
+        txt.insert("1.0", text)
+        txt.config(state="disabled")
+        txt.pack(fill=tk.BOTH, expand=True)
 
-        except Exception as e:
-            logging.error(f"[ABR右下角暴力解法] 抓取失败：{e}")
-            return "Not found"
-
-
+        ttk.Button(window, text="Close", command=window.destroy).pack(pady=10)
 
     def extract_account_from_path(self, pdf_path):
         """从文件路径中提取账户信息"""
@@ -303,7 +344,6 @@ class InvoiceExtractorApp:
             ), tags=tags)
 
 
-@@ -453,145 +473,170 @@ class InvoiceExtractorApp:
             self.results_df["Total_sortable"] = self.results_df["Total"].apply(
                 lambda x: float(str(x).replace(",", "").replace("$", "")) if pd.notnull(x) else 0
             )
