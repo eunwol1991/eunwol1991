@@ -40,6 +40,7 @@ def main():
     file_tree.config(yscrollcommand=scrollbar.set)
 
     file_tree.bind("<Double-1>", lambda e: add_to_selected())
+    
 
     selected_frame = ttk.Frame(app)
     selected_frame.pack(fill=BOTH, expand=True, padx=10, pady=(0, 10))
@@ -51,6 +52,7 @@ def main():
     selected_tree.column("#1", anchor="w")
 
     entry_frame = ttk.Frame(app)
+
     entry_frame.pack(pady=10)
     ttk.Label(entry_frame, text="请输入发票起始编号 (例如: 0725 - 001)", font=("Arial", 12)).pack()
     invoice_entry = ttk.Entry(entry_frame, font=("Arial", 12), width=30)
