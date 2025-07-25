@@ -6,7 +6,7 @@ from PyPDF2 import PdfMerger
 ROOT_DIR = r"C:\Users\User\Dropbox\DO & INV\DO & INV 2025"
 
 # 👇 改这里控制合并哪一月
-TARGET_MONTH = 6
+TARGET_MONTH = 7
 
 # 匹配发票 PDF 文件名
 invoice_pattern = re.compile(
@@ -18,7 +18,7 @@ invoice_pattern = re.compile(
 folder_month_pattern = re.compile(rf'^{TARGET_MONTH}\.\s*([A-Za-z]{{3}})$', re.IGNORECASE)
 
 def contains_supplier(path: str) -> bool:
-    skip_keywords = ['supplier', 'sarpino', 'canadian pizza', 'stuffd', 'cash sales', 'staff purchase','rite pizza']
+    skip_keywords = ['supplier', 'sarpino', 'canadian pizza', 'stuffd', 'cash sales', 'staff purchase', 'rite pizza']
     parts = os.path.normpath(path).split(os.sep)
     return any(any(keyword in part.lower() for keyword in skip_keywords) for part in parts)
 
@@ -29,6 +29,22 @@ def get_month_from_folder(folder_name: str) -> str:
 def extract_prefix(pdf_filename: str) -> str:
     m = invoice_pattern.match(pdf_filename)
     return m.group(1).strip() if m else ""
+
+def is_cancelled(pdf_name: str) -> bool:
+    # 检查是否包含 (cancel)、(canceled)、(cancelled)
+    return bool(re.search(r'(?i)\(cancel(?:led|ed)?\)', pdf_name))
+
+def pick_latest_pdf(pdf_list):
+    """同编号时优先保留(revised) PDF，否则保留原版"""
+    base_map = {}
+    for pdf in pdf_list:
+        # 去掉 (Revised) 以便归类同一编号
+        base_name = re.sub(r'(?i)\(revised\)', '', pdf)
+        base_name = base_name.replace('__', '_').replace('  ', ' ').strip()
+        # 有 revised 优先，后出现的覆盖前面
+        if base_name not in base_map or re.search(r'(?i)revised', pdf):
+            base_map[base_name] = pdf
+    return list(base_map.values())
 
 def merge_pdfs_in_folder(folder_path: str, pdf_files: list, output_name: str):
     if len(pdf_files) < 2:
@@ -67,7 +83,12 @@ def process_folder(folder_path: str):
         print(f"[ERROR] Cannot list folder '{folder_path}': {e}")
         return
 
-    matched_pdfs = [f for f in all_entries if invoice_pattern.match(f)]
+    # 先过滤掉 cancel 的，再按 revised 归类
+    matched_pdfs = [
+        f for f in all_entries
+        if invoice_pattern.match(f) and not is_cancelled(f)
+    ]
+    matched_pdfs = pick_latest_pdf(matched_pdfs)   # 优先 revised
 
     if not matched_pdfs:
         print(f"[INFO] No invoice PDF matched in '{folder_path}'.")
@@ -75,7 +96,6 @@ def process_folder(folder_path: str):
 
     print(f"\n[INFO] In '{folder_path}' => matched PDFs: {matched_pdfs}")
 
-    # 检查 prefix 是否一致
     prefixes = {extract_prefix(f) for f in matched_pdfs}
     prefixes = {p for p in prefixes if p}
 

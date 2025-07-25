@@ -35,22 +35,22 @@ def update_excel_files(directory, debug=False):
                                 for cell in row:
                                     cell_value = str(cell.value).strip().lower() if cell.value is not None else ""
                                     # 模糊匹配 "tartar sauce"
-                                    cell_name = "abcd"
+                                    cell_name = "kranch mini cheese stick"
                                     
                                     if cell_name in cell_value:
                                         row_number = cell.row
-                                        product_code = "NA"
-                                        product_description = "Fried Shallot"
-                                        pack_size = "(10 x 1kg)"
+                                        product_code = "Frozen"
+                                        product_description = "Kranch Mini Cheese Stick"
+                                        pack_size = "(6 x 850g)"
                                         qty = 1.00
-                                        UOM = "PKT"
-                                        selling_price = f"=5.3*G{row_number}"
+                                        UOM = "CTN"
+                                        selling_price = f"=14.4*G{row_number}*6"
                                         if debug:
                                             print(f"🔍 匹配到 {cell_name} → Sheet: {sheet_name}, Row: {row_number}")
                                         if sheet_name == "DO":
                                             sheet[f"B{row_number}"].value = product_code
                                             sheet[f"C{row_number}"].value = product_description
-                                            sheet[f"H{row_number}"].value = pack_size
+                                            sheet[f"G{row_number}"].value = pack_size
                                             sheet[f"I{row_number}"].value = qty
                                             sheet[f"K{row_number}"].value = UOM
                                             if debug:
@@ -88,5 +88,5 @@ def update_excel_files(directory, debug=False):
             print(f"  ❌ {error_file}")
 
 # 示例调用
-directory_path = r"C:\Users\User\Dropbox\DO & INV\DO & INV 2025\Melvin - MOS Burger\For Customer\MOS DOC (OTL) - Format"
+directory_path = r"C:\Users\User\Dropbox\DO & INV\DO & INV 2025\Melvin - Pezzo Singapore Pte Ltd"
 update_excel_files(directory_path, debug=True)
