@@ -6,7 +6,7 @@ from PyPDF2 import PdfMerger
 ROOT_DIR = r"C:\Users\User\Dropbox\DO & INV\DO & INV 2025"
 
 # 👇 改这里控制合并哪一月
-TARGET_MONTH = 7
+TARGET_MONTH = 6
 
 # 匹配发票 PDF 文件名
 invoice_pattern = re.compile(
@@ -31,8 +31,8 @@ def extract_prefix(pdf_filename: str) -> str:
     return m.group(1).strip() if m else ""
 
 def is_cancelled(pdf_name: str) -> bool:
-    # 检查是否包含 (cancel)、(canceled)、(cancelled)
-    return bool(re.search(r'(?i)\(cancel(?:led|ed)?\)', pdf_name))
+    # 只要文件名任意地方包含 cancel/canceled/cancelled（忽略大小写）就跳过
+    return bool(re.search(r'(?i)cancel', pdf_name))
 
 def pick_latest_pdf(pdf_list):
     """同编号时优先保留(revised) PDF，否则保留原版"""
@@ -48,42 +48,43 @@ def pick_latest_pdf(pdf_list):
 
 def merge_pdfs_in_folder(folder_path: str, pdf_files: list, output_name: str):
     if len(pdf_files) < 2:
-        print(f"  [INFO] Only one matched PDF in '{folder_path}', skip merging.")
+        print(f"⚠️ 只有 1 份 PDF，无需合并。")
         return
 
     merger = PdfMerger()
     pdf_files.sort()
 
+    print(f"  🔗 合并以下 PDF：")
     for pdf in pdf_files:
         pdf_path = os.path.join(folder_path, pdf)
-        print(f"    + {pdf_path}")
+        print(f"    + {os.path.basename(pdf_path)}")
         try:
             merger.append(pdf_path)
         except Exception as e:
-            print(f"    [ERROR] Merging {pdf_path}: {e}")
+            print(f"    [ERROR] 合并出错 {os.path.basename(pdf_path)}: {e}")
 
     out_path = os.path.join(folder_path, output_name)
     try:
         merger.write(out_path)
         merger.close()
-        print(f"[DONE] Created => {out_path}")
+        print(f"✅ 合并完成：{output_name}\n")
     except Exception as e:
-        print(f"[ERROR] Writing merged PDF: {e}")
+        print(f"[ERROR] 写入合并 PDF 失败: {e}")
+
 
 def process_folder(folder_path: str):
     folder_name = os.path.basename(folder_path)
     month = get_month_from_folder(folder_name)
     if not month:
-        print(f"[SKIP] Folder '{folder_name}' does not match '{TARGET_MONTH}. Xxx' format.")
+        print(f"❌ 跳过目录: '{folder_name}'，不符合 '{TARGET_MONTH}. Xxx' 格式。")
         return
 
     try:
         all_entries = os.listdir(folder_path)
     except Exception as e:
-        print(f"[ERROR] Cannot list folder '{folder_path}': {e}")
+        print(f"⚠️ 无法读取目录 '{folder_path}': {e}")
         return
 
-    # 先过滤掉 cancel 的，再按 revised 归类
     matched_pdfs = [
         f for f in all_entries
         if invoice_pattern.match(f) and not is_cancelled(f)
@@ -91,16 +92,20 @@ def process_folder(folder_path: str):
     matched_pdfs = pick_latest_pdf(matched_pdfs)   # 优先 revised
 
     if not matched_pdfs:
-        print(f"[INFO] No invoice PDF matched in '{folder_path}'.")
+        print(f"ℹ️ 目录 '{folder_path}' 无匹配发票 PDF。")
         return
 
-    print(f"\n[INFO] In '{folder_path}' => matched PDFs: {matched_pdfs}")
+    print(f"\n🗂️ 处理目录：{folder_path}")
+    print(f"  📄 匹配到 {len(matched_pdfs)} 个 PDF：")
+    # 文件名漂亮换行，每个文件缩进
+    for pdf in matched_pdfs:
+        print(f"    · {pdf}")
 
     prefixes = {extract_prefix(f) for f in matched_pdfs}
     prefixes = {p for p in prefixes if p}
 
     if len(prefixes) != 1:
-        print(f"  [ERROR] Multiple prefixes found: {prefixes} — skipping.")
+        print(f"❌ 多前缀冲突: {prefixes}，跳过该目录。")
         return
 
     prefix = list(prefixes)[0]
