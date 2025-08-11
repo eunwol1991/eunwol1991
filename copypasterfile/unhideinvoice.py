@@ -70,5 +70,5 @@ def activate_sheets(directory, debug=False):
             print(f"  ❌ {error_file}")
 
 # 设定目标路径
-directory_path = r"C:\Users\User\Dropbox\DO & INV\DO & INV 2025\Melvin - MOS Burger\For Customer\MOS DOC (OTL) - Format"
+directory_path = r"C:\Users\User\Dropbox\DO & INV\DO & INV 2025"
 activate_sheets(directory_path, debug=True)
