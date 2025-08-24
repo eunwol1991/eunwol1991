@@ -5,46 +5,48 @@ from PyPDF2 import PdfMerger
 # 根目录路径
 ROOT_DIR = r"C:\Users\User\Dropbox\DO & INV\DO & INV 2025"
 
-# 👇 改这里控制合并哪一月
-TARGET_MONTH = 7
-
 # 匹配发票 PDF 文件名
 invoice_pattern = re.compile(
     r'^(.*?)\s*([0-9]{4})\s*-\s*([0-9]{3})\s*-\s*INV(.*)\.pdf$',
     re.IGNORECASE
 )
 
-# 匹配 "3. Mar" 这样的文件夹名
-folder_month_pattern = re.compile(rf'^{TARGET_MONTH}\.\s*([A-Za-z]{{3}})$', re.IGNORECASE)
+# 全局变量（运行时再赋值）
+TARGET_MONTH = None
+folder_month_pattern = None
+
 
 def contains_supplier(path: str) -> bool:
-    skip_keywords = ['supplier', 'sarpino', 'canadian pizza', 'stuffd', 'cash sales', 'staff purchase', 'rite pizza', 'Prezfoods Trading Pte Ltd(De Tian)']
+    skip_keywords = ['supplier', 'sarpino', 'canadian pizza', 'stuffd',
+                     'cash sales', 'staff purchase', 'rite pizza',
+                     'Prezfoods Trading Pte Ltd(De Tian)', 'Alt PIzza']
     parts = os.path.normpath(path).split(os.sep)
     return any(any(keyword in part.lower() for keyword in skip_keywords) for part in parts)
+
 
 def get_month_from_folder(folder_name: str) -> str:
     m = folder_month_pattern.match(folder_name)
     return m.group(1).capitalize() if m else ""
 
+
 def extract_prefix(pdf_filename: str) -> str:
     m = invoice_pattern.match(pdf_filename)
     return m.group(1).strip() if m else ""
 
+
 def is_cancelled(pdf_name: str) -> bool:
-    # 只要文件名任意地方包含 cancel/canceled/cancelled（忽略大小写）就跳过
     return bool(re.search(r'(?i)cancel', pdf_name))
 
+
 def pick_latest_pdf(pdf_list):
-    """同编号时优先保留(revised) PDF，否则保留原版"""
     base_map = {}
     for pdf in pdf_list:
-        # 去掉 (Revised) 以便归类同一编号
         base_name = re.sub(r'(?i)\(revised\)', '', pdf)
         base_name = base_name.replace('__', '_').replace('  ', ' ').strip()
-        # 有 revised 优先，后出现的覆盖前面
         if base_name not in base_map or re.search(r'(?i)revised', pdf):
             base_map[base_name] = pdf
     return list(base_map.values())
+
 
 def merge_pdfs_in_folder(folder_path: str, pdf_files: list, output_name: str):
     if len(pdf_files) < 2:
@@ -89,7 +91,7 @@ def process_folder(folder_path: str):
         f for f in all_entries
         if invoice_pattern.match(f) and not is_cancelled(f)
     ]
-    matched_pdfs = pick_latest_pdf(matched_pdfs)   # 优先 revised
+    matched_pdfs = pick_latest_pdf(matched_pdfs)
 
     if not matched_pdfs:
         print(f"ℹ️ 目录 '{folder_path}' 无匹配发票 PDF。")
@@ -97,7 +99,6 @@ def process_folder(folder_path: str):
 
     print(f"\n🗂️ 处理目录：{folder_path}")
     print(f"  📄 匹配到 {len(matched_pdfs)} 个 PDF：")
-    # 文件名漂亮换行，每个文件缩进
     for pdf in matched_pdfs:
         print(f"    · {pdf}")
 
@@ -114,6 +115,7 @@ def process_folder(folder_path: str):
     output_name = f"{prefix_safe} INV - {month}'25.pdf".strip()
     merge_pdfs_in_folder(folder_path, matched_pdfs, output_name)
 
+
 def recursive_search(current_dir: str):
     if contains_supplier(current_dir):
         print(f"[SKIP] '{current_dir}' (contains supplier-related keywords).")
@@ -129,14 +131,28 @@ def recursive_search(current_dir: str):
     except Exception as e:
         print(f"[ERROR] Scanning subdirs of '{current_dir}': {e}")
 
+
 def main():
+    global TARGET_MONTH, folder_month_pattern
+
     if not os.path.isdir(ROOT_DIR):
         print(f"[ERROR] '{ROOT_DIR}' is not a valid directory.")
         return
 
+    try:
+        month_input = input("请输入要处理的月份 (1-12): ").strip()
+        TARGET_MONTH = int(month_input)
+    except ValueError:
+        print("❌ 输入无效，请输入 1–12 的数字。")
+        return
+
+    # 运行时再生成正则
+    folder_month_pattern = re.compile(rf'^{TARGET_MONTH}\.\s*([A-Za-z]{{3}})$', re.IGNORECASE)
+
     print(f"[START] Searching from: {ROOT_DIR}")
     recursive_search(ROOT_DIR)
     print("[DONE] Finished.")
+
 
 if __name__ == '__main__':
     main()
