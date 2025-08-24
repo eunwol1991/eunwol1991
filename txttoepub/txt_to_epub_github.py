@@ -31,8 +31,7 @@ MOVE_TO_HISTORY = True
 MAX_TITLE_LEN = 50
 # --------------------------------------------------------
 
-# XML/XHTML lacks predefined named entities like &nbsp;.
-# Use Unicode non-breaking space directly where needed.
+
 NBSP = "\u00A0"
 
 NOISE_PATTERNS = [re.compile(p, re.IGNORECASE) for p in [
@@ -298,25 +297,35 @@ def _normalize_paragraphs(text: str) -> List[str]:
             result.append(line)
     return result
 
-
 def chapter_to_xhtml(idx: int, title: str, text: str) -> str:
-    esc_title = fix_named_entities(html.escape(clean_text(title)))
+    # 标题：先清洗→替换命名实体→再 HTML 转义
+    title_clean = clean_text(title)
+    title_fixed = fix_named_entities(title_clean)
+    esc_title = html.escape(title_fixed)
+
     paras = []
     for p in _normalize_paragraphs(text):
         if p:
-            content = fix_named_entities(html.escape(clean_text(p)))
-            paras.append(f"    <p>{content}</p>")
+            # 正文段落：同样先清洗→替换命名实体→再转义
+            body_clean = clean_text(p)
+            body_fixed = fix_named_entities(body_clean)
+            paras.append(f"    <p>{html.escape(body_fixed)}</p>")
         else:
+            # 空行占位：用 NBSP（U+00A0 或 &#160;），不要再 escape
             paras.append(f"    <p class='blank'>{NBSP}</p>")
-    body = '\n'.join(paras)
+
     return (
-        f"<?xml version='1.0' encoding='utf-8'?>\n"
-        f"<html xmlns='http://www.w3.org/1999/xhtml' xml:lang='zh' lang='zh'>\n"
-        "<head>\n  <meta charset='utf-8'/>\n"
-        f"  <title>{esc_title}</title>\n  <link rel='stylesheet' type='text/css' href='style.css'/>\n</head>\n"
-        f"<body>\n  <h2 id='chap{idx}'>{esc_title}</h2>\n"
-        f"{body}\n</body>\n</html>"
+        "<?xml version='1.0' encoding='utf-8'?>\n"
+        "<html xmlns='http://www.w3.org/1999/xhtml' xml:lang='zh' lang='zh'>\n"
+        "<head>\n"
+        "  <meta charset='utf-8'/>\n"
+        f"  <title>{esc_title}</title>\n"
+        "  <link rel='stylesheet' type='text/css' href='style.css'/>\n"
+        "</head>\n<body>\n"
+        f"  <h2 id='chap{idx}'>{esc_title}</h2>\n" +
+        "\n".join(paras) + "\n</body>\n</html>"
     )
+
 
 
 def create_epub(title: str, author: str, chapters: List[Tuple[str, str]], out_path: str, lang: str = 'zh'):
