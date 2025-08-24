@@ -19,6 +19,24 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 HISTORY_DIR = r"C:\Users\User\Desktop\txt to epub\history"
 FINAL_EPUB_DIR = r"C:\Users\User\iCloudDrive\Downloads\中文小说"
 
+# -------------------- Configuration --------------------
+# Users may tweak the following constants directly instead of
+# providing command line arguments.
+MAX_CHAPTER_CHARS = 30000
+FALLBACK_SPLIT_CHARS = 12000
+KEEP_BLANK_LINES = True
+COVER_FILE = None  # path to image file (jpg/png) if provided
+DRY_RUN = False
+MOVE_TO_HISTORY = True
+MAX_TITLE_LEN = 50
+# --------------------------------------------------------
+
+NOISE_PATTERNS = [re.compile(p, re.IGNORECASE) for p in [
+    r"手机访问",
+    r"请记住本站域名",
+    r"（未完待续）",
+]]
+
 @functools.lru_cache(maxsize=None)
 def detect_encoding(file_path: str, sample_size: int = 4096) -> str:
     with open(file_path, 'rb') as f:
@@ -82,10 +100,10 @@ DEFAULT_PATTERN_STRS = [
 ]
 
 def compile_patterns(extra: List[str]) -> List[re.Pattern]:
-    patterns = [re.compile(p) for p in DEFAULT_PATTERN_STRS]
+    patterns = [re.compile(p, re.IGNORECASE) for p in DEFAULT_PATTERN_STRS]
     for pat in extra:
         try:
-            patterns.append(re.compile(pat))
+            patterns.append(re.compile(pat, re.IGNORECASE))
         except re.error as e:
             logging.warning(f"Invalid pattern '{pat}': {e}")
     return patterns
@@ -94,7 +112,7 @@ def compile_patterns(extra: List[str]) -> List[re.Pattern]:
 def is_chapter_heading(line: str, patterns: List[re.Pattern]) -> bool:
     """Return True if *line* looks like a chapter heading."""
     text = clean_text(line).strip()
-    if not text or len(text) > 50:
+    if not text or len(text) > MAX_TITLE_LEN:
         return False
 
     norm = re.sub(r"[\s:：.-]+", "", text)
@@ -198,13 +216,86 @@ def parse_chapters(file_path: str, patterns: List[re.Pattern]) -> List[Tuple[str
     return chapters
 
 
+def _split_long_chapter(title: str, text: str, limit: int) -> List[Tuple[str, str]]:
+    segments = []
+    while len(text) > limit:
+        cut = text.rfind('\n', 0, limit)
+        if cut == -1:
+            cut = text.rfind('。', 0, limit)
+        if cut == -1:
+            cut = limit
+        segments.append(text[:cut].strip())
+        text = text[cut:].lstrip()
+    segments.append(text.strip())
+    if len(segments) == 1:
+        return [(title, segments[0])]
+    return [(f"{title}（{i}）", seg) for i, seg in enumerate(segments, 1)]
+
+
+def ensure_reasonable_chapters(chapters: List[Tuple[str, str]]) -> List[Tuple[str, str]]:
+    if not chapters:
+        return chapters
+
+    if (
+        len(chapters) == 1
+        and chapters[0][0] in ('正文', '前言')
+        and len(chapters[0][1]) > FALLBACK_SPLIT_CHARS
+    ):
+        text = chapters[0][1]
+        segs = []
+        while len(text) > FALLBACK_SPLIT_CHARS:
+            cut = text.rfind('\n', 0, FALLBACK_SPLIT_CHARS)
+            if cut == -1:
+                cut = text.rfind('。', 0, FALLBACK_SPLIT_CHARS)
+            if cut == -1:
+                cut = FALLBACK_SPLIT_CHARS
+            segs.append(text[:cut].strip())
+            text = text[cut:].lstrip()
+        segs.append(text.strip())
+        return [(f"第{i}章", seg) for i, seg in enumerate(segs, 1)]
+
+    result: List[Tuple[str, str]] = []
+    for title, text in chapters:
+        if len(text) > MAX_CHAPTER_CHARS:
+            result.extend(_split_long_chapter(title, text, MAX_CHAPTER_CHARS))
+        else:
+            result.append((title, text))
+    return result
+
+
+def _normalize_paragraphs(text: str) -> List[str]:
+    lines = text.splitlines()
+    result: List[str] = []
+    for line in lines:
+        line = clean_text(line).strip()
+        if any(pat.search(line) for pat in NOISE_PATTERNS):
+            continue
+        if not line:
+            if KEEP_BLANK_LINES and (not result or result[-1] != ''):
+                result.append('')
+            elif not KEEP_BLANK_LINES:
+                continue
+        else:
+            result.append(line)
+    return result
+
+
 def chapter_to_xhtml(idx: int, title: str, text: str) -> str:
     esc_title = html.escape(clean_text(title))
-    paras = [f"    <p>{html.escape(clean_text(p.strip()))}</p>" for p in text.splitlines() if p.strip()]
+    paras = []
+    for p in _normalize_paragraphs(text):
+        if p:
+            paras.append(f"    <p>{html.escape(clean_text(p))}</p>")
+        else:
+            paras.append("    <p class='blank'>&nbsp;</p>")
+    body = '\n'.join(paras)
     return (
-        "<?xml version='1.0' encoding='utf-8'?>\n"
-        "<html xmlns='http://www.w3.org/1999/xhtml'>\n<head>\n  <title>" + esc_title + "</title>\n  <link rel='stylesheet' type='text/css' href='style.css'/>\n</head>\n<body>\n  <h2 id='chap" + str(idx) + "'>" + esc_title + "</h2>\n" +
-        '\n'.join(paras) + "\n</body>\n</html>"
+        f"<?xml version='1.0' encoding='utf-8'?>\n"
+        f"<html xmlns='http://www.w3.org/1999/xhtml' xml:lang='zh' lang='zh'>\n"
+        "<head>\n  <meta charset='utf-8'/>\n"
+        f"  <title>{esc_title}</title>\n  <link rel='stylesheet' type='text/css' href='style.css'/>\n</head>\n"
+        f"<body>\n  <h2 id='chap{idx}'>{esc_title}</h2>\n"
+        f"{body}\n</body>\n</html>"
     )
 
 
@@ -212,7 +303,20 @@ def create_epub(title: str, author: str, chapters: List[Tuple[str, str]], out_pa
     tmp_path = out_path + '.tmp'
     uid = str(uuid.uuid4())
     modified = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
-    css = 'body { font-family: SimSun, serif; line-height:1.5; text-indent:2em; }'
+    css = (
+        "body{margin:0 0.8em;font-family:'PingFang SC','Hiragino Sans GB','Heiti SC','STSong','Songti SC',serif;"
+        "line-height:1.8;text-align:justify;text-justify:inter-ideograph;}"
+        "p{margin:0.6em 0;text-indent:2em;}"
+        "img{max-width:100%;height:auto;display:block;margin:0 auto;}"
+        ".blank{text-indent:0;height:0.9em;}"
+    )
+
+    cover_info = None
+    if COVER_FILE and os.path.isfile(COVER_FILE):
+        ext = os.path.splitext(COVER_FILE)[1].lower()
+        if ext in ('.jpg', '.jpeg', '.png'):
+            media_type = 'image/jpeg' if ext in ('.jpg', '.jpeg') else 'image/png'
+            cover_info = (ext, media_type)
 
     with zipfile.ZipFile(tmp_path, 'w') as epub:
         epub.writestr('mimetype', 'application/epub+zip', compress_type=zipfile.ZIP_STORED)
@@ -234,6 +338,23 @@ def create_epub(title: str, author: str, chapters: List[Tuple[str, str]], out_pa
         spine = []
         nav_list = []
 
+        if cover_info:
+            ext, media_type = cover_info
+            cover_name = 'cover' + ext
+            with open(COVER_FILE, 'rb') as cf:
+                epub.writestr(f'OEBPS/{cover_name}', cf.read())
+            manifest.append(
+                f"<item id='coverimg' href='{cover_name}' media-type='{media_type}' properties='cover-image'/>"
+            )
+            cover_xhtml = (
+                f"<?xml version='1.0' encoding='utf-8'?>\n<html xmlns='http://www.w3.org/1999/xhtml' xml:lang='{lang}' lang='{lang}'>\n"
+                "<head>\n  <meta charset='utf-8'/><title>封面</title><link rel='stylesheet' type='text/css' href='style.css'/></head>\n"
+                f"<body>\n  <img src='{cover_name}' alt='cover'/>\n</body>\n</html>"
+            )
+            epub.writestr('OEBPS/cover.xhtml', cover_xhtml)
+            manifest.append("<item id='cover' href='cover.xhtml' media-type='application/xhtml+xml'/>")
+            spine.append("<itemref idref='cover' linear='yes'/>")
+
         for i, (ch_title, ch_text) in enumerate(chapters, 1):
             fname = f'chapter{i}.xhtml'
             epub.writestr(f'OEBPS/{fname}', chapter_to_xhtml(i, ch_title, ch_text))
@@ -243,9 +364,9 @@ def create_epub(title: str, author: str, chapters: List[Tuple[str, str]], out_pa
 
         epub.writestr(
             'OEBPS/nav.xhtml',
-            """<?xml version='1.0' encoding='utf-8'?>
-<html xmlns='http://www.w3.org/1999/xhtml'>
-<head><title>目录</title><link rel='stylesheet' type='text/css' href='style.css'/></head>
+            f"""<?xml version='1.0' encoding='utf-8'?>
+<html xmlns='http://www.w3.org/1999/xhtml' xml:lang='{lang}' lang='{lang}'>
+<head><meta charset='utf-8'/><title>目录</title><link rel='stylesheet' type='text/css' href='style.css'/></head>
 <body><nav epub:type='toc' id='toc'><h1>目录</h1><ol>
 """
             + ''.join(nav_list)
@@ -312,13 +433,19 @@ def convert_txt_file(
     os.makedirs(out_dir, exist_ok=True)
     title, author = detect_title_author(in_file)
     chapters = parse_chapters(in_file, patterns)
+    chapters = ensure_reasonable_chapters(chapters)
+    if DRY_RUN:
+        print(f"[DRY RUN] Chapters detected: {len(chapters)}")
+        for i, (ch_title, _) in enumerate(chapters[:5], 1):
+            print(f"  {i}. {ch_title}")
+        return
     base = os.path.splitext(os.path.basename(in_file))[0]
     out_file = os.path.join(out_dir, f"{base}.epub")
     create_epub(title, author, chapters, out_file, lang)
     if final_dir:
         final_path = safe_move(out_file, final_dir, overwrite=True)
         logging.info(f"EPUB moved to {final_path}")
-    if history_dir:
+    if MOVE_TO_HISTORY and history_dir:
         hist_path = safe_move(in_file, history_dir)
         logging.info(f"Source moved to {hist_path}")
 
@@ -361,6 +488,16 @@ def main():
     parser.add_argument('-p', '--pattern', action='append', default=[], help='additional chapter regex, can be used multiple times')
     args = parser.parse_args()
     patterns = compile_patterns(args.pattern)
+    logging.info(
+        "Config: MAX_CHAPTER_CHARS=%s FALLBACK_SPLIT_CHARS=%s KEEP_BLANK_LINES=%s COVER_FILE=%s DRY_RUN=%s MOVE_TO_HISTORY=%s MAX_TITLE_LEN=%s",
+        MAX_CHAPTER_CHARS,
+        FALLBACK_SPLIT_CHARS,
+        KEEP_BLANK_LINES,
+        COVER_FILE,
+        DRY_RUN,
+        MOVE_TO_HISTORY,
+        MAX_TITLE_LEN,
+    )
     batch_convert(args.input, args.output, args.lang, patterns, args.history, args.dest)
 
 if __name__ == '__main__':
