@@ -108,13 +108,14 @@ def fix_named_entities(s: str) -> str:
 
 
 DEFAULT_PATTERN_STRS = [
-    r"^第[0-9零一二三四五六七八九十百千万〇两]+(?:[卷部集])?(?:第[0-9零一二三四五六七八九十百千万〇两]+)?[章节回篇节话].*",
-    r"^楔子$",
-    r"^序章?$",
-    r"^番外.*",
-    r"^后记.*",
-    r"^前言.*",
-    r"^Chapter\s*\d+.*",
+    r"第[0-9零一二三四五六七八九十百千万〇两]+(?:[卷部集])?(?:第[0-9零一二三四五六七八九十百千万〇两]+)?[章节回篇节话]",
+    r"[卷部集][0-9零一二三四五六七八九十百千万〇两]+第[0-9零一二三四五六七八九十百千万〇两]+[章节回篇节话]",
+    r"楔子",
+    r"序章?",
+    r"番外.*",
+    r"后记.*",
+    r"前言.*",
+    r"Chapter\s*\d+.*",
 ]
 
 def compile_patterns(extra: List[str]) -> List[re.Pattern]:
@@ -133,6 +134,12 @@ def is_chapter_heading(line: str, patterns: List[re.Pattern]) -> bool:
     if not text or len(text) > MAX_TITLE_LEN:
         return False
 
+    # convert full-width digits to half-width
+    text = "".join(
+        chr(ord(ch) - 0xFEE0) if "０" <= ch <= "９" else ch for ch in text
+    )
+    # strip leading punctuation to allow patterns like "【第1章】"
+    text = re.sub(r"^[^\w\u4e00-\u9fff]+", "", text)
     norm = re.sub(r"[\s:：.-]+", "", text)
     for pat in patterns:
         if pat.match(norm):
