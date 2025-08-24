@@ -18,7 +18,7 @@ invoice_pattern = re.compile(
 folder_month_pattern = re.compile(rf'^{TARGET_MONTH}\.\s*([A-Za-z]{{3}})$', re.IGNORECASE)
 
 def contains_supplier(path: str) -> bool:
-    skip_keywords = ['supplier', 'sarpino', 'canadian pizza', 'stuffd', 'cash sales', 'staff purchase', 'rite pizza']
+    skip_keywords = ['supplier', 'sarpino', 'canadian pizza', 'stuffd', 'cash sales', 'staff purchase', 'rite pizza', 'Prezfoods Trading Pte Ltd(De Tian)']
     parts = os.path.normpath(path).split(os.sep)
     return any(any(keyword in part.lower() for keyword in skip_keywords) for part in parts)
 

@@ -58291,3 +58291,1189 @@
 2025-07-30 17:00:31,257 - INFO - 已处理 141/142 个文件
 2025-07-30 17:00:31,257 - INFO - 已处理 142/142 个文件
 2025-07-30 17:00:51,657 - INFO - 数据已导出到 C:/Users/User/Dropbox/for jj/canadian new.xlsx
+2025-08-14 14:53:30,283 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 001 - INV (Bedok Mall).pdf
+2025-08-14 14:53:30,435 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 002 - INV (Compass One).pdf
+2025-08-14 14:53:30,435 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 003 - INV (East Point Mall).pdf
+2025-08-14 14:53:30,435 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 004 - INV (Heartland Mall Kovan).pdf
+2025-08-14 14:53:30,435 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 005 - INV (Hillion Mall).pdf
+2025-08-14 14:53:30,435 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 006 - INV (Jurong Point).pdf
+2025-08-14 14:53:30,435 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 007 - INV (Northpoint).pdf
+2025-08-14 14:53:30,435 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 008 - INV (Our Tampines Hub).pdf
+2025-08-14 14:53:30,435 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 009 - INV (Seletar Mall).pdf
+2025-08-14 14:53:30,435 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 010 - INV (Waterway Point).pdf
+2025-08-14 14:53:30,435 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 011 - INV (White Sands).pdf
+2025-08-14 14:53:30,435 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 012 - INV (100AM).pdf
+2025-08-14 14:53:30,435 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 013 - INV (Bedok Mall).pdf
+2025-08-14 14:53:30,435 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 014 - INV (Causeway Point).pdf
+2025-08-14 14:53:30,435 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 015 - INV (City Square Mall ).pdf
+2025-08-14 14:53:30,435 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 016 - INV (Compass One).pdf
+2025-08-14 14:53:30,435 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 017 - INV (Fusionopolis One).pdf
+2025-08-14 14:53:30,435 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 018 - INV (Hillion Mall).pdf
+2025-08-14 14:53:30,435 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 019 - INV (Hougang Mall).pdf
+2025-08-14 14:53:30,435 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 020 - INV (ION).pdf
+2025-08-14 14:53:30,435 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 021 - INV (JEM).pdf
+2025-08-14 14:53:30,435 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 022 - INV (Kampung Admiralty).pdf
+2025-08-14 14:53:30,435 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 023 - INV (Marina Bay Link Mall).pdf
+2025-08-14 14:53:30,435 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 024 - INV (Merlion).pdf
+2025-08-14 14:53:30,435 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 025 - INV (Millenia Walk).pdf
+2025-08-14 14:53:30,435 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 026 - INV (Northpoint).pdf
+2025-08-14 14:53:30,435 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 027 - INV (Seletar Mall).pdf
+2025-08-14 14:53:30,435 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 028 - INV (The CentrePoint).pdf
+2025-08-14 14:53:30,435 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 029 - INV (Tiong Bahru Plaza).pdf
+2025-08-14 14:53:30,436 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 030 - INV (TPY Hub).pdf
+2025-08-14 14:53:30,436 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 031 - INV (Waterway Point).pdf
+2025-08-14 14:53:30,436 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 032 - INV (White Sands).pdf
+2025-08-14 14:53:30,436 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 033 - INV (18 Tai Seng).pdf
+2025-08-14 14:53:30,436 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 034 - INV (AMK Hub).pdf
+2025-08-14 14:53:30,436 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 035 - INV (Bukit Gombak MRT).pdf
+2025-08-14 14:53:30,436 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 036 - INV (Holland Village MRT).pdf
+2025-08-14 14:53:30,436 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 037 - INV (Harbourfront Centre).pdf
+2025-08-14 14:53:30,436 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 038 - INV (Heartland Mall Kovan).pdf
+2025-08-14 14:53:30,436 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 039 - INV (Marina Bay Link Mall).pdf
+2025-08-14 14:53:30,436 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 040 - INV (NEX).pdf
+2025-08-14 14:53:30,436 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 041 - INV (TPY Hub).pdf
+2025-08-14 14:53:30,436 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 042 - INV (Bedok Mall).pdf
+2025-08-14 14:53:30,436 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 043 - INV (Compass One).pdf
+2025-08-14 14:53:30,436 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 044 - INV (Jurong Point).pdf
+2025-08-14 14:53:30,436 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 045 - INV (Northpoint).pdf
+2025-08-14 14:53:30,436 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 046 - INV (Waterway Point).pdf
+2025-08-14 14:53:30,436 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 047 - INV (ION).pdf
+2025-08-14 14:53:30,436 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 048 - INV (100AM).pdf
+2025-08-14 14:53:30,436 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 049 - INV (AMK Hub).pdf
+2025-08-14 14:53:30,436 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 050 - INV (Causeway Point).pdf
+2025-08-14 14:53:30,436 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 051 - INV (City Square Mall ).pdf
+2025-08-14 14:53:30,436 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 052 - INV (Bukit Gombak MRT).pdf
+2025-08-14 14:53:30,436 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 053 - INV (Holland Village MRT).pdf
+2025-08-14 14:53:30,436 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 054 - INV (Fusionopolis One).pdf
+2025-08-14 14:53:30,436 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 055 - INV (Hougang Mall).pdf
+2025-08-14 14:53:30,436 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 056 - INV (ION).pdf
+2025-08-14 14:53:30,436 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 057 - INV (JEM).pdf
+2025-08-14 14:53:30,436 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 058 - INV (Kampung Admiralty).pdf
+2025-08-14 14:53:30,436 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 059 - INV (Marina Bay Link Mall).pdf
+2025-08-14 14:53:30,436 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 060 - INV (Merlion).pdf
+2025-08-14 14:53:30,436 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 061 - INV (Millenia Walk).pdf
+2025-08-14 14:53:30,436 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 062 - INV (NEX).pdf
+2025-08-14 14:53:30,436 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 063 - INV (The CentrePoint).pdf
+2025-08-14 14:53:30,436 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 064 - INV (Tiong Bahru Plaza).pdf
+2025-08-14 14:53:30,437 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 065 - INV (TPY Hub).pdf
+2025-08-14 14:53:30,437 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 066 - INV (White Sands).pdf
+2025-08-14 14:53:30,437 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 067 - INV (Hougang Mall).pdf
+2025-08-14 14:53:30,437 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 068 - INV (ION).pdf
+2025-08-14 14:53:30,437 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 069 - INV (Kampung Admiralty).pdf
+2025-08-14 14:53:30,437 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 070 - INV (Marina Bay Link Mall).pdf
+2025-08-14 14:53:30,437 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 071 - INV (Millenia Walk).pdf
+2025-08-14 14:53:30,437 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 072 - INV (NEX).pdf
+2025-08-14 14:53:30,437 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 073 - INV (The CentrePoint).pdf
+2025-08-14 14:53:30,437 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 074 - INV (TPY Hub).pdf
+2025-08-14 14:53:30,437 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 075 - INV (18 Tai Seng).pdf
+2025-08-14 14:53:30,437 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 076 - INV (Bedok Mall).pdf
+2025-08-14 14:53:30,437 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 077 - INV (Compass One).pdf
+2025-08-14 14:53:30,437 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 078 - INV (East Point Mall).pdf
+2025-08-14 14:53:30,437 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 079 - INV (Heartland Mall Kovan).pdf
+2025-08-14 14:53:30,437 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 080 - INV (Hillion Mall).pdf
+2025-08-14 14:53:30,437 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 081 - INV (Jurong Point).pdf
+2025-08-14 14:53:30,437 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 082 - INV (Northpoint).pdf
+2025-08-14 14:53:30,437 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 083 - INV (Our Tampines Hub).pdf
+2025-08-14 14:53:30,437 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 084 - INV (Seletar Mall).pdf
+2025-08-14 14:53:30,437 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 085 - INV (Waterway Point).pdf
+2025-08-14 14:53:30,437 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 086 - INV (White Sands).pdf
+2025-08-14 14:53:30,437 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 087 - INV (Jurong Point).pdf
+2025-08-14 14:53:30,437 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 088 - INV (Northpoint).pdf
+2025-08-14 14:53:30,437 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 089 - INV (Waterway Point).pdf
+2025-08-14 14:53:30,437 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 090 - INV (Pollock Finger).pdf
+2025-08-14 14:53:30,437 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 091 - INV (100AM).pdf
+2025-08-14 14:53:30,437 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 092 - INV (Bedok Mall).pdf
+2025-08-14 14:53:30,437 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 093 - INV (Causeway Point).pdf
+2025-08-14 14:53:30,437 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 094 - INV (Compass One).pdf
+2025-08-14 14:53:30,437 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 095 - INV (Fusionopolis One).pdf
+2025-08-14 14:53:30,438 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 096 - INV (Hillion Mall).pdf
+2025-08-14 14:53:30,438 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 097 - INV (Hougang Mall).pdf
+2025-08-14 14:53:30,438 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 098 - INV (ION).pdf
+2025-08-14 14:53:30,438 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 099 - INV (JEM).pdf
+2025-08-14 14:53:30,438 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 100 - INV (Jurong Point).pdf
+2025-08-14 14:53:30,438 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 101 - INV (Kampung Admiralty).pdf
+2025-08-14 14:53:30,438 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 102 - INV (Marina Bay Link Mall).pdf
+2025-08-14 14:53:30,438 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 103 - INV (Merlion).pdf
+2025-08-14 14:53:30,438 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 104 - INV (Millenia Walk).pdf
+2025-08-14 14:53:30,438 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 105 - INV (Northpoint).pdf
+2025-08-14 14:53:30,438 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 106 - INV (The CentrePoint).pdf
+2025-08-14 14:53:30,438 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 107 - INV (Tiong Bahru Plaza).pdf
+2025-08-14 14:53:30,438 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 108 - INV (TPY Hub).pdf
+2025-08-14 14:53:30,438 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 109 - INV (Waterway Point).pdf
+2025-08-14 14:53:30,438 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 110 - INV (White Sands).pdf
+2025-08-14 14:53:30,438 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 111 - INV (18 Tai Seng).pdf
+2025-08-14 14:53:30,438 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 112 - INV (AMK Hub).pdf
+2025-08-14 14:53:30,438 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 113 - INV (East Point Mall).pdf
+2025-08-14 14:53:30,438 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 114 - INV (Holland Village MRT).pdf
+2025-08-14 14:53:30,438 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 115 - INV (Harbourfront Centre).pdf
+2025-08-14 14:53:30,438 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 116 - INV (Heartland Mall Kovan).pdf
+2025-08-14 14:53:30,438 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 117 - INV (NEX).pdf
+2025-08-14 14:53:30,438 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 118 - INV (Bedok Mall).pdf
+2025-08-14 14:53:30,438 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 119 - INV (Jurong Point).pdf
+2025-08-14 14:53:30,439 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 120 - INV (Northpoint).pdf
+2025-08-14 14:53:30,439 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 121 - INV (Seletar Mall).pdf
+2025-08-14 14:53:30,439 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 122 - INV (Waterway Point).pdf
+2025-08-14 14:53:30,439 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 123 - INV (100AM).pdf
+2025-08-14 14:53:30,439 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 124 - INV (18 Tai Seng).pdf
+2025-08-14 14:53:30,439 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 125 - INV (AMK Hub).pdf
+2025-08-14 14:53:30,439 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 126 - INV (Causeway Point).pdf
+2025-08-14 14:53:30,439 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 127 - INV (City Square Mall ).pdf
+2025-08-14 14:53:30,439 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 128 - INV (Bukit Gombak MRT).pdf
+2025-08-14 14:53:30,439 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 129 - INV (Fusionopolis One).pdf
+2025-08-14 14:53:30,439 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 130 - INV (Harbourfront Centre).pdf
+2025-08-14 14:53:30,439 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 131 - INV (Hougang Mall).pdf
+2025-08-14 14:53:30,439 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 132 - INV (ION).pdf
+2025-08-14 14:53:30,439 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 133 - INV (Kampung Admiralty).pdf
+2025-08-14 14:53:30,439 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 134 - INV (Marina Bay Link Mall).pdf
+2025-08-14 14:53:30,439 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 135 - INV (Merlion).pdf
+2025-08-14 14:53:30,439 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 136 - INV (Millenia Walk).pdf
+2025-08-14 14:53:30,439 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 137 - INV (NEX).pdf
+2025-08-14 14:53:30,439 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 138 - INV (The CentrePoint).pdf
+2025-08-14 14:53:30,439 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 139 - INV (Tiong Bahru Plaza).pdf
+2025-08-14 14:53:30,439 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 140 - INV (TPY Hub).pdf
+2025-08-14 14:53:30,439 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 141 - INV (White Sands).pdf
+2025-08-14 14:53:30,439 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 142 - INV (Bedok Mall).pdf
+2025-08-14 14:53:30,439 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 143 - INV (Compass One).pdf
+2025-08-14 14:53:30,439 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 144 - INV (East Point Mall).pdf
+2025-08-14 14:53:30,439 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 145 - INV (Heartland Mall Kovan).pdf
+2025-08-14 14:53:30,439 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 146 - INV (Hillion Mall).pdf
+2025-08-14 14:53:30,439 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 147 - INV (Northpoint).pdf
+2025-08-14 14:53:30,440 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 148 - INV (Our Tampines Hub).pdf
+2025-08-14 14:53:30,440 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 149 - INV (Seletar Mall).pdf
+2025-08-14 14:53:30,440 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 150 - INV (Waterway Point).pdf
+2025-08-14 14:53:30,440 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer\8. Aug\MOS 0825 - 151 - INV (White Sands).pdf
+2025-08-14 14:53:30,579 - INFO - 已处理 1/151 个文件
+2025-08-14 14:53:30,579 - INFO - 已处理 2/151 个文件
+2025-08-14 14:53:30,579 - INFO - 已处理 3/151 个文件
+2025-08-14 14:53:30,584 - INFO - 已处理 4/151 个文件
+2025-08-14 14:53:30,588 - INFO - 已处理 5/151 个文件
+2025-08-14 14:53:30,588 - INFO - 已处理 6/151 个文件
+2025-08-14 14:53:30,588 - INFO - 已处理 7/151 个文件
+2025-08-14 14:53:30,588 - INFO - 已处理 8/151 个文件
+2025-08-14 14:53:30,589 - INFO - 已处理 9/151 个文件
+2025-08-14 14:53:30,589 - INFO - 已处理 10/151 个文件
+2025-08-14 14:53:30,589 - INFO - 已处理 11/151 个文件
+2025-08-14 14:53:30,589 - INFO - 已处理 12/151 个文件
+2025-08-14 14:53:30,589 - INFO - 已处理 13/151 个文件
+2025-08-14 14:53:30,589 - INFO - 已处理 14/151 个文件
+2025-08-14 14:53:30,589 - INFO - 已处理 15/151 个文件
+2025-08-14 14:53:30,589 - INFO - 已处理 16/151 个文件
+2025-08-14 14:53:30,589 - INFO - 已处理 17/151 个文件
+2025-08-14 14:53:30,589 - INFO - 已处理 18/151 个文件
+2025-08-14 14:53:30,589 - INFO - 已处理 19/151 个文件
+2025-08-14 14:53:30,589 - INFO - 已处理 20/151 个文件
+2025-08-14 14:53:30,589 - INFO - 已处理 21/151 个文件
+2025-08-14 14:53:30,589 - INFO - 已处理 22/151 个文件
+2025-08-14 14:53:30,589 - INFO - 已处理 23/151 个文件
+2025-08-14 14:53:30,589 - INFO - 已处理 24/151 个文件
+2025-08-14 14:53:30,589 - INFO - 已处理 25/151 个文件
+2025-08-14 14:53:30,589 - INFO - 已处理 26/151 个文件
+2025-08-14 14:53:30,589 - INFO - 已处理 27/151 个文件
+2025-08-14 14:53:30,589 - INFO - 已处理 28/151 个文件
+2025-08-14 14:53:30,589 - INFO - 已处理 29/151 个文件
+2025-08-14 14:53:30,589 - INFO - 已处理 30/151 个文件
+2025-08-14 14:53:30,715 - INFO - 已处理 31/151 个文件
+2025-08-14 14:53:30,715 - INFO - 已处理 32/151 个文件
+2025-08-14 14:53:30,715 - INFO - 已处理 33/151 个文件
+2025-08-14 14:53:30,715 - INFO - 已处理 34/151 个文件
+2025-08-14 14:53:30,719 - INFO - 已处理 35/151 个文件
+2025-08-14 14:53:30,719 - INFO - 已处理 36/151 个文件
+2025-08-14 14:53:30,730 - INFO - 已处理 37/151 个文件
+2025-08-14 14:53:30,736 - INFO - 已处理 38/151 个文件
+2025-08-14 14:53:30,736 - INFO - 已处理 39/151 个文件
+2025-08-14 14:53:30,736 - INFO - 已处理 40/151 个文件
+2025-08-14 14:53:30,736 - INFO - 已处理 41/151 个文件
+2025-08-14 14:53:30,736 - INFO - 已处理 42/151 个文件
+2025-08-14 14:53:30,736 - INFO - 已处理 43/151 个文件
+2025-08-14 14:53:30,736 - INFO - 已处理 44/151 个文件
+2025-08-14 14:53:30,736 - INFO - 已处理 45/151 个文件
+2025-08-14 14:53:30,737 - INFO - 已处理 46/151 个文件
+2025-08-14 14:53:30,737 - INFO - 已处理 47/151 个文件
+2025-08-14 14:53:30,737 - INFO - 已处理 48/151 个文件
+2025-08-14 14:53:30,737 - INFO - 已处理 49/151 个文件
+2025-08-14 14:53:30,737 - INFO - 已处理 50/151 个文件
+2025-08-14 14:53:30,737 - INFO - 已处理 51/151 个文件
+2025-08-14 14:53:30,737 - INFO - 已处理 52/151 个文件
+2025-08-14 14:53:30,737 - INFO - 已处理 53/151 个文件
+2025-08-14 14:53:30,737 - INFO - 已处理 54/151 个文件
+2025-08-14 14:53:30,737 - INFO - 已处理 55/151 个文件
+2025-08-14 14:53:30,737 - INFO - 已处理 56/151 个文件
+2025-08-14 14:53:30,737 - INFO - 已处理 57/151 个文件
+2025-08-14 14:53:30,737 - INFO - 已处理 58/151 个文件
+2025-08-14 14:53:30,737 - INFO - 已处理 59/151 个文件
+2025-08-14 14:53:30,737 - INFO - 已处理 60/151 个文件
+2025-08-14 14:53:30,866 - INFO - 已处理 61/151 个文件
+2025-08-14 14:53:30,866 - INFO - 已处理 62/151 个文件
+2025-08-14 14:53:30,871 - INFO - 已处理 63/151 个文件
+2025-08-14 14:53:30,871 - INFO - 已处理 64/151 个文件
+2025-08-14 14:53:30,871 - INFO - 已处理 65/151 个文件
+2025-08-14 14:53:30,881 - INFO - 已处理 66/151 个文件
+2025-08-14 14:53:30,881 - INFO - 已处理 67/151 个文件
+2025-08-14 14:53:30,881 - INFO - 已处理 68/151 个文件
+2025-08-14 14:53:30,881 - INFO - 已处理 69/151 个文件
+2025-08-14 14:53:30,881 - INFO - 已处理 70/151 个文件
+2025-08-14 14:53:30,881 - INFO - 已处理 71/151 个文件
+2025-08-14 14:53:30,881 - INFO - 已处理 72/151 个文件
+2025-08-14 14:53:30,881 - INFO - 已处理 73/151 个文件
+2025-08-14 14:53:30,881 - INFO - 已处理 74/151 个文件
+2025-08-14 14:53:30,881 - INFO - 已处理 75/151 个文件
+2025-08-14 14:53:30,881 - INFO - 已处理 76/151 个文件
+2025-08-14 14:53:30,882 - INFO - 已处理 77/151 个文件
+2025-08-14 14:53:30,882 - INFO - 已处理 78/151 个文件
+2025-08-14 14:53:30,882 - INFO - 已处理 79/151 个文件
+2025-08-14 14:53:30,882 - INFO - 已处理 80/151 个文件
+2025-08-14 14:53:30,882 - INFO - 已处理 81/151 个文件
+2025-08-14 14:53:30,882 - INFO - 已处理 82/151 个文件
+2025-08-14 14:53:30,882 - INFO - 已处理 83/151 个文件
+2025-08-14 14:53:30,882 - INFO - 已处理 84/151 个文件
+2025-08-14 14:53:30,882 - INFO - 已处理 85/151 个文件
+2025-08-14 14:53:30,882 - INFO - 已处理 86/151 个文件
+2025-08-14 14:53:30,882 - INFO - 已处理 87/151 个文件
+2025-08-14 14:53:30,882 - INFO - 已处理 88/151 个文件
+2025-08-14 14:53:30,882 - INFO - 已处理 89/151 个文件
+2025-08-14 14:53:30,882 - INFO - 已处理 90/151 个文件
+2025-08-14 14:53:31,022 - INFO - 已处理 91/151 个文件
+2025-08-14 14:53:31,022 - INFO - 已处理 92/151 个文件
+2025-08-14 14:53:31,022 - INFO - 已处理 93/151 个文件
+2025-08-14 14:53:31,032 - INFO - 已处理 94/151 个文件
+2025-08-14 14:53:31,032 - INFO - 已处理 95/151 个文件
+2025-08-14 14:53:31,032 - INFO - 已处理 96/151 个文件
+2025-08-14 14:53:31,032 - INFO - 已处理 97/151 个文件
+2025-08-14 14:53:31,032 - INFO - 已处理 98/151 个文件
+2025-08-14 14:53:31,032 - INFO - 已处理 99/151 个文件
+2025-08-14 14:53:31,032 - INFO - 已处理 100/151 个文件
+2025-08-14 14:53:31,032 - INFO - 已处理 101/151 个文件
+2025-08-14 14:53:31,032 - INFO - 已处理 102/151 个文件
+2025-08-14 14:53:31,032 - INFO - 已处理 103/151 个文件
+2025-08-14 14:53:31,032 - INFO - 已处理 104/151 个文件
+2025-08-14 14:53:31,032 - INFO - 已处理 105/151 个文件
+2025-08-14 14:53:31,032 - INFO - 已处理 106/151 个文件
+2025-08-14 14:53:31,033 - INFO - 已处理 107/151 个文件
+2025-08-14 14:53:31,033 - INFO - 已处理 108/151 个文件
+2025-08-14 14:53:31,033 - INFO - 已处理 109/151 个文件
+2025-08-14 14:53:31,033 - INFO - 已处理 110/151 个文件
+2025-08-14 14:53:31,033 - INFO - 已处理 111/151 个文件
+2025-08-14 14:53:31,033 - INFO - 已处理 112/151 个文件
+2025-08-14 14:53:31,033 - INFO - 已处理 113/151 个文件
+2025-08-14 14:53:31,033 - INFO - 已处理 114/151 个文件
+2025-08-14 14:53:31,033 - INFO - 已处理 115/151 个文件
+2025-08-14 14:53:31,033 - INFO - 已处理 116/151 个文件
+2025-08-14 14:53:31,033 - INFO - 已处理 117/151 个文件
+2025-08-14 14:53:31,033 - INFO - 已处理 118/151 个文件
+2025-08-14 14:53:31,033 - INFO - 已处理 119/151 个文件
+2025-08-14 14:53:31,033 - INFO - 已处理 120/151 个文件
+2025-08-14 14:53:31,155 - INFO - 已处理 121/151 个文件
+2025-08-14 14:53:31,155 - INFO - 已处理 122/151 个文件
+2025-08-14 14:53:31,155 - INFO - 已处理 123/151 个文件
+2025-08-14 14:53:31,155 - INFO - 已处理 124/151 个文件
+2025-08-14 14:53:31,169 - INFO - 已处理 125/151 个文件
+2025-08-14 14:53:31,173 - INFO - 已处理 126/151 个文件
+2025-08-14 14:53:31,173 - INFO - 已处理 127/151 个文件
+2025-08-14 14:53:31,173 - INFO - 已处理 128/151 个文件
+2025-08-14 14:53:31,178 - INFO - 已处理 129/151 个文件
+2025-08-14 14:53:31,178 - INFO - 已处理 130/151 个文件
+2025-08-14 14:53:31,178 - INFO - 已处理 131/151 个文件
+2025-08-14 14:53:31,178 - INFO - 已处理 132/151 个文件
+2025-08-14 14:53:31,178 - INFO - 已处理 133/151 个文件
+2025-08-14 14:53:31,178 - INFO - 已处理 134/151 个文件
+2025-08-14 14:53:31,179 - INFO - 已处理 135/151 个文件
+2025-08-14 14:53:31,179 - INFO - 已处理 136/151 个文件
+2025-08-14 14:53:31,179 - INFO - 已处理 137/151 个文件
+2025-08-14 14:53:31,179 - INFO - 已处理 138/151 个文件
+2025-08-14 14:53:31,179 - INFO - 已处理 139/151 个文件
+2025-08-14 14:53:31,179 - INFO - 已处理 140/151 个文件
+2025-08-14 14:53:31,179 - INFO - 已处理 141/151 个文件
+2025-08-14 14:53:31,179 - INFO - 已处理 142/151 个文件
+2025-08-14 14:53:31,179 - INFO - 已处理 143/151 个文件
+2025-08-14 14:53:31,179 - INFO - 已处理 144/151 个文件
+2025-08-14 14:53:31,179 - INFO - 已处理 145/151 个文件
+2025-08-14 14:53:31,179 - INFO - 已处理 146/151 个文件
+2025-08-14 14:53:31,179 - INFO - 已处理 147/151 个文件
+2025-08-14 14:53:31,179 - INFO - 已处理 148/151 个文件
+2025-08-14 14:53:31,179 - INFO - 已处理 149/151 个文件
+2025-08-14 14:53:31,179 - INFO - 已处理 150/151 个文件
+2025-08-14 14:53:31,185 - INFO - 已处理 151/151 个文件
+2025-08-14 15:03:39,078 - INFO - 数据已导出到 C:/Users/User/Dropbox/DO & INV/DO & INV 2025/Melvin - MOS Burger/For Customer/MOS Aug price.xlsx
+2025-08-14 15:03:49,374 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\All - cash sales\08. Aug\CASH 0825 - 001 - INV(Melvin Cust).pdf
+2025-08-14 15:03:49,376 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Anthony - 5 10 Invesment\8. Aug\BRK 0825 - 001 - INV (118 Hougang Avenue 1).pdf
+2025-08-14 15:03:49,376 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Anthony - 5 10 Invesment\8. Aug\BRK 0825 - 002 - INV (Blk 537 Bedok North).pdf
+2025-08-14 15:03:49,376 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Anthony - 5 10 Invesment\8. Aug\BRK 0825 - 003 - INV (323 Bukit Batok).pdf
+2025-08-14 15:03:49,376 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Anthony - 5 10 Invesment\8. Aug\BRK 0825 - 004 - INV (Blk 532 Ang Mo Kio Ave 10).pdf
+2025-08-14 15:03:49,376 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Anthony - 5 10 Invesment\8. Aug\BRK 0825 - 005 - INV (Blk 91 Telok Blangah Street 31).pdf
+2025-08-14 15:03:49,376 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Anthony - 5 10 Invesment\8. Aug\BRK 0825 - 006 - INV (116 Lorong 2 Toa Payoh).pdf
+2025-08-14 15:03:49,376 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Anthony - 5 10 Invesment\8. Aug\BRK 0825 - 007 - INV (632 yishun).pdf
+2025-08-14 15:03:49,376 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Anthony - 5 10 Invesment\8. Aug\BRK 0825 - 008 - INV (323 Bukit Batok).pdf
+2025-08-14 15:03:49,376 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Anthony - 5 10 Invesment\8. Aug\BRK 0825 - 009 - INV (Blk 537 Bedok North).pdf
+2025-08-14 15:03:49,376 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Anthony - 5 10 Invesment\8. Aug\BRK 0825 - 010 - INV (400 Orchard Road).pdf
+2025-08-14 15:03:49,378 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Anthony - Backyard Griller (Broadway)\8. Aug\BG 0825 - 001 - INV (848 Yishun).pdf
+2025-08-14 15:03:49,380 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Anthony - Craft Union\8. Aug\CU 0825 - 001 - INV.pdf
+2025-08-14 15:03:49,380 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Anthony - Craft Union\8. Aug\CU 0825 - 002 - INV.pdf
+2025-08-14 15:03:49,380 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Anthony - Craft Union\8. Aug\CU 0825 - 003 - INV.pdf
+2025-08-14 15:03:49,381 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Anthony - Cremeland\8. Aug\CRL 0825 - 001 - INV.pdf
+2025-08-14 15:03:49,381 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Anthony - Cremeland\8. Aug\CRL 0825 - 002 - INV.pdf
+2025-08-14 15:03:49,382 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Anthony - FoodXervices Inc Pte Ltd\8. Aug\FXI 0825 - 001 - INV (218 Pandan Loop).pdf
+2025-08-14 15:03:49,384 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Anthony - Jin Chun\8. Aug\JC 0825 - 001 - INV.pdf
+2025-08-14 15:03:49,390 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Anthony - Kay\8. Aug\KF 0825 - 001 - INV (Woodlands 11).pdf
+2025-08-14 15:03:49,390 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Anthony - Kay\8. Aug\KF 0825 - 002 - INV (Tampines 138).pdf
+2025-08-14 15:03:49,390 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Anthony - Kay\8. Aug\KF 0825 - 003 - INV (Woodlands 11).pdf
+2025-08-14 15:03:49,391 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Anthony - Myrtle\8. Aug\MY 0825 - 001 - INV.pdf
+2025-08-14 15:03:49,392 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Anthony - Plan B (DBL K)\8. Aug\PBF 0825 - 001 - INV (304 Woodlands).pdf
+2025-08-14 15:03:49,392 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Anthony - Plan B (DBL K)\8. Aug\PBF 0825 - 002 - INV (515A Woodlands).pdf
+2025-08-14 15:03:49,392 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Anthony - Plan B (DBL K)\8. Aug\PBF 0825 - 003 - INV (304 Woodlands).pdf
+2025-08-14 15:03:49,394 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Anthony - Prezfoods Trading Pte Ltd(De Tian)\8. Aug\PZT 0825 - 001 - INV (De Tian).pdf
+2025-08-14 15:03:49,394 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Anthony - Prezfoods Trading Pte Ltd(De Tian)\8. Aug\PZT 0825 - 002 - INV (Prezfood).pdf
+2025-08-14 15:03:49,394 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Anthony - Prezfoods Trading Pte Ltd(De Tian)\8. Aug\PZT 0825 - 003 - INV (De Tian) (Revised).pdf
+2025-08-14 15:03:49,394 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Anthony - Prezfoods Trading Pte Ltd(De Tian)\8. Aug\PZT 0825 - 003 - INV (De Tian).pdf
+2025-08-14 15:03:49,397 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Anthony - Sutl Food\8. Aug\SFI 0825 - 001 - INV.pdf
+2025-08-14 15:03:49,397 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Anthony - Sutl Food\8. Aug\SFI 0825 - 002 - INV.pdf
+2025-08-14 15:03:49,397 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Anthony - Sutl Food\8. Aug\SFI 0825 - 003 - INV.pdf
+2025-08-14 15:03:49,397 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Anthony - Sutl Food\8. Aug\SFI 0825 - 004 - INV.pdf
+2025-08-14 15:03:49,398 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Anthony - Tenderfresh\8. Aug\TF 0825 - 001 - INV.pdf
+2025-08-14 15:03:49,402 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Anthony - Teric Marketing Pte Ltd\8. Aug\TM 0825 - 001 - INV.pdf
+2025-08-14 15:03:49,402 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Anthony - Teric Marketing Pte Ltd\8. Aug\TM 0825 - 002 - INV.pdf
+2025-08-14 15:03:49,402 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Anthony - Teric Marketing Pte Ltd\8. Aug\TM 0825 - 003 - INV.pdf
+2025-08-14 15:03:49,402 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Anthony - Teric Marketing Pte Ltd\8. Aug\TM 0825 - 004 - INV.pdf
+2025-08-14 15:03:49,403 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Anthony - Teric Marketing Pte Ltd\8. Aug\TM 0825 - 005 - INV.pdf
+2025-08-14 15:03:49,403 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Anthony - Teric Marketing Pte Ltd\8. Aug\TM 0825 - 006 - INV.pdf
+2025-08-14 15:03:49,403 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Anthony - Teric Marketing Pte Ltd\8. Aug\TM 0825 - 007 - INV.pdf
+2025-08-14 15:03:49,403 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Anthony - Teric Marketing Pte Ltd\8. Aug\TM 0825 - 008 - INV.pdf
+2025-08-14 15:03:49,403 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Anthony - Teric Marketing Pte Ltd\8. Aug\TM 0825 - 009 - INV.pdf
+2025-08-14 15:03:49,405 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Joshua - ABR (Swensens)\8. Aug\ABR 0825 - 001 - INV (Changi Terminal 2).pdf
+2025-08-14 15:03:49,405 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Joshua - ABR (Swensens)\8. Aug\ABR 0825 - 002 - INV (Tampine Whse) - #02.pdf
+2025-08-14 15:03:49,406 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Joshua - ABR (Swensens)\8. Aug\ABR 0825 - 003 - INV (Tampines Central Kitchen) - #04.pdf
+2025-08-14 15:03:49,407 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Joshua - Chippy\8. Aug\CY 0825 - 001 - INV (Far East).pdf
+2025-08-14 15:03:49,409 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Joshua - Four Points Sheraton (Keck Seng Hotel)\8. Aug\4PS 0825 - 001 - INV.pdf
+2025-08-14 15:03:49,420 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Joshua - Kee Song\8. Aug\KS 0825 - 001 - INV.pdf
+2025-08-14 15:03:49,425 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Joshua - Makisan\Customer\8. Aug\MS 0825 - 001 - INV (Food Xchange @ Admiralty).pdf
+2025-08-14 15:03:49,425 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Joshua - Makisan\Customer\8. Aug\MS 0825 - 002 - INV (Food Xchange @ Admiralty).pdf
+2025-08-14 15:03:49,425 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Joshua - Makisan\Customer\8. Aug\MS 0825 - 003 - INV (Food Xchange @ Admiralty).pdf
+2025-08-14 15:03:49,425 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Joshua - Makisan\Customer\8. Aug\MS 0825 - 004 - INV (Food Xchange @ Admiralty).pdf
+2025-08-14 15:03:49,425 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Joshua - Makisan\Customer\8. Aug\MS 0825 - 005 - INV (Food Xchange @ Admiralty).pdf
+2025-08-14 15:03:49,425 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Joshua - Makisan\Customer\8. Aug\MS 0825 - 006 - INV (Food Xchange @ Admiralty).pdf
+2025-08-14 15:03:49,428 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Joshua - Safa Gourmet\8. Aug\SG 0825 - 001 - INV (Safa Gourmet).pdf
+2025-08-14 15:03:49,430 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Joshua - Sushi Express\8. Aug\SE 0825 - 001 - INV (Head Office).pdf
+2025-08-14 15:03:49,430 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Joshua - Sushi Express\8. Aug\SE 0825 - 002 - INV.pdf
+2025-08-14 15:03:49,432 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Joshua - Tong Huat\8. Aug\TH 0825 - 001 - INV.pdf
+2025-08-14 15:03:49,438 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Aikit\8. Aug\AK 0825 - 001 - INV.pdf
+2025-08-14 15:03:49,438 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Aikit\8. Aug\AK 0825 - 002 - INV.pdf
+2025-08-14 15:03:49,439 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Aikit\8. Aug\AK 0825 - 003 - INV.pdf
+2025-08-14 15:03:49,439 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Aikit\8. Aug\AK 0825 - 004 - INV.pdf
+2025-08-14 15:03:49,439 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Aikit\8. Aug\AK 0825 - 005 - INV.pdf
+2025-08-14 15:03:49,451 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Alt Pizza\For Customer\Ambient & Now Pizza & Sides\8. Aug\AP 0825 - 001 - INV (Holland).pdf
+2025-08-14 15:03:49,451 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Alt Pizza\For Customer\Ambient & Now Pizza & Sides\8. Aug\AP 0825 - 002 - INV (Katong).pdf
+2025-08-14 15:03:49,451 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Alt Pizza\For Customer\Ambient & Now Pizza & Sides\8. Aug\AP 0825 - 003 - INV (Now Pizza - Downtown East).pdf
+2025-08-14 15:03:49,451 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Alt Pizza\For Customer\Ambient & Now Pizza & Sides\8. Aug\AP 0825 - 004 - INV (Now Pizza - Funan).pdf
+2025-08-14 15:03:49,451 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Alt Pizza\For Customer\Ambient & Now Pizza & Sides\8. Aug\AP 0825 - 005 - INV (Now Pizza - Orchard Gateway).pdf
+2025-08-14 15:03:49,451 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Alt Pizza\For Customer\Ambient & Now Pizza & Sides\8. Aug\AP 0825 - 006 - INV (Creator Food Concepts - Sides - Bugis Plus).pdf
+2025-08-14 15:03:49,451 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Alt Pizza\For Customer\Ambient & Now Pizza & Sides\8. Aug\AP 0825 - 007 - INV (Balestier).pdf
+2025-08-14 15:03:49,451 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Alt Pizza\For Customer\Ambient & Now Pizza & Sides\8. Aug\AP 0825 - 008 - INV (Now Pizza - Downtown East).pdf
+2025-08-14 15:03:49,451 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Alt Pizza\For Customer\Ambient & Now Pizza & Sides\8. Aug\AP 0825 - 009 - INV (Now Pizza - Jurong Point).pdf
+2025-08-14 15:03:49,451 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Alt Pizza\For Customer\Ambient & Now Pizza & Sides\8. Aug\AP 0825 - 010 - INV (Creator Food Concepts - Sides - Bugis Plus).pdf
+2025-08-14 15:03:49,451 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Alt Pizza\For Customer\Ambient & Now Pizza & Sides\8. Aug\AP 0825 - 011 - INV (Robertson Quay).pdf
+2025-08-14 15:03:49,451 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Alt Pizza\For Customer\Ambient & Now Pizza & Sides\8. Aug\AP 0825 - 012 - INV (Creator Food Concepts - Sides - Bugis Plus).pdf
+2025-08-14 15:03:49,451 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Alt Pizza\For Customer\Ambient & Now Pizza & Sides\8. Aug\AP 0825 - 013 - INV (Holland).pdf
+2025-08-14 15:03:49,451 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Alt Pizza\For Customer\Ambient & Now Pizza & Sides\8. Aug\AP 0825 - 014 - INV (Katong).pdf
+2025-08-14 15:03:49,451 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Alt Pizza\For Customer\Ambient & Now Pizza & Sides\8. Aug\AP 0825 - 015 - INV (Balestier).pdf
+2025-08-14 15:03:49,451 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Alt Pizza\For Customer\Ambient & Now Pizza & Sides\8. Aug\AP 0825 - 016 - INV (Now Pizza – Thomson Plaza).pdf
+2025-08-14 15:03:49,451 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Alt Pizza\For Customer\Ambient & Now Pizza & Sides\8. Aug\AP 0825 - 017 - INV (Now Pizza - Jurong Point).pdf
+2025-08-14 15:03:49,451 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Alt Pizza\For Customer\Ambient & Now Pizza & Sides\8. Aug\AP 0825 - 018 - INV (Now Pizza - Bukit Panjang Plaza).pdf
+2025-08-14 15:03:49,451 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Alt Pizza\For Customer\Ambient & Now Pizza & Sides\8. Aug\AP 0825 - 019 - INV (Now Pizza - Sengkang).pdf
+2025-08-14 15:03:49,451 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Alt Pizza\For Customer\Ambient & Now Pizza & Sides\8. Aug\AP 0825 - 020 - INV (Creator Food Concepts - Sides - Bugis Plus).pdf
+2025-08-14 15:03:49,451 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Alt Pizza\For Customer\Ambient & Now Pizza & Sides\8. Aug\AP 0825 - 021 - INV (Robertson Quay).pdf
+2025-08-14 15:03:49,451 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Alt Pizza\For Customer\Ambient & Now Pizza & Sides\8. Aug\AP 0825 - 022 - INV (Now Pizza - Jurong Point).pdf
+2025-08-14 15:03:49,452 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Alt Pizza\For Customer\Ambient & Now Pizza & Sides\8. Aug\AP 0825 - 023 - INV (Now Pizza - Sengkang).pdf
+2025-08-14 15:03:49,452 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Alt Pizza\For Customer\Ambient & Now Pizza & Sides\8. Aug\AP 0825 - 024 - INV (Creator Food Concepts - Sides - Bugis Plus).pdf
+2025-08-14 15:03:49,452 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Alt Pizza\For Customer\Ambient & Now Pizza & Sides\8. Aug\AP 0825 - 025 - INV (Holland).pdf
+2025-08-14 15:03:49,452 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Alt Pizza\For Customer\Ambient & Now Pizza & Sides\8. Aug\AP 0825 - 026 - INV (Now Pizza - Orchard Gateway).pdf
+2025-08-14 15:03:49,452 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Alt Pizza\For Customer\Ambient & Now Pizza & Sides\8. Aug\AP 0825 - 027 - INV (Creator Food Concepts - Sides - Bugis Plus).pdf
+2025-08-14 15:03:49,452 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Alt Pizza\For Customer\Ambient & Now Pizza & Sides\8. Aug\AP 0825 - 028 - INV (Balestier).pdf
+2025-08-14 15:03:49,452 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Alt Pizza\For Customer\Ambient & Now Pizza & Sides\8. Aug\AP 0825 - 029 - INV (Now Pizza - Funan).pdf
+2025-08-14 15:03:49,452 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Alt Pizza\For Customer\Ambient & Now Pizza & Sides\8. Aug\AP 0825 - 030 - INV (Now Pizza - Sengkang).pdf
+2025-08-14 15:03:49,452 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Alt Pizza\For Customer\Ambient & Now Pizza & Sides\8. Aug\AP 0825 - 031 - INV (Katong).pdf
+2025-08-14 15:03:49,452 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Alt Pizza\For Customer\Ambient & Now Pizza & Sides\8. Aug\AP 0825 - 032 - INV (Holland).pdf
+2025-08-14 15:03:49,452 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Alt Pizza\For Customer\Ambient & Now Pizza & Sides\8. Aug\AP 0825 - 033 - INV (Robertson Quay).pdf
+2025-08-14 15:03:49,452 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Alt Pizza\For Customer\Ambient & Now Pizza & Sides\8. Aug\AP 0825 - 034 - INV (Now Pizza – Thomson Plaza).pdf
+2025-08-14 15:03:49,452 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Alt Pizza\For Customer\Ambient & Now Pizza & Sides\8. Aug\AP 0825 - 035 - INV (Creator Food Concepts - Sides - Bugis Plus).pdf
+2025-08-14 15:03:49,472 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Commonwealth\8. Aug\SWB 0825 - 001 - INV.pdf
+2025-08-14 15:03:49,473 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Commonwealth\8. Aug\SWB 0825 - 002 - INV.pdf
+2025-08-14 15:03:49,473 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Commonwealth\8. Aug\SWB 0825 - 003 - INV.pdf
+2025-08-14 15:03:49,474 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Crust Gourmet Pizza Bar (UT) Pte Ltd (TWB)\8. Aug\TWB 0825 - 001 - INV (TWB - Upper Thomson Rd).pdf
+2025-08-14 15:03:49,489 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Gopizza\For Customer\8. Aug\GP 0825 - 001 - INV (King Alb Park) - C.pdf
+2025-08-14 15:03:49,489 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Gopizza\For Customer\8. Aug\GP 0825 - 002 - INV (Jurong West Hawker) - C.pdf
+2025-08-14 15:03:49,489 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Gopizza\For Customer\8. Aug\GP 0825 - 003 - INV (King Alb Park) - C.pdf
+2025-08-14 15:03:49,489 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Gopizza\For Customer\8. Aug\GP 0825 - 004 - INV (Lazada One) - C.pdf
+2025-08-14 15:03:49,489 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Gopizza\For Customer\8. Aug\GP 0825 - 005 - INV (Plaza Sin) - C.pdf
+2025-08-14 15:03:49,489 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Gopizza\For Customer\8. Aug\GP 0825 - 006 - INV (Suntec) - C.pdf
+2025-08-14 15:03:49,489 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Gopizza\For Customer\8. Aug\GP 0825 - 007 - INV (Suntec) - C.pdf
+2025-08-14 15:03:49,489 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Gopizza\For Customer\8. Aug\GP 0825 - 008 - INV (Jurong West Hawker) - C.pdf
+2025-08-14 15:03:49,489 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Gopizza\For Customer\8. Aug\GP 0825 - 009 - INV (King Alb Park) - C.pdf
+2025-08-14 15:03:49,489 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Gopizza\For Customer\8. Aug\GP 0825 - 010 - INV (Lazada One) - C.pdf
+2025-08-14 15:03:49,489 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Gopizza\For Customer\8. Aug\GP 0825 - 011 - INV (Plaza Sin) - C.pdf
+2025-08-14 15:03:49,489 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Gopizza\For Customer\8. Aug\GP 0825 - 012 - INV (Suntec) - C.pdf
+2025-08-14 15:03:49,492 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Indoguna Singapore Pte Ltd\8. Aug\INS 0825 - 001 - INV (Indoguna).pdf
+2025-08-14 15:03:49,494 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Kebabs Faktory Pte Ltd\8. Aug\KFP 0825 - 001 - INV (Central Kitchen).pdf
+2025-08-14 15:03:49,495 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Kebabs Faktory Pte Ltd\8. Aug\KFP 0825 - 002 - INV (Sengkang Grand Mall).pdf
+2025-08-14 15:03:49,495 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Kebabs Faktory Pte Ltd\8. Aug\KFP 0825 - 003 - INV (Paya Lebar Square).pdf
+2025-08-14 15:03:49,495 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Kebabs Faktory Pte Ltd\8. Aug\KFP 0825 - 004 - INV (West Mall).pdf
+2025-08-14 15:03:49,495 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Kebabs Faktory Pte Ltd\8. Aug\KFP 0825 - 005 - INV (Central Kitchen).pdf
+2025-08-14 15:03:49,495 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Kebabs Faktory Pte Ltd\8. Aug\KFP 0825 - 006 - INV (Funan).pdf
+2025-08-14 15:03:49,495 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Kebabs Faktory Pte Ltd\8. Aug\KFP 0825 - 007 - INV (Central Kitchen).pdf
+2025-08-14 15:03:49,495 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Kebabs Faktory Pte Ltd\8. Aug\KFP 0825 - 008 - INV (Timbre+ Ayer Rajah).pdf
+2025-08-14 15:03:49,495 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Kebabs Faktory Pte Ltd\8. Aug\KFP 0825 - 009 - INV (Tanglin Mall Franchise).pdf
+2025-08-14 15:03:49,495 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Kebabs Faktory Pte Ltd\8. Aug\KFP 0825 - 010 - INV (Central Kitchen).pdf
+2025-08-14 15:03:49,495 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Kebabs Faktory Pte Ltd\8. Aug\KFP 0825 - 011 - INV (Paya Lebar Square).pdf
+2025-08-14 15:03:49,517 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Monster Curry\8. Aug\MC 0825 - 001 - INV (CenterPoint).pdf
+2025-08-14 15:03:49,517 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Monster Curry\8. Aug\MC 0825 - 002 - INV (ION).pdf
+2025-08-14 15:03:49,517 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Monster Curry\8. Aug\MC 0825 - 003 - INV (JEM).pdf
+2025-08-14 15:03:49,517 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Monster Curry\8. Aug\MC 0825 - 004 - INV (Vivo CIty).pdf
+2025-08-14 15:03:49,517 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Monster Curry\8. Aug\MC 0825 - 005 - INV (Waterway Point).pdf
+2025-08-14 15:03:49,517 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Monster Curry\8. Aug\MC 0825 - 006 - INV (Jewel).pdf
+2025-08-14 15:03:49,517 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Monster Curry\8. Aug\MC 0825 - 007 - INV (Novena Sq).pdf
+2025-08-14 15:03:49,517 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Monster Curry\8. Aug\MC 0825 - 008 - INV (Bugis).pdf
+2025-08-14 15:03:49,517 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Monster Curry\8. Aug\MC 0825 - 009 - INV (JEM).pdf
+2025-08-14 15:03:49,517 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Monster Curry\8. Aug\MC 0825 - 010 - INV (Jurong Point).pdf
+2025-08-14 15:03:49,517 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Monster Curry\8. Aug\MC 0825 - 011 - INV (North Point).pdf
+2025-08-14 15:03:49,517 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Monster Curry\8. Aug\MC 0825 - 012 - INV (NEX).pdf
+2025-08-14 15:03:49,517 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Monster Curry\8. Aug\MC 0825 - 013 - INV (Suntec).pdf
+2025-08-14 15:03:49,517 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Monster Curry\8. Aug\MC 0825 - 014 - INV (Waterway Point).pdf
+2025-08-14 15:03:49,517 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Monster Curry\8. Aug\MC 0825 - 015 - INV (ION).pdf
+2025-08-14 15:03:49,518 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Monster Curry\8. Aug\MC 0825 - 016 - INV (Vivo CIty).pdf
+2025-08-14 15:03:49,518 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Monster Curry\8. Aug\MC 0825 - 017 - INV (Tampines 1).pdf
+2025-08-14 15:03:49,518 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Monster Curry\8. Aug\MC 0825 - 018 - INV (ION).pdf
+2025-08-14 15:03:49,518 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Monster Curry\8. Aug\MC 0825 - 019 - INV (Novena Sq).pdf
+2025-08-14 15:03:49,518 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Monster Curry\8. Aug\MC 0825 - 020 - INV (CenterPoint).pdf
+2025-08-14 15:03:49,518 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Monster Curry\8. Aug\MC 0825 - 021 - INV (Jewel).pdf
+2025-08-14 15:03:49,518 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Monster Curry\8. Aug\MC 0825 - 022 - INV (Bugis).pdf
+2025-08-14 15:03:49,518 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Monster Curry\8. Aug\MC 0825 - 023 - INV (JEM).pdf
+2025-08-14 15:03:49,518 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Monster Curry\8. Aug\MC 0825 - 024 - INV (Vivo CIty).pdf
+2025-08-14 15:03:49,531 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 001 - INV (Bedok Mall).pdf
+2025-08-14 15:03:49,531 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 002 - INV (Compass One).pdf
+2025-08-14 15:03:49,531 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 003 - INV (East Point Mall).pdf
+2025-08-14 15:03:49,531 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 004 - INV (Heartland Mall Kovan).pdf
+2025-08-14 15:03:49,531 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 005 - INV (Hillion Mall).pdf
+2025-08-14 15:03:49,531 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 006 - INV (Jurong Point).pdf
+2025-08-14 15:03:49,531 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 007 - INV (Northpoint).pdf
+2025-08-14 15:03:49,531 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 008 - INV (Our Tampines Hub).pdf
+2025-08-14 15:03:49,531 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 009 - INV (Seletar Mall).pdf
+2025-08-14 15:03:49,531 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 010 - INV (Waterway Point).pdf
+2025-08-14 15:03:49,531 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 011 - INV (White Sands).pdf
+2025-08-14 15:03:49,531 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 012 - INV (100AM).pdf
+2025-08-14 15:03:49,531 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 013 - INV (Bedok Mall).pdf
+2025-08-14 15:03:49,531 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 014 - INV (Causeway Point).pdf
+2025-08-14 15:03:49,531 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 015 - INV (City Square Mall ).pdf
+2025-08-14 15:03:49,531 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 016 - INV (Compass One).pdf
+2025-08-14 15:03:49,531 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 017 - INV (Fusionopolis One).pdf
+2025-08-14 15:03:49,531 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 018 - INV (Hillion Mall).pdf
+2025-08-14 15:03:49,531 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 019 - INV (Hougang Mall).pdf
+2025-08-14 15:03:49,531 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 020 - INV (ION).pdf
+2025-08-14 15:03:49,531 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 021 - INV (JEM).pdf
+2025-08-14 15:03:49,531 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 022 - INV (Kampung Admiralty).pdf
+2025-08-14 15:03:49,532 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 023 - INV (Marina Bay Link Mall).pdf
+2025-08-14 15:03:49,532 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 024 - INV (Merlion).pdf
+2025-08-14 15:03:49,532 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 025 - INV (Millenia Walk).pdf
+2025-08-14 15:03:49,532 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 026 - INV (Northpoint).pdf
+2025-08-14 15:03:49,532 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 027 - INV (Seletar Mall).pdf
+2025-08-14 15:03:49,532 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 028 - INV (The CentrePoint).pdf
+2025-08-14 15:03:49,532 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 029 - INV (Tiong Bahru Plaza).pdf
+2025-08-14 15:03:49,532 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 030 - INV (TPY Hub).pdf
+2025-08-14 15:03:49,532 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 031 - INV (Waterway Point).pdf
+2025-08-14 15:03:49,532 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 032 - INV (White Sands).pdf
+2025-08-14 15:03:49,532 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 033 - INV (18 Tai Seng).pdf
+2025-08-14 15:03:49,532 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 034 - INV (AMK Hub).pdf
+2025-08-14 15:03:49,532 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 035 - INV (Bukit Gombak MRT).pdf
+2025-08-14 15:03:49,532 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 036 - INV (Holland Village MRT).pdf
+2025-08-14 15:03:49,532 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 037 - INV (Harbourfront Centre).pdf
+2025-08-14 15:03:49,532 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 038 - INV (Heartland Mall Kovan).pdf
+2025-08-14 15:03:49,532 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 039 - INV (Marina Bay Link Mall).pdf
+2025-08-14 15:03:49,532 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 040 - INV (NEX).pdf
+2025-08-14 15:03:49,532 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 041 - INV (TPY Hub).pdf
+2025-08-14 15:03:49,532 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 042 - INV (Bedok Mall).pdf
+2025-08-14 15:03:49,532 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 043 - INV (Compass One).pdf
+2025-08-14 15:03:49,532 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 044 - INV (Jurong Point).pdf
+2025-08-14 15:03:49,532 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 045 - INV (Northpoint).pdf
+2025-08-14 15:03:49,532 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 046 - INV (Waterway Point).pdf
+2025-08-14 15:03:49,532 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 047 - INV (ION).pdf
+2025-08-14 15:03:49,532 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 048 - INV (100AM).pdf
+2025-08-14 15:03:49,532 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 049 - INV (AMK Hub).pdf
+2025-08-14 15:03:49,532 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 050 - INV (Causeway Point).pdf
+2025-08-14 15:03:49,532 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 051 - INV (City Square Mall ).pdf
+2025-08-14 15:03:49,532 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 052 - INV (Bukit Gombak MRT).pdf
+2025-08-14 15:03:49,532 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 053 - INV (Holland Village MRT).pdf
+2025-08-14 15:03:49,532 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 054 - INV (Fusionopolis One).pdf
+2025-08-14 15:03:49,533 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 055 - INV (Hougang Mall).pdf
+2025-08-14 15:03:49,533 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 056 - INV (ION).pdf
+2025-08-14 15:03:49,533 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 057 - INV (JEM).pdf
+2025-08-14 15:03:49,533 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 058 - INV (Kampung Admiralty).pdf
+2025-08-14 15:03:49,533 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 059 - INV (Marina Bay Link Mall).pdf
+2025-08-14 15:03:49,533 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 060 - INV (Merlion).pdf
+2025-08-14 15:03:49,533 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 061 - INV (Millenia Walk).pdf
+2025-08-14 15:03:49,533 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 062 - INV (NEX).pdf
+2025-08-14 15:03:49,533 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 063 - INV (The CentrePoint).pdf
+2025-08-14 15:03:49,533 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 064 - INV (Tiong Bahru Plaza).pdf
+2025-08-14 15:03:49,533 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 065 - INV (TPY Hub).pdf
+2025-08-14 15:03:49,533 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 066 - INV (White Sands).pdf
+2025-08-14 15:03:49,533 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 067 - INV (Hougang Mall).pdf
+2025-08-14 15:03:49,533 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 068 - INV (ION).pdf
+2025-08-14 15:03:49,533 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 069 - INV (Kampung Admiralty).pdf
+2025-08-14 15:03:49,533 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 070 - INV (Marina Bay Link Mall).pdf
+2025-08-14 15:03:49,533 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 071 - INV (Millenia Walk).pdf
+2025-08-14 15:03:49,533 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 072 - INV (NEX).pdf
+2025-08-14 15:03:49,533 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 073 - INV (The CentrePoint).pdf
+2025-08-14 15:03:49,533 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 074 - INV (TPY Hub).pdf
+2025-08-14 15:03:49,533 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 075 - INV (18 Tai Seng).pdf
+2025-08-14 15:03:49,533 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 076 - INV (Bedok Mall).pdf
+2025-08-14 15:03:49,533 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 077 - INV (Compass One).pdf
+2025-08-14 15:03:49,533 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 078 - INV (East Point Mall).pdf
+2025-08-14 15:03:49,533 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 079 - INV (Heartland Mall Kovan).pdf
+2025-08-14 15:03:49,533 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 080 - INV (Hillion Mall).pdf
+2025-08-14 15:03:49,533 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 081 - INV (Jurong Point).pdf
+2025-08-14 15:03:49,533 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 082 - INV (Northpoint).pdf
+2025-08-14 15:03:49,533 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 083 - INV (Our Tampines Hub).pdf
+2025-08-14 15:03:49,534 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 084 - INV (Seletar Mall).pdf
+2025-08-14 15:03:49,534 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 085 - INV (Waterway Point).pdf
+2025-08-14 15:03:49,534 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 086 - INV (White Sands).pdf
+2025-08-14 15:03:49,534 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 087 - INV (Jurong Point).pdf
+2025-08-14 15:03:49,534 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 088 - INV (Northpoint).pdf
+2025-08-14 15:03:49,534 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 089 - INV (Waterway Point).pdf
+2025-08-14 15:03:49,534 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 090 - INV (Pollock Finger).pdf
+2025-08-14 15:03:49,534 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 091 - INV (100AM).pdf
+2025-08-14 15:03:49,534 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 092 - INV (Bedok Mall).pdf
+2025-08-14 15:03:49,534 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 093 - INV (Causeway Point).pdf
+2025-08-14 15:03:49,534 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 094 - INV (Compass One).pdf
+2025-08-14 15:03:49,534 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 095 - INV (Fusionopolis One).pdf
+2025-08-14 15:03:49,534 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 096 - INV (Hillion Mall).pdf
+2025-08-14 15:03:49,534 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 097 - INV (Hougang Mall).pdf
+2025-08-14 15:03:49,534 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 098 - INV (ION).pdf
+2025-08-14 15:03:49,534 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 099 - INV (JEM).pdf
+2025-08-14 15:03:49,534 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 100 - INV (Jurong Point).pdf
+2025-08-14 15:03:49,534 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 101 - INV (Kampung Admiralty).pdf
+2025-08-14 15:03:49,534 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 102 - INV (Marina Bay Link Mall).pdf
+2025-08-14 15:03:49,534 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 103 - INV (Merlion).pdf
+2025-08-14 15:03:49,534 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 104 - INV (Millenia Walk).pdf
+2025-08-14 15:03:49,534 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 105 - INV (Northpoint).pdf
+2025-08-14 15:03:49,534 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 106 - INV (The CentrePoint).pdf
+2025-08-14 15:03:49,534 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 107 - INV (Tiong Bahru Plaza).pdf
+2025-08-14 15:03:49,534 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 108 - INV (TPY Hub).pdf
+2025-08-14 15:03:49,534 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 109 - INV (Waterway Point).pdf
+2025-08-14 15:03:49,534 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 110 - INV (White Sands).pdf
+2025-08-14 15:03:49,534 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 111 - INV (18 Tai Seng).pdf
+2025-08-14 15:03:49,534 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 112 - INV (AMK Hub).pdf
+2025-08-14 15:03:49,534 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 113 - INV (East Point Mall).pdf
+2025-08-14 15:03:49,534 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 114 - INV (Holland Village MRT).pdf
+2025-08-14 15:03:49,535 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 115 - INV (Harbourfront Centre).pdf
+2025-08-14 15:03:49,535 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 116 - INV (Heartland Mall Kovan).pdf
+2025-08-14 15:03:49,535 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 117 - INV (NEX).pdf
+2025-08-14 15:03:49,535 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 118 - INV (Bedok Mall).pdf
+2025-08-14 15:03:49,535 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 119 - INV (Jurong Point).pdf
+2025-08-14 15:03:49,535 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 120 - INV (Northpoint).pdf
+2025-08-14 15:03:49,535 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 121 - INV (Seletar Mall).pdf
+2025-08-14 15:03:49,535 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 122 - INV (Waterway Point).pdf
+2025-08-14 15:03:49,535 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 123 - INV (100AM).pdf
+2025-08-14 15:03:49,535 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 124 - INV (18 Tai Seng).pdf
+2025-08-14 15:03:49,535 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 125 - INV (AMK Hub).pdf
+2025-08-14 15:03:49,535 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 126 - INV (Causeway Point).pdf
+2025-08-14 15:03:49,535 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 127 - INV (City Square Mall ).pdf
+2025-08-14 15:03:49,535 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 128 - INV (Bukit Gombak MRT).pdf
+2025-08-14 15:03:49,535 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 129 - INV (Fusionopolis One).pdf
+2025-08-14 15:03:49,535 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 130 - INV (Harbourfront Centre).pdf
+2025-08-14 15:03:49,535 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 131 - INV (Hougang Mall).pdf
+2025-08-14 15:03:49,535 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 132 - INV (ION).pdf
+2025-08-14 15:03:49,535 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 133 - INV (Kampung Admiralty).pdf
+2025-08-14 15:03:49,535 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 134 - INV (Marina Bay Link Mall).pdf
+2025-08-14 15:03:49,535 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 135 - INV (Merlion).pdf
+2025-08-14 15:03:49,535 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 136 - INV (Millenia Walk).pdf
+2025-08-14 15:03:49,535 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 137 - INV (NEX).pdf
+2025-08-14 15:03:49,535 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 138 - INV (The CentrePoint).pdf
+2025-08-14 15:03:49,535 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 139 - INV (Tiong Bahru Plaza).pdf
+2025-08-14 15:03:49,535 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 140 - INV (TPY Hub).pdf
+2025-08-14 15:03:49,535 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 141 - INV (White Sands).pdf
+2025-08-14 15:03:49,535 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 142 - INV (Bedok Mall).pdf
+2025-08-14 15:03:49,535 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 143 - INV (Compass One).pdf
+2025-08-14 15:03:49,535 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 144 - INV (East Point Mall).pdf
+2025-08-14 15:03:49,535 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 145 - INV (Heartland Mall Kovan).pdf
+2025-08-14 15:03:49,535 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 146 - INV (Hillion Mall).pdf
+2025-08-14 15:03:49,536 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 147 - INV (Northpoint).pdf
+2025-08-14 15:03:49,536 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 148 - INV (Our Tampines Hub).pdf
+2025-08-14 15:03:49,536 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 149 - INV (Seletar Mall).pdf
+2025-08-14 15:03:49,536 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 150 - INV (Waterway Point).pdf
+2025-08-14 15:03:49,536 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - MOS Burger\For Customer\8. Aug\MOS 0825 - 151 - INV (White Sands).pdf
+2025-08-14 15:03:49,555 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Oceana (Fish & Co)\8. Aug\FNC 0825 - 001 - INV (Causeway Point).pdf
+2025-08-14 15:03:49,555 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Oceana (Fish & Co)\8. Aug\FNC 0825 - 002 - INV (New Tech Park+).pdf
+2025-08-14 15:03:49,555 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Oceana (Fish & Co)\8. Aug\FNC 0825 - 003 - INV (Our Tampines Hub).pdf
+2025-08-14 15:03:49,555 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Oceana (Fish & Co)\8. Aug\FNC 0825 - 004 - INV (The Rail Mall).pdf
+2025-08-14 15:03:49,555 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Oceana (Fish & Co)\8. Aug\FNC 0825 - 005 - INV (Waterway Point).pdf
+2025-08-14 15:03:49,555 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Oceana (Fish & Co)\8. Aug\FNC 0825 - 006 - INV (AMK HUb).pdf
+2025-08-14 15:03:49,555 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Oceana (Fish & Co)\8. Aug\FNC 0825 - 007 - INV (Jewel).pdf
+2025-08-14 15:03:49,555 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Oceana (Fish & Co)\8. Aug\FNC 0825 - 008 - INV (Paragon).pdf
+2025-08-14 15:03:49,555 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Oceana (Fish & Co)\8. Aug\FNC 0825 - 009 - INV (Woodleigh Mall).pdf
+2025-08-14 15:03:49,555 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Oceana (Fish & Co)\8. Aug\FNC 0825 - 010 - INV (Causeway Point).pdf
+2025-08-14 15:03:49,555 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Oceana (Fish & Co)\8. Aug\FNC 0825 - 011 - INV (Jurong Point).pdf
+2025-08-14 15:03:49,555 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Oceana (Fish & Co)\8. Aug\FNC 0825 - 012 - INV (AMK HUb).pdf
+2025-08-14 15:03:49,555 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Oceana (Fish & Co)\8. Aug\FNC 0825 - 013 - INV (Causeway Point).pdf
+2025-08-14 15:03:49,555 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Oceana (Fish & Co)\8. Aug\FNC 0825 - 014 - INV (Jewel).pdf
+2025-08-14 15:03:49,555 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Oceana (Fish & Co)\8. Aug\FNC 0825 - 015 - INV (Jurong Point).pdf
+2025-08-14 15:03:49,555 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Oceana (Fish & Co)\8. Aug\FNC 0825 - 016 - INV (New Tech Park+).pdf
+2025-08-14 15:03:49,555 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Oceana (Fish & Co)\8. Aug\FNC 0825 - 017 - INV (Our Tampines Hub).pdf
+2025-08-14 15:03:49,555 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Oceana (Fish & Co)\8. Aug\FNC 0825 - 018 - INV (Paragon).pdf
+2025-08-14 15:03:49,555 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Oceana (Fish & Co)\8. Aug\FNC 0825 - 019 - INV (The Rail Mall).pdf
+2025-08-14 15:03:49,556 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Oceana (Fish & Co)\8. Aug\FNC 0825 - 020 - INV (Waterway Point).pdf
+2025-08-14 15:03:49,556 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Oceana (Fish & Co)\8. Aug\FNC 0825 - 021 - INV (Woodleigh Mall).pdf
+2025-08-14 15:03:49,556 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Oceana (Fish & Co)\8. Aug\FNC 0825 - 022 - INV (Mandai Link).pdf
+2025-08-14 15:03:49,556 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Oceana (Fish & Co)\8. Aug\FNC 0825 - 023 - INV (AMK HUb).pdf
+2025-08-14 15:03:49,556 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Oceana (Fish & Co)\8. Aug\FNC 0825 - 024 - INV (Causeway Point).pdf
+2025-08-14 15:03:49,556 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Oceana (Fish & Co)\8. Aug\FNC 0825 - 025 - INV (Jurong Point).pdf
+2025-08-14 15:03:49,556 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Oceana (Fish & Co)\8. Aug\FNC 0825 - 026 - INV (Our Tampines Hub).pdf
+2025-08-14 15:03:49,556 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Oceana (Fish & Co)\8. Aug\FNC 0825 - 027 - INV (Jewel).pdf
+2025-08-14 15:03:49,556 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Oceana (Fish & Co)\8. Aug\FNC 0825 - 028 - INV (The Rail Mall).pdf
+2025-08-14 15:03:49,556 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Oceana (Fish & Co)\8. Aug\FNC 0825 - 029 - INV (Causeway Point).pdf
+2025-08-14 15:03:49,556 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Oceana (Fish & Co)\8. Aug\FNC 0825 - 030 - INV (Jewel).pdf
+2025-08-14 15:03:49,556 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Oceana (Fish & Co)\8. Aug\FNC 0825 - 031 - INV (New Tech Park+).pdf
+2025-08-14 15:03:49,556 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Oceana (Fish & Co)\8. Aug\FNC 0825 - 032 - INV (Our Tampines Hub).pdf
+2025-08-14 15:03:49,556 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Oceana (Fish & Co)\8. Aug\FNC 0825 - 033 - INV (Paragon).pdf
+2025-08-14 15:03:49,556 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Oceana (Fish & Co)\8. Aug\FNC 0825 - 034 - INV (Waterway Point).pdf
+2025-08-14 15:03:49,556 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Oceana (Fish & Co)\8. Aug\FNC 0825 - 035 - INV (Jurong Point).pdf
+2025-08-14 15:03:49,560 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Oceana (Texas Lone Star)\8. Aug\TLS 0825 - 001 - INV (Jelapang).pdf
+2025-08-14 15:03:49,560 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Oceana (Texas Lone Star)\8. Aug\TLS 0825 - 002 - INV (Pasir Ris Central).pdf
+2025-08-14 15:03:49,560 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Oceana (Texas Lone Star)\8. Aug\TLS 0825 - 003 - INV (Redhills).pdf
+2025-08-14 15:03:49,560 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Oceana (Texas Lone Star)\8. Aug\TLS 0825 - 004 - INV (Sengkang).pdf
+2025-08-14 15:03:49,560 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Oceana (Texas Lone Star)\8. Aug\TLS 0825 - 005 - INV (Jelapang).pdf
+2025-08-14 15:03:49,560 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Oceana (Texas Lone Star)\8. Aug\TLS 0825 - 006 - INV (Pasir Ris Central).pdf
+2025-08-14 15:03:49,560 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Oceana (Texas Lone Star)\8. Aug\TLS 0825 - 007 - INV (Sengkang).pdf
+2025-08-14 15:03:49,560 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Oceana (Texas Lone Star)\8. Aug\TLS 0825 - 008 - INV (Pasir Ris Central).pdf
+2025-08-14 15:03:49,560 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Oceana (Texas Lone Star)\8. Aug\TLS 0825 - 009 - INV (Redhills).pdf
+2025-08-14 15:03:49,560 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Oceana (Texas Lone Star)\8. Aug\TLS 0825 - 010 - INV (Jelapang).pdf
+2025-08-14 15:03:49,560 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Oceana (Texas Lone Star)\8. Aug\TLS 0825 - 011 - INV (Sengkang).pdf
+2025-08-14 15:03:49,560 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Oceana (Texas Lone Star)\8. Aug\TLS 0825 - 012 - INV (Pasir Ris Central).pdf
+2025-08-14 15:03:49,562 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - P17 Food Pte Ltd (Pizza Nation)\8. Aug\P17 0825 - 001 - INV (Our Tampines Hub).pdf
+2025-08-14 15:03:49,562 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - P17 Food Pte Ltd (Pizza Nation)\8. Aug\P17 0825 - 002 - INV (Our Tampines Hub).pdf
+2025-08-14 15:03:49,562 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - P17 Food Pte Ltd (Pizza Nation)\8. Aug\P17 0825 - 003 - INV (Our Tampines Hub).pdf
+2025-08-14 15:03:49,562 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - P17 Food Pte Ltd (Pizza Nation)\8. Aug\P17 0825 - 004 - INV (North Point).pdf
+2025-08-14 15:03:49,562 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - P17 Food Pte Ltd (Pizza Nation)\8. Aug\P17 0825 - 005 - INV (Our Tampines Hub).pdf
+2025-08-14 15:03:49,562 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - P17 Food Pte Ltd (Pizza Nation)\8. Aug\P17 0825 - 006 - INV (Our Tampines Hub).pdf
+2025-08-14 15:03:49,569 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Pepperlunch\8. Aug\PPL 0825 - 001 - INV (313 Somerset).pdf
+2025-08-14 15:03:49,569 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Pepperlunch\8. Aug\PPL 0825 - 002 - INV (AMK).pdf
+2025-08-14 15:03:49,569 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Pepperlunch\8. Aug\PPL 0825 - 003 - INV (JEM).pdf
+2025-08-14 15:03:49,569 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Pepperlunch\8. Aug\PPL 0825 - 004 - INV (Jurong Point).pdf
+2025-08-14 15:03:49,569 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Pepperlunch\8. Aug\PPL 0825 - 005 - INV (MBS).pdf
+2025-08-14 15:03:49,569 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Pepperlunch\8. Aug\PPL 0825 - 006 - INV (NEX).pdf
+2025-08-14 15:03:49,569 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Pepperlunch\8. Aug\PPL 0825 - 007 - INV (Parkway Parade).pdf
+2025-08-14 15:03:49,569 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Pepperlunch\8. Aug\PPL 0825 - 008 - INV (Pasir Ris Mall).pdf
+2025-08-14 15:03:49,569 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Pepperlunch\8. Aug\PPL 0825 - 009 - INV (Plaza Sin).pdf
+2025-08-14 15:03:49,569 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Pepperlunch\8. Aug\PPL 0825 - 010 - INV (PLQ).pdf
+2025-08-14 15:03:49,569 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Pepperlunch\8. Aug\PPL 0825 - 011 - INV (Tampines 1).pdf
+2025-08-14 15:03:49,569 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Pepperlunch\8. Aug\PPL 0825 - 012 - INV (Bedok Mall).pdf
+2025-08-14 15:03:49,569 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Pepperlunch\8. Aug\PPL 0825 - 013 - INV (Lot 1).pdf
+2025-08-14 15:03:49,569 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Pepperlunch\8. Aug\PPL 0825 - 014 - INV (Northpoint).pdf
+2025-08-14 15:03:49,569 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Pepperlunch\8. Aug\PPL 0825 - 015 - INV (Woodleigh Mall).pdf
+2025-08-14 15:03:49,569 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Pepperlunch\8. Aug\PPL 0825 - 016 - INV (Compass One).pdf
+2025-08-14 15:03:49,569 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Pepperlunch\8. Aug\PPL 0825 - 017 - INV (Taka).pdf
+2025-08-14 15:03:49,569 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Pepperlunch\8. Aug\PPL 0825 - 018 - INV (MBS).pdf
+2025-08-14 15:03:49,569 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Pepperlunch\8. Aug\PPL 0825 - 019 - INV (SRG).pdf
+2025-08-14 15:03:49,569 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Pepperlunch\8. Aug\PPL 0825 - 020 - INV (Tampines 1).pdf
+2025-08-14 15:03:49,569 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Pepperlunch\8. Aug\PPL 0825 - 021 - INV (AMK).pdf
+2025-08-14 15:03:49,569 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Pepperlunch\8. Aug\PPL 0825 - 022 - INV (ION).pdf
+2025-08-14 15:03:49,570 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Pepperlunch\8. Aug\PPL 0825 - 023 - INV (Jurong Point).pdf
+2025-08-14 15:03:49,570 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Pepperlunch\8. Aug\PPL 0825 - 024 - INV (NEX).pdf
+2025-08-14 15:03:49,570 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Pepperlunch\8. Aug\PPL 0825 - 025 - INV (Pasir Ris Mall).pdf
+2025-08-14 15:03:49,570 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Pepperlunch\8. Aug\PPL 0825 - 026 - INV (Jurong Point).pdf
+2025-08-14 15:03:49,570 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Pepperlunch\8. Aug\PPL 0825 - 027 - INV (Parkway Parade).pdf
+2025-08-14 15:03:49,570 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Pepperlunch\8. Aug\PPL 0825 - 028 - INV (Punggol Waterway Point).pdf
+2025-08-14 15:03:49,570 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Pepperlunch\8. Aug\PPL 0825 - 029 - INV (Bedok Mall).pdf
+2025-08-14 15:03:49,570 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Pepperlunch\8. Aug\PPL 0825 - 030 - INV (Compass One).pdf
+2025-08-14 15:03:49,570 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Pepperlunch\8. Aug\PPL 0825 - 031 - INV (Hillion Mall).pdf
+2025-08-14 15:03:49,570 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Pepperlunch\8. Aug\PPL 0825 - 032 - INV (Northpoint).pdf
+2025-08-14 15:03:49,570 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Pepperlunch\8. Aug\PPL 0825 - 033 - INV (Tampines 1).pdf
+2025-08-14 15:03:49,570 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Pepperlunch\8. Aug\PPL 0825 - 034 - INV (313 Somerset).pdf
+2025-08-14 15:03:49,570 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Pepperlunch\8. Aug\PPL 0825 - 035 - INV (Causeway Point).pdf
+2025-08-14 15:03:49,570 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Pepperlunch\8. Aug\PPL 0825 - 036 - INV (AMK).pdf
+2025-08-14 15:03:49,570 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Pepperlunch\8. Aug\PPL 0825 - 037 - INV (Greatworld City).pdf
+2025-08-14 15:03:49,570 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Pepperlunch\8. Aug\PPL 0825 - 038 - INV (Jurong Point).pdf
+2025-08-14 15:03:49,570 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Pepperlunch\8. Aug\PPL 0825 - 039 - INV (Lot 1).pdf
+2025-08-14 15:03:49,570 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Pepperlunch\8. Aug\PPL 0825 - 040 - INV (NEX).pdf
+2025-08-14 15:03:49,570 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Pepperlunch\8. Aug\PPL 0825 - 041 - INV (Pasir Ris Mall).pdf
+2025-08-14 15:03:49,570 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Pepperlunch\8. Aug\PPL 0825 - 042 - INV (Plaza Sin).pdf
+2025-08-14 15:03:49,570 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Pepperlunch\8. Aug\PPL 0825 - 043 - INV (Sun Plaza).pdf
+2025-08-14 15:03:49,570 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Pepperlunch\8. Aug\PPL 0825 - 044 - INV (Tiong Bahru Plaza).pdf
+2025-08-14 15:03:49,570 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Pepperlunch\8. Aug\PPL 0825 - 045 - INV (Woodleigh Mall).pdf
+2025-08-14 15:03:49,572 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Pezzo Singapore Pte Ltd\8. Aug\PZ 0825 - 001 - INV (Bedok Mall).pdf
+2025-08-14 15:03:49,582 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Poke Theory\8. Aug\PT 0825 - 001 - INV (EightKings - TripleOne Somerset).pdf
+2025-08-14 15:03:49,582 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Poke Theory\8. Aug\PT 0825 - 002 - INV (Suntec City).pdf
+2025-08-14 15:03:49,582 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Poke Theory\8. Aug\PT 0825 - 003 - INV (HHH - One Kent Ridge).pdf
+2025-08-14 15:03:49,582 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Poke Theory\8. Aug\PT 0825 - 004 -INV (Pepite -  Duo Galleria).pdf
+2025-08-14 15:03:49,582 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Poke Theory\8. Aug\PT 0825 - 005 - INV (EightKings - TripleOne Somerset).pdf
+2025-08-14 15:03:49,582 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Poke Theory\8. Aug\PT 0825 - 006 - INV (KeysFresh - Velocity).pdf
+2025-08-14 15:03:49,582 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Poke Theory\8. Aug\PT 0825 - 007 - INV (Pisti - PLQ).pdf
+2025-08-14 15:03:49,582 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Poke Theory\8. Aug\PT 0825 - 008 - INV (Lees - Telok Ayer).pdf
+2025-08-14 15:03:49,582 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Poke Theory\8. Aug\PT 0825 - 009 - INV (EightKings - TripleOne Somerset).pdf
+2025-08-14 15:03:49,582 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Poke Theory\8. Aug\PT 0825 - 010 - INV (KeysFresh - Velocity).pdf
+2025-08-14 15:03:49,583 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Poke Theory\8. Aug\PT 0825 - 011 - INV (Vitech - Causeway Point).pdf
+2025-08-14 15:03:49,584 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Rite Pizza\For Customer\8. Aug\RI 0825 - 001 - INV (CCK).pdf
+2025-08-14 15:03:49,584 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Rolo Robotics Pte Ltd\For Customer\8. Aug\RRP 0825 - 001 - INV (202 Bedok South Avenue 1).pdf
+2025-08-14 15:03:49,592 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Sarpino\8. Aug\Frozen Lemon Billing\SW 0825 - 006 - INV (Tampines Safra - 1A Tampines Street).pdf
+2025-08-14 15:03:49,592 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Sarpino\8. Aug\Frozen Lemon Billing\SW 0825 - 016 - INV (Tampines Safra - 1A Tampines Street).pdf
+2025-08-14 15:03:49,593 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Sarpino\8. Aug\Sarpino Pte Ltd Billing\SW 0825 - 001 - INV (Dunearn - 314 Dunearn Road).pdf
+2025-08-14 15:03:49,593 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Sarpino\8. Aug\Sarpino Pte Ltd Billing\SW 0825 - 003 - INV (Dunearn - 314 Dunearn Road).pdf
+2025-08-14 15:03:49,593 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Sarpino\8. Aug\Sarpino Pte Ltd Billing\SW 0825 - 004 - INV (Dunearn - 314 Dunearn Road).pdf
+2025-08-14 15:03:49,593 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Sarpino\8. Aug\Sarpino Pte Ltd Billing\SW 0825 - 007 - INV (Dunearn - 314 Dunearn Road).pdf
+2025-08-14 15:03:49,593 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Sarpino\8. Aug\Sarpino Pte Ltd Billing\SW 0825 - 009 - INV (Dunearn - 314 Dunearn Road).pdf
+2025-08-14 15:03:49,593 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Sarpino\8. Aug\Sarpino Pte Ltd Billing\SW 0825 - 011 - INV (Dunearn - 314 Dunearn Road).pdf
+2025-08-14 15:03:49,593 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Sarpino\8. Aug\Sarpino Pte Ltd Billing\SW 0825 - 012 - INV (Dunearn - 314 Dunearn Road).pdf
+2025-08-14 15:03:49,593 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Sarpino\8. Aug\Sarpino Pte Ltd Billing\SW 0825 - 013 - INV (Dunearn - 314 Dunearn Road).pdf
+2025-08-14 15:03:49,593 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Sarpino\8. Aug\Sarpino's World Billing\SW 0825 - 002 - INV (Eunos - 1A Eunos Cres).pdf
+2025-08-14 15:03:49,593 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Sarpino\8. Aug\Sarpino's World Billing\SW 0825 - 005 - INV (Eunos - 1A Eunos Cres).pdf
+2025-08-14 15:03:49,593 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Sarpino\8. Aug\Sarpino's World Billing\SW 0825 - 008 - INV (Eunos - 1A Eunos Cres).pdf
+2025-08-14 15:03:49,593 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Sarpino\8. Aug\Sarpino's World Billing\SW 0825 - 010 - INV (Eunos - 1A Eunos Cres).pdf
+2025-08-14 15:03:49,593 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Sarpino\8. Aug\Sarpino's World Billing\SW 0825 - 014 - INV (Eunos - 1A Eunos Cres).pdf
+2025-08-14 15:03:49,593 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Sarpino\8. Aug\Sarpino's World Billing\SW 0825 - 015 - INV (Eunos - 1A Eunos Cres).pdf
+2025-08-14 15:03:49,594 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Souperfoods Pte Ltd\8. Aug\SPF 0825 - 001 - INV (7 Buroh Lane).pdf
+2025-08-14 15:03:49,595 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Spectra Supply Solutions (S) Pte Ltd\8. Aug\SSS 0825 - 001 - INV (Yuiitsu Yakiniku - 15 Jln Riang).pdf
+2025-08-14 15:03:49,599 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Timbre Pizza\8. Aug\TP 0825 - 001 - INV (One Punggol).pdf
+2025-08-14 15:03:49,599 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Timbre Pizza\8. Aug\TP 0825 - 002 - INV (One Punggol).pdf
+2025-08-14 15:03:49,599 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Timbre Pizza\8. Aug\TP 0825 - 003 - INV (One Punggol).pdf
+2025-08-14 15:03:49,599 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Timbre Pizza\8. Aug\TP 0825 - 004 - INV (One Punggol).pdf
+2025-08-14 15:03:49,599 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Timbre Pizza\8. Aug\TP 0825 - 005 - INV (One Punggol).pdf
+2025-08-14 15:03:49,601 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Yummy Kampong Pte Ltd\8. Aug\RY 0825 - 001 - INV (36 Sin Ming Drive) (Revised).pdf
+2025-08-14 15:03:49,601 - INFO - 在 'aug' 子文件夹中找到 PDF: C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Melvin - Yummy Kampong Pte Ltd\8. Aug\RY 0825 - 001 - INV (36 Sin Ming Drive).pdf
+2025-08-14 15:03:49,711 - INFO - 已处理 1/440 个文件
+2025-08-14 15:03:49,718 - INFO - 已处理 2/440 个文件
+2025-08-14 15:03:49,719 - INFO - 已处理 3/440 个文件
+2025-08-14 15:03:49,722 - INFO - 已处理 4/440 个文件
+2025-08-14 15:03:49,722 - INFO - 已处理 5/440 个文件
+2025-08-14 15:03:49,722 - INFO - 已处理 6/440 个文件
+2025-08-14 15:03:49,726 - INFO - 已处理 7/440 个文件
+2025-08-14 15:03:49,735 - INFO - 已处理 8/440 个文件
+2025-08-14 15:03:49,736 - INFO - 已处理 9/440 个文件
+2025-08-14 15:03:49,736 - INFO - 已处理 10/440 个文件
+2025-08-14 15:03:49,736 - INFO - 已处理 11/440 个文件
+2025-08-14 15:03:49,736 - INFO - 已处理 12/440 个文件
+2025-08-14 15:03:49,736 - INFO - 已处理 13/440 个文件
+2025-08-14 15:03:49,736 - INFO - 已处理 14/440 个文件
+2025-08-14 15:03:49,736 - INFO - 已处理 15/440 个文件
+2025-08-14 15:03:49,736 - INFO - 已处理 16/440 个文件
+2025-08-14 15:03:49,736 - INFO - 已处理 17/440 个文件
+2025-08-14 15:03:49,736 - INFO - 已处理 18/440 个文件
+2025-08-14 15:03:49,736 - INFO - 已处理 19/440 个文件
+2025-08-14 15:03:49,736 - INFO - 已处理 20/440 个文件
+2025-08-14 15:03:49,736 - INFO - 已处理 21/440 个文件
+2025-08-14 15:03:49,736 - INFO - 已处理 22/440 个文件
+2025-08-14 15:03:49,736 - INFO - 已处理 23/440 个文件
+2025-08-14 15:03:49,736 - INFO - 已处理 24/440 个文件
+2025-08-14 15:03:49,736 - INFO - 已处理 25/440 个文件
+2025-08-14 15:03:49,736 - INFO - 已处理 26/440 个文件
+2025-08-14 15:03:49,736 - INFO - 已处理 27/440 个文件
+2025-08-14 15:03:49,736 - INFO - 已处理 28/440 个文件
+2025-08-14 15:03:49,736 - INFO - 已处理 29/440 个文件
+2025-08-14 15:03:49,736 - INFO - 已处理 30/440 个文件
+2025-08-14 15:03:49,837 - INFO - 已处理 31/440 个文件
+2025-08-14 15:03:49,837 - INFO - 已处理 32/440 个文件
+2025-08-14 15:03:49,837 - INFO - 已处理 33/440 个文件
+2025-08-14 15:03:49,842 - INFO - 已处理 34/440 个文件
+2025-08-14 15:03:49,842 - INFO - 已处理 35/440 个文件
+2025-08-14 15:03:49,842 - INFO - 已处理 36/440 个文件
+2025-08-14 15:03:49,842 - INFO - 已处理 37/440 个文件
+2025-08-14 15:03:49,847 - INFO - 已处理 38/440 个文件
+2025-08-14 15:03:49,851 - INFO - 已处理 39/440 个文件
+2025-08-14 15:03:49,859 - INFO - 已处理 40/440 个文件
+2025-08-14 15:03:49,863 - INFO - 已处理 41/440 个文件
+2025-08-14 15:03:49,863 - INFO - 已处理 42/440 个文件
+2025-08-14 15:03:49,863 - INFO - 已处理 43/440 个文件
+2025-08-14 15:03:49,863 - INFO - 已处理 44/440 个文件
+2025-08-14 15:03:49,863 - INFO - 已处理 45/440 个文件
+2025-08-14 15:03:49,863 - INFO - 已处理 46/440 个文件
+2025-08-14 15:03:49,864 - INFO - 已处理 47/440 个文件
+2025-08-14 15:03:49,864 - INFO - 已处理 48/440 个文件
+2025-08-14 15:03:49,864 - INFO - 已处理 49/440 个文件
+2025-08-14 15:03:49,864 - INFO - 已处理 50/440 个文件
+2025-08-14 15:03:49,864 - INFO - 已处理 51/440 个文件
+2025-08-14 15:03:49,864 - INFO - 已处理 52/440 个文件
+2025-08-14 15:03:49,864 - INFO - 已处理 53/440 个文件
+2025-08-14 15:03:49,864 - INFO - 已处理 54/440 个文件
+2025-08-14 15:03:49,864 - INFO - 已处理 55/440 个文件
+2025-08-14 15:03:49,864 - INFO - 已处理 56/440 个文件
+2025-08-14 15:03:49,864 - INFO - 已处理 57/440 个文件
+2025-08-14 15:03:49,864 - INFO - 已处理 58/440 个文件
+2025-08-14 15:03:49,864 - INFO - 已处理 59/440 个文件
+2025-08-14 15:03:49,864 - INFO - 已处理 60/440 个文件
+2025-08-14 15:03:49,963 - INFO - 已处理 61/440 个文件
+2025-08-14 15:03:49,963 - INFO - 已处理 62/440 个文件
+2025-08-14 15:03:49,967 - INFO - 已处理 63/440 个文件
+2025-08-14 15:03:49,967 - INFO - 已处理 64/440 个文件
+2025-08-14 15:03:49,982 - INFO - 已处理 65/440 个文件
+2025-08-14 15:03:49,983 - INFO - 已处理 66/440 个文件
+2025-08-14 15:03:49,986 - INFO - 已处理 67/440 个文件
+2025-08-14 15:03:49,986 - INFO - 已处理 68/440 个文件
+2025-08-14 15:03:49,990 - INFO - 已处理 69/440 个文件
+2025-08-14 15:03:49,990 - INFO - 已处理 70/440 个文件
+2025-08-14 15:03:49,990 - INFO - 已处理 71/440 个文件
+2025-08-14 15:03:49,990 - INFO - 已处理 72/440 个文件
+2025-08-14 15:03:49,990 - INFO - 已处理 73/440 个文件
+2025-08-14 15:03:49,990 - INFO - 已处理 74/440 个文件
+2025-08-14 15:03:49,990 - INFO - 已处理 75/440 个文件
+2025-08-14 15:03:49,990 - INFO - 已处理 76/440 个文件
+2025-08-14 15:03:49,990 - INFO - 已处理 77/440 个文件
+2025-08-14 15:03:49,990 - INFO - 已处理 78/440 个文件
+2025-08-14 15:03:49,990 - INFO - 已处理 79/440 个文件
+2025-08-14 15:03:49,991 - INFO - 已处理 80/440 个文件
+2025-08-14 15:03:49,991 - INFO - 已处理 81/440 个文件
+2025-08-14 15:03:49,991 - INFO - 已处理 82/440 个文件
+2025-08-14 15:03:49,991 - INFO - 已处理 83/440 个文件
+2025-08-14 15:03:49,991 - INFO - 已处理 84/440 个文件
+2025-08-14 15:03:49,991 - INFO - 已处理 85/440 个文件
+2025-08-14 15:03:49,991 - INFO - 已处理 86/440 个文件
+2025-08-14 15:03:49,991 - INFO - 已处理 87/440 个文件
+2025-08-14 15:03:49,991 - INFO - 已处理 88/440 个文件
+2025-08-14 15:03:49,991 - INFO - 已处理 89/440 个文件
+2025-08-14 15:03:49,991 - INFO - 已处理 90/440 个文件
+2025-08-14 15:03:50,104 - INFO - 已处理 91/440 个文件
+2025-08-14 15:03:50,108 - INFO - 已处理 92/440 个文件
+2025-08-14 15:03:50,108 - INFO - 已处理 93/440 个文件
+2025-08-14 15:03:50,108 - INFO - 已处理 94/440 个文件
+2025-08-14 15:03:50,119 - INFO - 已处理 95/440 个文件
+2025-08-14 15:03:50,119 - INFO - 已处理 96/440 个文件
+2025-08-14 15:03:50,123 - INFO - 已处理 97/440 个文件
+2025-08-14 15:03:50,123 - INFO - 已处理 98/440 个文件
+2025-08-14 15:03:50,123 - INFO - 已处理 99/440 个文件
+2025-08-14 15:03:50,123 - INFO - 已处理 100/440 个文件
+2025-08-14 15:03:50,123 - INFO - 已处理 101/440 个文件
+2025-08-14 15:03:50,123 - INFO - 已处理 102/440 个文件
+2025-08-14 15:03:50,123 - INFO - 已处理 103/440 个文件
+2025-08-14 15:03:50,123 - INFO - 已处理 104/440 个文件
+2025-08-14 15:03:50,123 - INFO - 已处理 105/440 个文件
+2025-08-14 15:03:50,123 - INFO - 已处理 106/440 个文件
+2025-08-14 15:03:50,123 - INFO - 已处理 107/440 个文件
+2025-08-14 15:03:50,124 - INFO - 已处理 108/440 个文件
+2025-08-14 15:03:50,124 - INFO - 已处理 109/440 个文件
+2025-08-14 15:03:50,124 - INFO - 已处理 110/440 个文件
+2025-08-14 15:03:50,124 - INFO - 已处理 111/440 个文件
+2025-08-14 15:03:50,124 - INFO - 已处理 112/440 个文件
+2025-08-14 15:03:50,124 - INFO - 已处理 113/440 个文件
+2025-08-14 15:03:50,124 - INFO - 已处理 114/440 个文件
+2025-08-14 15:03:50,124 - INFO - 已处理 115/440 个文件
+2025-08-14 15:03:50,124 - INFO - 已处理 116/440 个文件
+2025-08-14 15:03:50,124 - INFO - 已处理 117/440 个文件
+2025-08-14 15:03:50,124 - INFO - 已处理 118/440 个文件
+2025-08-14 15:03:50,124 - INFO - 已处理 119/440 个文件
+2025-08-14 15:03:50,124 - INFO - 已处理 120/440 个文件
+2025-08-14 15:03:50,227 - INFO - 已处理 121/440 个文件
+2025-08-14 15:03:50,227 - INFO - 已处理 122/440 个文件
+2025-08-14 15:03:50,235 - INFO - 已处理 123/440 个文件
+2025-08-14 15:03:50,235 - INFO - 已处理 124/440 个文件
+2025-08-14 15:03:50,235 - INFO - 已处理 125/440 个文件
+2025-08-14 15:03:50,248 - INFO - 已处理 126/440 个文件
+2025-08-14 15:03:50,252 - INFO - 已处理 127/440 个文件
+2025-08-14 15:03:50,252 - INFO - 已处理 128/440 个文件
+2025-08-14 15:03:50,253 - INFO - 已处理 129/440 个文件
+2025-08-14 15:03:50,253 - INFO - 已处理 130/440 个文件
+2025-08-14 15:03:50,253 - INFO - 已处理 131/440 个文件
+2025-08-14 15:03:50,253 - INFO - 已处理 132/440 个文件
+2025-08-14 15:03:50,253 - INFO - 已处理 133/440 个文件
+2025-08-14 15:03:50,253 - INFO - 已处理 134/440 个文件
+2025-08-14 15:03:50,253 - INFO - 已处理 135/440 个文件
+2025-08-14 15:03:50,253 - INFO - 已处理 136/440 个文件
+2025-08-14 15:03:50,253 - INFO - 已处理 137/440 个文件
+2025-08-14 15:03:50,253 - INFO - 已处理 138/440 个文件
+2025-08-14 15:03:50,253 - INFO - 已处理 139/440 个文件
+2025-08-14 15:03:50,253 - INFO - 已处理 140/440 个文件
+2025-08-14 15:03:50,253 - INFO - 已处理 141/440 个文件
+2025-08-14 15:03:50,253 - INFO - 已处理 142/440 个文件
+2025-08-14 15:03:50,253 - INFO - 已处理 143/440 个文件
+2025-08-14 15:03:50,253 - INFO - 已处理 144/440 个文件
+2025-08-14 15:03:50,253 - INFO - 已处理 145/440 个文件
+2025-08-14 15:03:50,253 - INFO - 已处理 146/440 个文件
+2025-08-14 15:03:50,253 - INFO - 已处理 147/440 个文件
+2025-08-14 15:03:50,253 - INFO - 已处理 148/440 个文件
+2025-08-14 15:03:50,253 - INFO - 已处理 149/440 个文件
+2025-08-14 15:03:50,253 - INFO - 已处理 150/440 个文件
+2025-08-14 15:03:50,358 - INFO - 已处理 151/440 个文件
+2025-08-14 15:03:50,363 - INFO - 已处理 152/440 个文件
+2025-08-14 15:03:50,363 - INFO - 已处理 153/440 个文件
+2025-08-14 15:03:50,367 - INFO - 已处理 154/440 个文件
+2025-08-14 15:03:50,367 - INFO - 已处理 155/440 个文件
+2025-08-14 15:03:50,367 - INFO - 已处理 156/440 个文件
+2025-08-14 15:03:50,367 - INFO - 已处理 157/440 个文件
+2025-08-14 15:03:50,367 - INFO - 已处理 158/440 个文件
+2025-08-14 15:03:50,372 - INFO - 已处理 159/440 个文件
+2025-08-14 15:03:50,380 - INFO - 已处理 160/440 个文件
+2025-08-14 15:03:50,380 - INFO - 已处理 161/440 个文件
+2025-08-14 15:03:50,380 - INFO - 已处理 162/440 个文件
+2025-08-14 15:03:50,385 - INFO - 已处理 163/440 个文件
+2025-08-14 15:03:50,385 - INFO - 已处理 164/440 个文件
+2025-08-14 15:03:50,385 - INFO - 已处理 165/440 个文件
+2025-08-14 15:03:50,385 - INFO - 已处理 166/440 个文件
+2025-08-14 15:03:50,385 - INFO - 已处理 167/440 个文件
+2025-08-14 15:03:50,385 - INFO - 已处理 168/440 个文件
+2025-08-14 15:03:50,385 - INFO - 已处理 169/440 个文件
+2025-08-14 15:03:50,385 - INFO - 已处理 170/440 个文件
+2025-08-14 15:03:50,385 - INFO - 已处理 171/440 个文件
+2025-08-14 15:03:50,385 - INFO - 已处理 172/440 个文件
+2025-08-14 15:03:50,385 - INFO - 已处理 173/440 个文件
+2025-08-14 15:03:50,385 - INFO - 已处理 174/440 个文件
+2025-08-14 15:03:50,385 - INFO - 已处理 175/440 个文件
+2025-08-14 15:03:50,385 - INFO - 已处理 176/440 个文件
+2025-08-14 15:03:50,385 - INFO - 已处理 177/440 个文件
+2025-08-14 15:03:50,386 - INFO - 已处理 178/440 个文件
+2025-08-14 15:03:50,386 - INFO - 已处理 179/440 个文件
+2025-08-14 15:03:50,386 - INFO - 已处理 180/440 个文件
+2025-08-14 15:03:50,489 - INFO - [ABR右下角暴力解法] 文件 C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Joshua - ABR (Swensens)\8. Aug\ABR 0825 - 001 - INV (Changi Terminal 2).pdf 抓到 Total：130.80 at y=530.8091430664062, x=532.8800048828125
+2025-08-14 15:03:50,498 - INFO - 已处理 181/440 个文件
+2025-08-14 15:03:50,502 - INFO - 已处理 182/440 个文件
+2025-08-14 15:03:50,502 - INFO - 已处理 183/440 个文件
+2025-08-14 15:03:50,502 - INFO - 已处理 184/440 个文件
+2025-08-14 15:03:50,502 - INFO - 已处理 185/440 个文件
+2025-08-14 15:03:50,502 - INFO - 已处理 186/440 个文件
+2025-08-14 15:03:50,502 - INFO - 已处理 187/440 个文件
+2025-08-14 15:03:50,502 - INFO - 已处理 188/440 个文件
+2025-08-14 15:03:50,502 - INFO - 已处理 189/440 个文件
+2025-08-14 15:03:50,513 - INFO - 已处理 190/440 个文件
+2025-08-14 15:03:50,519 - INFO - 已处理 191/440 个文件
+2025-08-14 15:03:50,519 - INFO - 已处理 192/440 个文件
+2025-08-14 15:03:50,519 - INFO - 已处理 193/440 个文件
+2025-08-14 15:03:50,519 - INFO - 已处理 194/440 个文件
+2025-08-14 15:03:50,519 - INFO - 已处理 195/440 个文件
+2025-08-14 15:03:50,519 - INFO - 已处理 196/440 个文件
+2025-08-14 15:03:50,519 - INFO - 已处理 197/440 个文件
+2025-08-14 15:03:50,519 - INFO - 已处理 198/440 个文件
+2025-08-14 15:03:50,519 - INFO - 已处理 199/440 个文件
+2025-08-14 15:03:50,519 - INFO - 已处理 200/440 个文件
+2025-08-14 15:03:50,519 - INFO - 已处理 201/440 个文件
+2025-08-14 15:03:50,519 - INFO - 已处理 202/440 个文件
+2025-08-14 15:03:50,519 - INFO - 已处理 203/440 个文件
+2025-08-14 15:03:50,519 - INFO - 已处理 204/440 个文件
+2025-08-14 15:03:50,519 - INFO - 已处理 205/440 个文件
+2025-08-14 15:03:50,519 - INFO - 已处理 206/440 个文件
+2025-08-14 15:03:50,519 - INFO - 已处理 207/440 个文件
+2025-08-14 15:03:50,519 - INFO - 已处理 208/440 个文件
+2025-08-14 15:03:50,519 - INFO - 已处理 209/440 个文件
+2025-08-14 15:03:50,519 - INFO - 已处理 210/440 个文件
+2025-08-14 15:03:50,617 - INFO - 已处理 211/440 个文件
+2025-08-14 15:03:50,617 - INFO - 已处理 212/440 个文件
+2025-08-14 15:03:50,627 - INFO - 已处理 213/440 个文件
+2025-08-14 15:03:50,627 - INFO - 已处理 214/440 个文件
+2025-08-14 15:03:50,631 - INFO - 已处理 215/440 个文件
+2025-08-14 15:03:50,631 - INFO - 已处理 216/440 个文件
+2025-08-14 15:03:50,631 - INFO - 已处理 217/440 个文件
+2025-08-14 15:03:50,636 - INFO - 已处理 218/440 个文件
+2025-08-14 15:03:50,636 - INFO - 已处理 219/440 个文件
+2025-08-14 15:03:50,636 - INFO - 已处理 220/440 个文件
+2025-08-14 15:03:50,636 - INFO - 已处理 221/440 个文件
+2025-08-14 15:03:50,636 - INFO - 已处理 222/440 个文件
+2025-08-14 15:03:50,636 - INFO - 已处理 223/440 个文件
+2025-08-14 15:03:50,636 - INFO - 已处理 224/440 个文件
+2025-08-14 15:03:50,636 - INFO - 已处理 225/440 个文件
+2025-08-14 15:03:50,636 - INFO - 已处理 226/440 个文件
+2025-08-14 15:03:50,636 - INFO - 已处理 227/440 个文件
+2025-08-14 15:03:50,636 - INFO - 已处理 228/440 个文件
+2025-08-14 15:03:50,636 - INFO - 已处理 229/440 个文件
+2025-08-14 15:03:50,636 - INFO - 已处理 230/440 个文件
+2025-08-14 15:03:50,637 - INFO - 已处理 231/440 个文件
+2025-08-14 15:03:50,637 - INFO - 已处理 232/440 个文件
+2025-08-14 15:03:50,637 - INFO - 已处理 233/440 个文件
+2025-08-14 15:03:50,637 - INFO - 已处理 234/440 个文件
+2025-08-14 15:03:50,637 - INFO - 已处理 235/440 个文件
+2025-08-14 15:03:50,637 - INFO - 已处理 236/440 个文件
+2025-08-14 15:03:50,637 - INFO - 已处理 237/440 个文件
+2025-08-14 15:03:50,637 - INFO - 已处理 238/440 个文件
+2025-08-14 15:03:50,637 - INFO - 已处理 239/440 个文件
+2025-08-14 15:03:50,637 - INFO - 已处理 240/440 个文件
+2025-08-14 15:03:50,750 - INFO - 已处理 241/440 个文件
+2025-08-14 15:03:50,750 - INFO - 已处理 242/440 个文件
+2025-08-14 15:03:50,758 - INFO - 已处理 243/440 个文件
+2025-08-14 15:03:50,758 - INFO - 已处理 244/440 个文件
+2025-08-14 15:03:50,758 - INFO - 已处理 245/440 个文件
+2025-08-14 15:03:50,758 - INFO - 已处理 246/440 个文件
+2025-08-14 15:03:50,758 - INFO - 已处理 247/440 个文件
+2025-08-14 15:03:50,759 - INFO - 已处理 248/440 个文件
+2025-08-14 15:03:50,763 - INFO - 已处理 249/440 个文件
+2025-08-14 15:03:50,763 - INFO - 已处理 250/440 个文件
+2025-08-14 15:03:50,763 - INFO - 已处理 251/440 个文件
+2025-08-14 15:03:50,763 - INFO - 已处理 252/440 个文件
+2025-08-14 15:03:50,763 - INFO - 已处理 253/440 个文件
+2025-08-14 15:03:50,763 - INFO - 已处理 254/440 个文件
+2025-08-14 15:03:50,763 - INFO - 已处理 255/440 个文件
+2025-08-14 15:03:50,763 - INFO - 已处理 256/440 个文件
+2025-08-14 15:03:50,763 - INFO - 已处理 257/440 个文件
+2025-08-14 15:03:50,763 - INFO - 已处理 258/440 个文件
+2025-08-14 15:03:50,763 - INFO - 已处理 259/440 个文件
+2025-08-14 15:03:50,763 - INFO - 已处理 260/440 个文件
+2025-08-14 15:03:50,763 - INFO - 已处理 261/440 个文件
+2025-08-14 15:03:50,763 - INFO - 已处理 262/440 个文件
+2025-08-14 15:03:50,763 - INFO - 已处理 263/440 个文件
+2025-08-14 15:03:50,763 - INFO - 已处理 264/440 个文件
+2025-08-14 15:03:50,763 - INFO - 已处理 265/440 个文件
+2025-08-14 15:03:50,763 - INFO - 已处理 266/440 个文件
+2025-08-14 15:03:50,763 - INFO - 已处理 267/440 个文件
+2025-08-14 15:03:50,764 - INFO - 已处理 268/440 个文件
+2025-08-14 15:03:50,764 - INFO - 已处理 269/440 个文件
+2025-08-14 15:03:50,764 - INFO - 已处理 270/440 个文件
+2025-08-14 15:03:50,838 - INFO - [ABR右下角暴力解法] 文件 C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Joshua - ABR (Swensens)\8. Aug\ABR 0825 - 002 - INV (Tampine Whse) - #02.pdf 抓到 Total：12,689.56 at y=643.535400390625, x=515.6699829101562
+2025-08-14 15:03:50,875 - INFO - 已处理 271/440 个文件
+2025-08-14 15:03:50,875 - INFO - 已处理 272/440 个文件
+2025-08-14 15:03:50,879 - INFO - 已处理 273/440 个文件
+2025-08-14 15:03:50,901 - INFO - 已处理 274/440 个文件
+2025-08-14 15:03:50,902 - INFO - 已处理 275/440 个文件
+2025-08-14 15:03:50,902 - INFO - 已处理 276/440 个文件
+2025-08-14 15:03:50,902 - INFO - 已处理 277/440 个文件
+2025-08-14 15:03:50,902 - INFO - 已处理 278/440 个文件
+2025-08-14 15:03:50,902 - INFO - 已处理 279/440 个文件
+2025-08-14 15:03:50,902 - INFO - 已处理 280/440 个文件
+2025-08-14 15:03:50,902 - INFO - 已处理 281/440 个文件
+2025-08-14 15:03:50,902 - INFO - 已处理 282/440 个文件
+2025-08-14 15:03:50,902 - INFO - 已处理 283/440 个文件
+2025-08-14 15:03:50,902 - INFO - 已处理 284/440 个文件
+2025-08-14 15:03:50,902 - INFO - 已处理 285/440 个文件
+2025-08-14 15:03:50,902 - INFO - 已处理 286/440 个文件
+2025-08-14 15:03:50,903 - INFO - 已处理 287/440 个文件
+2025-08-14 15:03:50,903 - INFO - 已处理 288/440 个文件
+2025-08-14 15:03:50,903 - INFO - 已处理 289/440 个文件
+2025-08-14 15:03:50,903 - INFO - 已处理 290/440 个文件
+2025-08-14 15:03:50,903 - INFO - 已处理 291/440 个文件
+2025-08-14 15:03:50,903 - INFO - 已处理 292/440 个文件
+2025-08-14 15:03:50,903 - INFO - 已处理 293/440 个文件
+2025-08-14 15:03:50,903 - INFO - 已处理 294/440 个文件
+2025-08-14 15:03:50,903 - INFO - 已处理 295/440 个文件
+2025-08-14 15:03:50,903 - INFO - 已处理 296/440 个文件
+2025-08-14 15:03:50,903 - INFO - 已处理 297/440 个文件
+2025-08-14 15:03:50,903 - INFO - 已处理 298/440 个文件
+2025-08-14 15:03:50,903 - INFO - 已处理 299/440 个文件
+2025-08-14 15:03:50,903 - INFO - 已处理 300/440 个文件
+2025-08-14 15:03:50,973 - INFO - [ABR右下角暴力解法] 文件 C:/Users/User/Dropbox/DO & INV/DO & INV 2025\Joshua - ABR (Swensens)\8. Aug\ABR 0825 - 003 - INV (Tampines Central Kitchen) - #04.pdf 抓到 Total：156.42 at y=504.50921630859375, x=532.780029296875
+2025-08-14 15:03:51,009 - INFO - 已处理 301/440 个文件
+2025-08-14 15:03:51,013 - INFO - 已处理 302/440 个文件
+2025-08-14 15:03:51,014 - INFO - 已处理 303/440 个文件
+2025-08-14 15:03:51,014 - INFO - 已处理 304/440 个文件
+2025-08-14 15:03:51,021 - INFO - 已处理 305/440 个文件
+2025-08-14 15:03:51,021 - INFO - 已处理 306/440 个文件
+2025-08-14 15:03:51,028 - INFO - 已处理 307/440 个文件
+2025-08-14 15:03:51,033 - INFO - 已处理 308/440 个文件
+2025-08-14 15:03:51,033 - INFO - 已处理 309/440 个文件
+2025-08-14 15:03:51,033 - INFO - 已处理 310/440 个文件
+2025-08-14 15:03:51,033 - INFO - 已处理 311/440 个文件
+2025-08-14 15:03:51,033 - INFO - 已处理 312/440 个文件
+2025-08-14 15:03:51,033 - INFO - 已处理 313/440 个文件
+2025-08-14 15:03:51,033 - INFO - 已处理 314/440 个文件
+2025-08-14 15:03:51,033 - INFO - 已处理 315/440 个文件
+2025-08-14 15:03:51,033 - INFO - 已处理 316/440 个文件
+2025-08-14 15:03:51,034 - INFO - 已处理 317/440 个文件
+2025-08-14 15:03:51,034 - INFO - 已处理 318/440 个文件
+2025-08-14 15:03:51,034 - INFO - 已处理 319/440 个文件
+2025-08-14 15:03:51,034 - INFO - 已处理 320/440 个文件
+2025-08-14 15:03:51,034 - INFO - 已处理 321/440 个文件
+2025-08-14 15:03:51,034 - INFO - 已处理 322/440 个文件
+2025-08-14 15:03:51,034 - INFO - 已处理 323/440 个文件
+2025-08-14 15:03:51,034 - INFO - 已处理 324/440 个文件
+2025-08-14 15:03:51,034 - INFO - 已处理 325/440 个文件
+2025-08-14 15:03:51,034 - INFO - 已处理 326/440 个文件
+2025-08-14 15:03:51,034 - INFO - 已处理 327/440 个文件
+2025-08-14 15:03:51,034 - INFO - 已处理 328/440 个文件
+2025-08-14 15:03:51,034 - INFO - 已处理 329/440 个文件
+2025-08-14 15:03:51,034 - INFO - 已处理 330/440 个文件
+2025-08-14 15:03:51,146 - INFO - 已处理 331/440 个文件
+2025-08-14 15:03:51,163 - INFO - 已处理 332/440 个文件
+2025-08-14 15:03:51,163 - INFO - 已处理 333/440 个文件
+2025-08-14 15:03:51,163 - INFO - 已处理 334/440 个文件
+2025-08-14 15:03:51,163 - INFO - 已处理 335/440 个文件
+2025-08-14 15:03:51,163 - INFO - 已处理 336/440 个文件
+2025-08-14 15:03:51,163 - INFO - 已处理 337/440 个文件
+2025-08-14 15:03:51,163 - INFO - 已处理 338/440 个文件
+2025-08-14 15:03:51,163 - INFO - 已处理 339/440 个文件
+2025-08-14 15:03:51,163 - INFO - 已处理 340/440 个文件
+2025-08-14 15:03:51,163 - INFO - 已处理 341/440 个文件
+2025-08-14 15:03:51,163 - INFO - 已处理 342/440 个文件
+2025-08-14 15:03:51,163 - INFO - 已处理 343/440 个文件
+2025-08-14 15:03:51,163 - INFO - 已处理 344/440 个文件
+2025-08-14 15:03:51,163 - INFO - 已处理 345/440 个文件
+2025-08-14 15:03:51,163 - INFO - 已处理 346/440 个文件
+2025-08-14 15:03:51,163 - INFO - 已处理 347/440 个文件
+2025-08-14 15:03:51,163 - INFO - 已处理 348/440 个文件
+2025-08-14 15:03:51,163 - INFO - 已处理 349/440 个文件
+2025-08-14 15:03:51,163 - INFO - 已处理 350/440 个文件
+2025-08-14 15:03:51,163 - INFO - 已处理 351/440 个文件
+2025-08-14 15:03:51,163 - INFO - 已处理 352/440 个文件
+2025-08-14 15:03:51,163 - INFO - 已处理 353/440 个文件
+2025-08-14 15:03:51,163 - INFO - 已处理 354/440 个文件
+2025-08-14 15:03:51,163 - INFO - 已处理 355/440 个文件
+2025-08-14 15:03:51,163 - INFO - 已处理 356/440 个文件
+2025-08-14 15:03:51,163 - INFO - 已处理 357/440 个文件
+2025-08-14 15:03:51,164 - INFO - 已处理 358/440 个文件
+2025-08-14 15:03:51,164 - INFO - 已处理 359/440 个文件
+2025-08-14 15:03:51,164 - INFO - 已处理 360/440 个文件
+2025-08-14 15:03:51,284 - INFO - 已处理 361/440 个文件
+2025-08-14 15:03:51,284 - INFO - 已处理 362/440 个文件
+2025-08-14 15:03:51,285 - INFO - 已处理 363/440 个文件
+2025-08-14 15:03:51,285 - INFO - 已处理 364/440 个文件
+2025-08-14 15:03:51,285 - INFO - 已处理 365/440 个文件
+2025-08-14 15:03:51,285 - INFO - 已处理 366/440 个文件
+2025-08-14 15:03:51,285 - INFO - 已处理 367/440 个文件
+2025-08-14 15:03:51,289 - INFO - 已处理 368/440 个文件
+2025-08-14 15:03:51,290 - INFO - 已处理 369/440 个文件
+2025-08-14 15:03:51,290 - INFO - 已处理 370/440 个文件
+2025-08-14 15:03:51,290 - INFO - 已处理 371/440 个文件
+2025-08-14 15:03:51,290 - INFO - 已处理 372/440 个文件
+2025-08-14 15:03:51,290 - INFO - 已处理 373/440 个文件
+2025-08-14 15:03:51,290 - INFO - 已处理 374/440 个文件
+2025-08-14 15:03:51,290 - INFO - 已处理 375/440 个文件
+2025-08-14 15:03:51,290 - INFO - 已处理 376/440 个文件
+2025-08-14 15:03:51,290 - INFO - 已处理 377/440 个文件
+2025-08-14 15:03:51,290 - INFO - 已处理 378/440 个文件
+2025-08-14 15:03:51,290 - INFO - 已处理 379/440 个文件
+2025-08-14 15:03:51,290 - INFO - 已处理 380/440 个文件
+2025-08-14 15:03:51,290 - INFO - 已处理 381/440 个文件
+2025-08-14 15:03:51,291 - INFO - 已处理 382/440 个文件
+2025-08-14 15:03:51,291 - INFO - 已处理 383/440 个文件
+2025-08-14 15:03:51,291 - INFO - 已处理 384/440 个文件
+2025-08-14 15:03:51,291 - INFO - 已处理 385/440 个文件
+2025-08-14 15:03:51,291 - INFO - 已处理 386/440 个文件
+2025-08-14 15:03:51,291 - INFO - 已处理 387/440 个文件
+2025-08-14 15:03:51,291 - INFO - 已处理 388/440 个文件
+2025-08-14 15:03:51,291 - INFO - 已处理 389/440 个文件
+2025-08-14 15:03:51,291 - INFO - 已处理 390/440 个文件
+2025-08-14 15:03:51,392 - INFO - 已处理 391/440 个文件
+2025-08-14 15:03:51,392 - INFO - 已处理 392/440 个文件
+2025-08-14 15:03:51,395 - INFO - 已处理 393/440 个文件
+2025-08-14 15:03:51,396 - INFO - 已处理 394/440 个文件
+2025-08-14 15:03:51,396 - INFO - 已处理 395/440 个文件
+2025-08-14 15:03:51,396 - INFO - 已处理 396/440 个文件
+2025-08-14 15:03:51,396 - INFO - 已处理 397/440 个文件
+2025-08-14 15:03:51,396 - INFO - 已处理 398/440 个文件
+2025-08-14 15:03:51,407 - INFO - 已处理 399/440 个文件
+2025-08-14 15:03:51,416 - INFO - 已处理 400/440 个文件
+2025-08-14 15:03:51,416 - INFO - 已处理 401/440 个文件
+2025-08-14 15:03:51,424 - INFO - 已处理 402/440 个文件
+2025-08-14 15:03:51,424 - INFO - 已处理 403/440 个文件
+2025-08-14 15:03:51,424 - INFO - 已处理 404/440 个文件
+2025-08-14 15:03:51,424 - INFO - 已处理 405/440 个文件
+2025-08-14 15:03:51,424 - INFO - 已处理 406/440 个文件
+2025-08-14 15:03:51,424 - INFO - 已处理 407/440 个文件
+2025-08-14 15:03:51,424 - INFO - 已处理 408/440 个文件
+2025-08-14 15:03:51,424 - INFO - 已处理 409/440 个文件
+2025-08-14 15:03:51,424 - INFO - 已处理 410/440 个文件
+2025-08-14 15:03:51,424 - INFO - 已处理 411/440 个文件
+2025-08-14 15:03:51,424 - INFO - 已处理 412/440 个文件
+2025-08-14 15:03:51,424 - INFO - 已处理 413/440 个文件
+2025-08-14 15:03:51,424 - INFO - 已处理 414/440 个文件
+2025-08-14 15:03:51,424 - INFO - 已处理 415/440 个文件
+2025-08-14 15:03:51,424 - INFO - 已处理 416/440 个文件
+2025-08-14 15:03:51,425 - INFO - 已处理 417/440 个文件
+2025-08-14 15:03:51,425 - INFO - 已处理 418/440 个文件
+2025-08-14 15:03:51,425 - INFO - 已处理 419/440 个文件
+2025-08-14 15:03:51,425 - INFO - 已处理 420/440 个文件
+2025-08-14 15:03:51,497 - INFO - 已处理 421/440 个文件
+2025-08-14 15:03:51,501 - INFO - 已处理 422/440 个文件
+2025-08-14 15:03:51,501 - INFO - 已处理 423/440 个文件
+2025-08-14 15:03:51,501 - INFO - 已处理 424/440 个文件
+2025-08-14 15:03:51,514 - INFO - 已处理 425/440 个文件
+2025-08-14 15:03:51,514 - INFO - 已处理 426/440 个文件
+2025-08-14 15:03:51,514 - INFO - 已处理 427/440 个文件
+2025-08-14 15:03:51,514 - INFO - 已处理 428/440 个文件
+2025-08-14 15:03:51,514 - INFO - 已处理 429/440 个文件
+2025-08-14 15:03:51,514 - INFO - 已处理 430/440 个文件
+2025-08-14 15:03:51,514 - INFO - 已处理 431/440 个文件
+2025-08-14 15:03:51,514 - INFO - 已处理 432/440 个文件
+2025-08-14 15:03:51,514 - INFO - 已处理 433/440 个文件
+2025-08-14 15:03:51,514 - INFO - 已处理 434/440 个文件
+2025-08-14 15:03:51,514 - INFO - 已处理 435/440 个文件
+2025-08-14 15:03:51,514 - INFO - 已处理 436/440 个文件
+2025-08-14 15:03:51,514 - INFO - 已处理 437/440 个文件
+2025-08-14 15:03:51,514 - INFO - 已处理 438/440 个文件
+2025-08-14 15:03:51,514 - INFO - 已处理 439/440 个文件
+2025-08-14 15:03:51,514 - INFO - 已处理 440/440 个文件

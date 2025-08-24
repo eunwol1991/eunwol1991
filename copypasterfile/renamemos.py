@@ -35,16 +35,16 @@ def update_excel_files(directory, debug=False):
                                 for cell in row:
                                     cell_value = str(cell.value).strip().lower() if cell.value is not None else ""
                                     # 模糊匹配 "tartar sauce"
-                                    cell_name = "heritage unsalted butter"
+                                    cell_name = "abcd"
                                     
                                     if cell_name in cell_value:
                                         row_number = cell.row
-                                        product_code = "Frozen"
-                                        product_description = "Anchor Minidish Unsalted Butter"
-                                        pack_size = "(1 x 144 x 7g)"
+                                        product_code = "NA"
+                                        product_description = "Toasted Coconut Flakes"
+                                        pack_size = "(36 x 200g)"
                                         qty = 1.00
-                                        UOM = "BOX"
-                                        selling_price = f"=21.6*G{row_number}"
+                                        UOM = "PKT"
+                                        selling_price = f"=3.8*G{row_number}"
                                         if debug:
                                             print(f"🔍 匹配到 {cell_name} → Sheet: {sheet_name}, Row: {row_number}")
                                         if sheet_name == "DO":
