@@ -31,6 +31,9 @@ MOVE_TO_HISTORY = True
 MAX_TITLE_LEN = 50
 # --------------------------------------------------------
 
+
+NBSP = "\u00A0"
+
 NOISE_PATTERNS = [re.compile(p, re.IGNORECASE) for p in [
     r"手机访问",
     r"请记住本站域名",
@@ -87,6 +90,21 @@ def clean_text(text: str) -> str:
         if ch in ('\t', '\n', '\r', ' ') or 0x20 <= code <= 0xD7FF or 0xE000 <= code <= 0xFFFD:
             allowed_chars.append(ch)
     return ''.join(allowed_chars)
+
+
+ENTITY_RE = re.compile(r"&(?:amp;)?(nbsp|ldquo|rdquo|lsquo|rsquo|mdash);")
+ENTITY_MAP = {
+    "nbsp": NBSP,
+    "ldquo": "“",
+    "rdquo": "”",
+    "lsquo": "‘",
+    "rsquo": "’",
+    "mdash": "—",
+}
+
+
+def fix_named_entities(s: str) -> str:
+    return ENTITY_RE.sub(lambda m: ENTITY_MAP.get(m.group(1), m.group(0)), s)
 
 
 DEFAULT_PATTERN_STRS = [
@@ -279,24 +297,35 @@ def _normalize_paragraphs(text: str) -> List[str]:
             result.append(line)
     return result
 
-
 def chapter_to_xhtml(idx: int, title: str, text: str) -> str:
-    esc_title = html.escape(clean_text(title))
+    # 标题：先清洗→替换命名实体→再 HTML 转义
+    title_clean = clean_text(title)
+    title_fixed = fix_named_entities(title_clean)
+    esc_title = html.escape(title_fixed)
+
     paras = []
     for p in _normalize_paragraphs(text):
         if p:
-            paras.append(f"    <p>{html.escape(clean_text(p))}</p>")
+            # 正文段落：同样先清洗→替换命名实体→再转义
+            body_clean = clean_text(p)
+            body_fixed = fix_named_entities(body_clean)
+            paras.append(f"    <p>{html.escape(body_fixed)}</p>")
         else:
-            paras.append("    <p class='blank'>&nbsp;</p>")
-    body = '\n'.join(paras)
+            # 空行占位：用 NBSP（U+00A0 或 &#160;），不要再 escape
+            paras.append(f"    <p class='blank'>{NBSP}</p>")
+
     return (
-        f"<?xml version='1.0' encoding='utf-8'?>\n"
-        f"<html xmlns='http://www.w3.org/1999/xhtml' xml:lang='zh' lang='zh'>\n"
-        "<head>\n  <meta charset='utf-8'/>\n"
-        f"  <title>{esc_title}</title>\n  <link rel='stylesheet' type='text/css' href='style.css'/>\n</head>\n"
-        f"<body>\n  <h2 id='chap{idx}'>{esc_title}</h2>\n"
-        f"{body}\n</body>\n</html>"
+        "<?xml version='1.0' encoding='utf-8'?>\n"
+        "<html xmlns='http://www.w3.org/1999/xhtml' xml:lang='zh' lang='zh'>\n"
+        "<head>\n"
+        "  <meta charset='utf-8'/>\n"
+        f"  <title>{esc_title}</title>\n"
+        "  <link rel='stylesheet' type='text/css' href='style.css'/>\n"
+        "</head>\n<body>\n"
+        f"  <h2 id='chap{idx}'>{esc_title}</h2>\n" +
+        "\n".join(paras) + "\n</body>\n</html>"
     )
+
 
 
 def create_epub(title: str, author: str, chapters: List[Tuple[str, str]], out_path: str, lang: str = 'zh'):
@@ -360,7 +389,9 @@ def create_epub(title: str, author: str, chapters: List[Tuple[str, str]], out_pa
             epub.writestr(f'OEBPS/{fname}', chapter_to_xhtml(i, ch_title, ch_text))
             manifest.append(f"<item id='c{i}' href='{fname}' media-type='application/xhtml+xml'/>")
             spine.append(f"<itemref idref='c{i}'/>")
-            nav_list.append(f"      <li><a href='{fname}#chap{i}'>{html.escape(ch_title)}</a></li>")
+            nav_list.append(
+                f"      <li><a href='{fname}#chap{i}'>{fix_named_entities(html.escape(ch_title))}</a></li>"
+            )
 
         epub.writestr(
             'OEBPS/nav.xhtml',
@@ -374,7 +405,7 @@ def create_epub(title: str, author: str, chapters: List[Tuple[str, str]], out_pa
         )
 
         nav_points = [
-            f"    <navPoint id='navPoint-{i}' playOrder='{i}'>\n      <navLabel><text>{html.escape(ch_title)}</text></navLabel>\n      <content src='chapter{i}.xhtml'/>\n    </navPoint>"
+            f"    <navPoint id='navPoint-{i}' playOrder='{i}'>\n      <navLabel><text>{fix_named_entities(html.escape(ch_title))}</text></navLabel>\n      <content src='chapter{i}.xhtml'/>\n    </navPoint>"
             for i, (ch_title, _) in enumerate(chapters, 1)
         ]
         epub.writestr(
@@ -386,7 +417,7 @@ def create_epub(title: str, author: str, chapters: List[Tuple[str, str]], out_pa
     <meta name='dtb:uid' content='"""
             + uid
             + "'/>\n    <meta name='dtb:depth' content='1'/>\n    <meta name='dtb:totalPageCount' content='0'/>\n    <meta name='dtb:maxPageNumber' content='0'/>\n  </head>\n  <docTitle><text>"
-            + html.escape(title)
+            + fix_named_entities(html.escape(title))
             + "</text></docTitle>\n  <navMap>\n"
             + '\n'.join(nav_points)
             + "\n  </navMap>\n</ncx>",
@@ -401,8 +432,8 @@ def create_epub(title: str, author: str, chapters: List[Tuple[str, str]], out_pa
 <package xmlns='http://www.idpf.org/2007/opf' unique-identifier='bookid' version='3.0'>
   <metadata xmlns:dc='http://purl.org/dc/elements/1.1/'>
     <dc:identifier id='bookid'>{uid}</dc:identifier>
-    <dc:title>{html.escape(title)}</dc:title>
-    <dc:creator>{html.escape(author)}</dc:creator>
+    <dc:title>{fix_named_entities(html.escape(title))}</dc:title>
+    <dc:creator>{fix_named_entities(html.escape(author))}</dc:creator>
     <dc:language>{lang}</dc:language>
     <meta property='dcterms:modified'>{modified}</meta>
   </metadata>
