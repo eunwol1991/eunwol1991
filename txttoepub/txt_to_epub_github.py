@@ -366,6 +366,7 @@ def create_epub(title: str, author: str, chapters: List[Tuple[str, str]], out_pa
         ]
         spine = []
         nav_list = []
+        nav_points = []
 
         if cover_info:
             ext, media_type = cover_info
@@ -380,17 +381,30 @@ def create_epub(title: str, author: str, chapters: List[Tuple[str, str]], out_pa
                 "<head>\n  <meta charset='utf-8'/><title>封面</title><link rel='stylesheet' type='text/css' href='style.css'/></head>\n"
                 f"<body>\n  <img src='{cover_name}' alt='cover'/>\n</body>\n</html>"
             )
-            epub.writestr('OEBPS/cover.xhtml', cover_xhtml)
-            manifest.append("<item id='cover' href='cover.xhtml' media-type='application/xhtml+xml'/>")
-            spine.append("<itemref idref='cover' linear='yes'/>")
+        else:
+            title_clean = clean_text(title)
+            author_clean = clean_text(author)
+            esc_title = html.escape(fix_named_entities(title_clean))
+            esc_author = html.escape(fix_named_entities(author_clean))
+            cover_xhtml = (
+                f"<?xml version='1.0' encoding='utf-8'?>\n<html xmlns='http://www.w3.org/1999/xhtml' xml:lang='{lang}' lang='{lang}'>\n"
+                "<head>\n  <meta charset='utf-8'/><title>封面</title><link rel='stylesheet' type='text/css' href='style.css'/></head>\n"
+                f"<body>\n  <h1>{esc_title}</h1>\n  <p>{esc_author}</p>\n</body>\n</html>"
+            )
+        epub.writestr('OEBPS/cover.xhtml', cover_xhtml)
+        manifest.append("<item id='cover' href='cover.xhtml' media-type='application/xhtml+xml'/>")
+        spine.append("<itemref idref='cover' linear='yes'/>")
 
         for i, (ch_title, ch_text) in enumerate(chapters, 1):
             fname = f'chapter{i}.xhtml'
             epub.writestr(f'OEBPS/{fname}', chapter_to_xhtml(i, ch_title, ch_text))
             manifest.append(f"<item id='c{i}' href='{fname}' media-type='application/xhtml+xml'/>")
             spine.append(f"<itemref idref='c{i}'/>")
-            nav_list.append(
-                f"      <li><a href='{fname}#chap{i}'>{fix_named_entities(html.escape(ch_title))}</a></li>"
+            title_clean = clean_text(ch_title)
+            esc_title = html.escape(fix_named_entities(title_clean))
+            nav_list.append(f"      <li><a href='{fname}#chap{i}'>{esc_title}</a></li>")
+            nav_points.append(
+                f"    <navPoint id='navPoint-{i}' playOrder='{i}'>\n      <navLabel><text>{esc_title}</text></navLabel>\n      <content src='{fname}'/>\n    </navPoint>"
             )
 
         epub.writestr(
@@ -404,10 +418,6 @@ def create_epub(title: str, author: str, chapters: List[Tuple[str, str]], out_pa
             + "\n</ol></nav></body></html>",
         )
 
-        nav_points = [
-            f"    <navPoint id='navPoint-{i}' playOrder='{i}'>\n      <navLabel><text>{fix_named_entities(html.escape(ch_title))}</text></navLabel>\n      <content src='chapter{i}.xhtml'/>\n    </navPoint>"
-            for i, (ch_title, _) in enumerate(chapters, 1)
-        ]
         epub.writestr(
             'OEBPS/toc.ncx',
             """<?xml version='1.0' encoding='utf-8'?>
@@ -417,7 +427,7 @@ def create_epub(title: str, author: str, chapters: List[Tuple[str, str]], out_pa
     <meta name='dtb:uid' content='"""
             + uid
             + "'/>\n    <meta name='dtb:depth' content='1'/>\n    <meta name='dtb:totalPageCount' content='0'/>\n    <meta name='dtb:maxPageNumber' content='0'/>\n  </head>\n  <docTitle><text>"
-            + fix_named_entities(html.escape(title))
+            + html.escape(fix_named_entities(clean_text(title)))
             + "</text></docTitle>\n  <navMap>\n"
             + '\n'.join(nav_points)
             + "\n  </navMap>\n</ncx>",
@@ -432,8 +442,8 @@ def create_epub(title: str, author: str, chapters: List[Tuple[str, str]], out_pa
 <package xmlns='http://www.idpf.org/2007/opf' unique-identifier='bookid' version='3.0'>
   <metadata xmlns:dc='http://purl.org/dc/elements/1.1/'>
     <dc:identifier id='bookid'>{uid}</dc:identifier>
-    <dc:title>{fix_named_entities(html.escape(title))}</dc:title>
-    <dc:creator>{fix_named_entities(html.escape(author))}</dc:creator>
+    <dc:title>{html.escape(fix_named_entities(clean_text(title)))}</dc:title>
+    <dc:creator>{html.escape(fix_named_entities(clean_text(author)))}</dc:creator>
     <dc:language>{lang}</dc:language>
     <meta property='dcterms:modified'>{modified}</meta>
   </metadata>
