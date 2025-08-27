@@ -436,6 +436,8 @@ def main():
             pages = parse_pdf(pdf_file)
             for lines in pages:
                 page_info = extract_orders_from_lines(lines)
+                # 检测是否为 amend 页（包含 amend/amended/amendment 等关键字）
+                page_has_amend = any(re.search(r"\bamend", ln, flags=re.I) for ln in lines)
                 if not page_info["items"]:
                     continue  # 该页无明细
 
@@ -474,8 +476,13 @@ def main():
                         continue
 
                     # 写入“数字 + UOM”，并根据数量进行单复数调整
-                    ws.cell(r, c).value = _format_qty_uom(it["qty"], it.get("uom", ""))
-                    ws.cell(r, c).fill  = HIGHLIGHT
+                    if page_has_amend and int(it.get("qty", 0)) == 0:
+                        cell = ws.cell(r, c)
+                        cell.value = None
+                        cell.fill = PatternFill()
+                    else:
+                        ws.cell(r, c).value = _format_qty_uom(it["qty"], it.get("uom", ""))
+                        ws.cell(r, c).fill  = HIGHLIGHT
                     pdf_had_update = True
 
                 # PO 写入为数字类型；如有多次写入，后写覆盖前写

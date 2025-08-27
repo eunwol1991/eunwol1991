@@ -401,6 +401,7 @@ def create_epub(title: str, author: str, chapters: List[Tuple[str, str]], out_pa
         epub.writestr('OEBPS/cover.xhtml', cover_xhtml)
         manifest.append("<item id='cover' href='cover.xhtml' media-type='application/xhtml+xml'/>")
         spine.append("<itemref idref='cover' linear='yes'/>")
+        spine.append("<itemref idref='nav' linear='no'/>")
 
         for i, (ch_title, ch_text) in enumerate(chapters, 1):
             fname = f'chapter{i}.xhtml'
@@ -411,13 +412,13 @@ def create_epub(title: str, author: str, chapters: List[Tuple[str, str]], out_pa
             esc_title = html.escape(fix_named_entities(title_clean))
             nav_list.append(f"      <li><a href='{fname}#chap{i}'>{esc_title}</a></li>")
             nav_points.append(
-                f"    <navPoint id='navPoint-{i}' playOrder='{i}'>\n      <navLabel><text>{esc_title}</text></navLabel>\n      <content src='{fname}'/>\n    </navPoint>"
+                f"    <navPoint id='navPoint-{i}' playOrder='{i}'>\n      <navLabel><text>{esc_title}</text></navLabel>\n      <content src='{fname}#chap{i}'/>\n    </navPoint>"
             )
 
         epub.writestr(
             'OEBPS/nav.xhtml',
             f"""<?xml version='1.0' encoding='utf-8'?>
-<html xmlns='http://www.w3.org/1999/xhtml' xml:lang='{lang}' lang='{lang}'>
+<html xmlns='http://www.w3.org/1999/xhtml' xmlns:epub='http://www.idpf.org/2007/ops' xml:lang='{lang}' lang='{lang}'>
 <head><meta charset='utf-8'/><title>目录</title><link rel='stylesheet' type='text/css' href='style.css'/></head>
 <body><nav epub:type='toc' id='toc'><h1>目录</h1><ol>
 """
@@ -444,6 +445,15 @@ def create_epub(title: str, author: str, chapters: List[Tuple[str, str]], out_pa
         manifest_str = '\n    '.join(manifest)
         spine_str = '\n    '.join(spine)
 
+        # EPUB2 compatibility bits for wider reader support
+        extra_meta = "<meta name='cover' content='coverimg'/>" if cover_info else ""
+        guide = (
+            "<guide>\n"
+            "    <reference type='cover' title='Cover' href='cover.xhtml'/>\n"
+            "    <reference type='toc' title='Table of Contents' href='nav.xhtml'/>\n"
+            "  </guide>"
+        )
+
         opf = (
             f"""<?xml version='1.0' encoding='utf-8'?>
 <package xmlns='http://www.idpf.org/2007/opf' unique-identifier='bookid' version='3.0'>
@@ -453,6 +463,7 @@ def create_epub(title: str, author: str, chapters: List[Tuple[str, str]], out_pa
     <dc:creator>{html.escape(fix_named_entities(clean_text(author)))}</dc:creator>
     <dc:language>{lang}</dc:language>
     <meta property='dcterms:modified'>{modified}</meta>
+    {extra_meta}
   </metadata>
   <manifest>
     {manifest_str}
@@ -460,6 +471,7 @@ def create_epub(title: str, author: str, chapters: List[Tuple[str, str]], out_pa
   <spine toc='ncx'>
     {spine_str}
   </spine>
+  {guide}
 </package>"""
         )
         epub.writestr('OEBPS/content.opf', opf)
