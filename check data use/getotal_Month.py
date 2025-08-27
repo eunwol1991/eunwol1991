@@ -16,6 +16,9 @@ import queue
 # - 增加“一键清除筛选”按钮
 
 class InvoiceExtractorApp:
+    # 文件名关键字（类级别配置）
+    CANCELED_KEYWORDS = ['cancel', 'canceled', 'cancelled', 'cancellation', 'void']
+    REVISED_KEYWORDS = ['revised', 'revise']
     def __init__(self, root):
         self.root = root
         self.root.title("Invoice Information Extractor")
@@ -197,6 +200,9 @@ class InvoiceExtractorApp:
                         logging.info(f"在任意文件夹中找到 PDF: {pdf_path}")
 
         pdf_files = list(set(pdf_files))
+
+        # 根据文件名优选版本：优先 Revised/Revise，忽略 Cancel 等
+        pdf_files = self._prefer_revised_and_skip_canceled(pdf_files)
         total_files = len(pdf_files)
 
         if total_files == 0:
@@ -234,6 +240,56 @@ class InvoiceExtractorApp:
                 self.gui_queue.put(('update_progress', progress))
                 logging.info(f"已处理 {start_idx + i + 1}/{total_files} 个文件")
         return extracted_data
+
+    def _prefer_revised_and_skip_canceled(self, pdf_files):
+        """根据文件名选择同一单据的最佳版本。
+
+        规则：
+        - 文件名含有 'cancel' 等字样的直接忽略（不读取）。
+        - 同一个基准键（例如 'MOS 0825 - 001'）只保留一个：
+          优先选择包含 'revised' 或 'revise' 的版本；若有多个，取修改时间最新。
+          若无 revised 版本，则在剩余候选中取修改时间最新的一个。
+        """
+        def is_canceled(name_lower):
+            # 覆盖常见的取消关键词（使用类配置）
+            return any(k in name_lower for k in self.CANCELED_KEYWORDS)
+
+        def is_revised(name_lower):
+            # 覆盖 revised/ reviese / (rev) 等常见写法
+            return ('revised' in name_lower) or ('revise' in name_lower) or '(rev' in name_lower
+
+        def base_key_from_filename(filename):
+            # 去掉扩展名
+            name = os.path.splitext(os.path.basename(filename))[0]
+            name_clean = name.strip()
+            # 先去掉括号及其后缀（如 (Revised)）做粗清洗
+            name_clean = re.split(r"\(", name_clean)[0].strip()
+            # 尝试按 " - " 进行分段，常见格式：AAA 0825 - 001 - xxx
+            parts = [p.strip() for p in name_clean.split(' - ') if p.strip()]
+            if len(parts) >= 2:
+                # 用前两个片段作为基准键，例如 "MOS 0825 - 001"
+                return f"{parts[0]} - {parts[1]}"
+            # 后备：返回清洗后的整个名称作为分组键
+            return name_clean
+
+        groups = {}
+        for path in pdf_files:
+            name_lower = os.path.basename(path).lower()
+            if is_canceled(name_lower):
+                continue
+            key = base_key_from_filename(path)
+            groups.setdefault(key, []).append(path)
+
+        selected = []
+        for key, paths in groups.items():
+            # 先挑 revised
+            revised_paths = [p for p in paths if is_revised(os.path.basename(p).lower())]
+            pool = revised_paths if revised_paths else paths
+            # 取修改时间最新的一个
+            newest = max(pool, key=lambda p: os.path.getmtime(p))
+            selected.append(newest)
+
+        return selected
     
 
     def extract_invoice_info_v2_3(self, pdf_path):
@@ -514,15 +570,7 @@ class InvoiceExtractorApp:
                 messagebox.showinfo("导出成功", f"数据已成功导出到 {file_path}")
                 logging.info(f"数据已导出到 {file_path}")
 
-    def on_heading_click(self, event):
-        region = self.tree.identify("region", event.x, event.y)
-        if region == "heading":
-            col_index = int(self.tree.identify_column(event.x).replace("#", "")) - 1
-            col_name = self.tree["columns"][col_index]
-            self.sort_treeview_column(col_name)
-
-        elif region == "cell":
-            pass  # 如有需要，可在此处理单元格点击事件
+    # on_heading_click: 未使用，已移除冗余处理（列头排序直接绑定在 heading 上）
     def open_selected_pdf(self, event):
         """双击行后打开 PDF 文件"""
         item = self.tree.identify_row(event.y)
