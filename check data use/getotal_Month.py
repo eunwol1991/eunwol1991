@@ -123,6 +123,8 @@ class InvoiceExtractorApp:
         ttk.Label(frame, text="关键字:").grid(row=9, column=0, padx=10, pady=5, sticky=tk.W)
         self.keyword_entry = ttk.Entry(frame, width=50)
         self.keyword_entry.grid(row=9, column=1, padx=10, pady=5, sticky=tk.W)
+        # 回车键应用关键字过滤
+        self.keyword_entry.bind("<Return>", lambda e: self.keyword_filter())
         ttk.Button(frame, text="按关键字过滤", command=self.keyword_filter).grid(row=9, column=2, padx=10, pady=5)
 
         ttk.Button(self.root, text="导出到 Excel", command=self.export_to_excel).grid(row=10, column=0, padx=20, pady=10)
