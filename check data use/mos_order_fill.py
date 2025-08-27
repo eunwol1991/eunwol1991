@@ -4,22 +4,23 @@ MOS Order → Excel  自动填表脚本（Savori三行版 + 关键字门店匹�
 """
 
 from pathlib import Path
-import re, sys
+import re, sys, shutil
 import fitz                     # PyMuPDF
 import openpyxl as xl
 from openpyxl.styles import PatternFill
 from openpyxl.utils import column_index_from_string
 
 # === 1. 配置区 ============================================================ #
-EXCEL_PATH   = Path(r"C:\Users\User\Dropbox\for jj\Order Summary - As of 26 Aug'25 - JJ.xlsx")
-SHEET_NAME   = "28 Thu MOS"
-PDF_DIR      = Path(r"C:\Users\User\Downloads\mos_pdfs")  # 待处理 PDF 文件夹
+EXCEL_PATH   = Path(r"C:\Users\User\Dropbox\for jj\mos order\Order Summary For MOS - JJ.xlsx")
+SHEET_NAME   = "MOS Format"
+PDF_DIR      = Path(r"C:\Users\User\Dropbox\for jj\mos_pdfs")  # 待处理 PDF 文件夹
 PO_COL       = "AI"              # PO 号所在列
 ROW_START    = 39                # B39-B73
 ROW_END      = 73
 COL_START    = "C"               # C38-AD38
 COL_END      = "AD"
 HIGHLIGHT    = PatternFill(fill_type="solid", fgColor="00FFFCD7")
+ARCHIVE_DIR  = Path(r"C:\Users\User\Dropbox\for jj\mos order")
 
 # ======== ① 门店别名（键已全部小写） =====================================
 STORE_ALIAS = {
@@ -96,6 +97,33 @@ ITEM_ALIAS = {
 
 UNIT_RE = r"(?:ctn|ctns|pkt|pkts|tin|tins|can|cans|box|boxes|btl|btls|pc|pcs)"
 
+# UOM pluralization helpers
+_PLURAL_MAP = {
+    "ctn": "ctns",
+    "pkt": "pkts",
+    "tin": "tins",
+    "can": "cans",
+    "box": "boxes",
+    "btl": "btls",
+    "pc":  "pcs",
+}
+_SINGULAR_MAP = {v: k for k, v in _PLURAL_MAP.items()}
+
+def _normalize_uom(uom: str) -> str:
+    u = (uom or "").strip().lower()
+    # If already plural form, convert to singular base
+    if u in _SINGULAR_MAP:
+        return _SINGULAR_MAP[u]
+    return u
+
+def _format_qty_uom(qty: int, uom: str) -> str:
+    base = _normalize_uom(uom)
+    if qty and qty > 1:
+        plural = _PLURAL_MAP.get(base, base + "s")
+        return f"{qty} {plural}"
+    # qty == 0 or 1 -> singular
+    return f"{qty} {base}"
+
 def _norm_spaces(s: str) -> str:
     return re.sub(r"\s+", " ", s).strip()
 
@@ -117,6 +145,54 @@ def _map_item(desc: str) -> str:
         if k in key or key in k:
             return ITEM_ALIAS[k]
     return desc
+
+def _tokenize_item(s: str) -> set[str]:
+    """Tokenize item text for fuzzy matching: lowercased words, length>=3."""
+    norm = _norm_item_key(s)
+    toks = [w for w in norm.split() if len(w) >= 3]
+    return set(toks)
+
+def find_best_item_col(desc: str, item_col: dict[str, int]) -> tuple[int | None, str | None]:
+    """
+    Fuzzy match: choose Excel header with maximum token overlap.
+    - Accept if unique max overlap >= 1.
+    - If tie with max==1 (e.g., only 'japanese' overlaps), treat as ambiguous -> None.
+    - If tie with max>=2, pick the one with greater total overlap character length; if still tie, ambiguous.
+    Returns (column_index, matched_header) or (None, None) if not resolvable.
+    """
+    pdf_tokens = _tokenize_item(desc)
+    if not pdf_tokens:
+        return None, None
+
+    scored: list[tuple[int, int, str, int]] = []  # (score, overlap_chars, header, col)
+    for header, col in item_col.items():
+        header_tokens = _tokenize_item(header)
+        overlap = pdf_tokens & header_tokens
+        score = len(overlap)
+        if score > 0:
+            overlap_chars = sum(len(t) for t in overlap)
+            scored.append((score, overlap_chars, header, col))
+
+    if not scored:
+        return None, None
+
+    scored.sort(key=lambda x: (x[0], x[1]), reverse=True)
+    top_score = scored[0][0]
+    top = [s for s in scored if s[0] == top_score]
+
+    if len(top) == 1 and top_score >= 1:
+        return top[0][3], top[0][2]
+
+    if top_score >= 2:
+        # Use overlap_chars to break ties
+        top.sort(key=lambda x: x[1], reverse=True)
+        if len(top) == 1 or top[0][1] > top[1][1]:
+            return top[0][3], top[0][2]
+        # Still ambiguous
+        return None, None
+
+    # top_score == 1 and multiple candidates -> ambiguous, require one more word
+    return None, None
 
 # ---------- 关键字/部分匹配：门店归一化与解析 ----------
 def _norm_store_text(s: str) -> str:
@@ -172,6 +248,63 @@ def resolve_store(pdf_store_line: str, store_row_keys: list[str]) -> str | None:
 
     return None
 
+def _ensure_dir(p: Path):
+    try:
+        p.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        pass
+
+def _safe_move_file(src: Path, dest_dir: Path):
+    try:
+        _ensure_dir(dest_dir)
+        target = dest_dir / src.name
+        if target.exists():
+            stem = src.stem
+            suffix = src.suffix
+            i = 1
+            while True:
+                cand = dest_dir / f"{stem} ({i}){suffix}"
+                if not cand.exists():
+                    target = cand
+                    break
+                i += 1
+        shutil.move(str(src), str(target))
+    except Exception as e:
+        print(f"[!] 无法移动文件 {src} -> {dest_dir}: {e}", file=sys.stderr)
+
+def _extract_po_from_lines(lines: list[str]) -> str:
+    """稳健抽取：优先 Approved by 附近，允许数字被空白/标点分隔；回退 To 规则。"""
+    joined = " \n ".join(lines)
+    m = re.search(r"(?is)approved\s*by\s*[:\-]?[^\d]{0,80}?(\d\D?\d\D?\d\D?\d\D?\d\D?\d)", joined)
+    if m:
+        digits = re.sub(r"\D", "", m.group(1))
+        if len(digits) >= 6 and int(digits[:6]) >= 600000:
+            return digits[:6]
+    for i, ln in enumerate(lines):
+        if re.search(r"(?i)approved\s*by", ln):
+            window = " ".join(lines[i:i+4])
+            m2 = re.search(r"(?is)\b(\d\D?\d\D?\d\D?\d\D?\d\D?\d)\b", window)
+            if m2:
+                digits = re.sub(r"\D", "", m2.group(1))
+                if len(digits) >= 6 and int(digits[:6]) >= 600000:
+                    return digits[:6]
+    for i in range(len(lines) - 1):
+        if lines[i].strip().lower() == "to":
+            nxt = " ".join(lines[i+1:i+3])
+            m3 = re.search(r"\b(\d\D?\d\D?\d\D?\d\D?\d\D?\d)\b", nxt)
+            if m3:
+                digits = re.sub(r"\D", "", m3.group(1))
+                if len(digits) >= 6 and int(digits[:6]) >= 600000:
+                    return digits[:6]
+    approved_pos = re.search(r"(?i)approved\s*by", joined)
+    pos = approved_pos.start() if approved_pos else 0
+    candidates = [(m.start(), re.sub(r"\D", "", m.group(0))) for m in re.finditer(r"\b\d{6}\b", joined)]
+    candidates = [c for c in candidates if int(c[1][:6]) >= 600000]
+    if candidates:
+        candidates.sort(key=lambda t: abs(t[0] - pos))
+        return candidates[0][1]
+    return ""
+
 def parse_pdf(pdf_path: Path):
     """
     适配 Savori 的“3行配对”版式：
@@ -196,22 +329,47 @@ def extract_orders_from_lines(lines: list[str]) -> dict:
         if re.fullmatch(r"(?i)MOS Burger.+\(\d+\)", ln, flags=re.I):
             store_line = ln
             break
-    # PO：'To' + 下一行数字
+    # PO 优先从 “Approved by: <Name>” 后面抓取；找不到再回退到 'To' 规则
     po = ""
-    for i in range(len(lines) - 1):
-        if lines[i].lower() == "to" and re.fullmatch(r"\d{5,}", lines[i + 1]):
-            po = lines[i + 1]
+    for i, ln in enumerate(lines):
+        low = ln.lower()
+        if "approved by:" in low:
+            # 场景1：同一行后面直接跟 6 开头的 6 位数字
+            m = re.search(r"\b(\d{6})\b", ln)
+            if m and int(m.group(1)) >= 600000:
+                po = m.group(1)
+                break
+            # 场景2：下一行是 6 开头的 6 位数字
+            if i + 1 < len(lines) and re.fullmatch(r"\d{6}", lines[i + 1].strip()):
+                if int(lines[i + 1].strip()) >= 600000:
+                    po = lines[i + 1].strip()
+                    break
+    if not po:
+        for i in range(len(lines) - 1):
+            if lines[i].strip().lower() == "to" and re.fullmatch(r"\d{6}", lines[i + 1].strip()):
+                if int(lines[i + 1].strip()) >= 600000:
+                    po = lines[i + 1].strip()
+                    break
+    # 最后再用跨行/灵活匹配加强一次（若上面未取到或被错误取值）
+    po2 = _extract_po_from_lines(lines)
+    if po2:
+        po = po2
 
     # 明细：三行配对
     items = []
-    qty_re = re.compile(rf"^(\d+)\s+{UNIT_RE}$", re.I)
+    # Capture both quantity and UOM
+    qty_re = re.compile(rf"^(\d+)\s+({UNIT_RE})$", re.I)
     i = 0
     while i < len(lines) - 2:
         if re.fullmatch(r"\d{5,}", lines[i]):
             desc = lines[i + 1]
             m_qty = qty_re.fullmatch(lines[i + 2])
             if m_qty:
-                items.append({"desc": desc, "qty": int(m_qty.group(1))})
+                items.append({
+                    "desc": desc,
+                    "qty": int(m_qty.group(1)),
+                    "uom": m_qty.group(2).lower(),
+                })
                 i += 3
                 continue
         i += 1
@@ -241,6 +399,19 @@ def build_mappings(ws):
 
     return store_row, item_col
 
+def clear_target_cells(ws):
+    # 清空目标范围内的历史值与高亮
+    c1 = column_index_from_string(COL_START)
+    c2 = column_index_from_string(COL_END)
+    for r in range(ROW_START, ROW_END + 1):
+        for c in range(c1, c2 + 1):
+            cell = ws.cell(r, c)
+            cell.value = None
+            cell.fill = PatternFill()
+        # 清空 PO 列
+        po_cell = ws[f"{PO_COL}{r}"]
+        po_cell.value = None
+
 def _merge_po(orig: str, new_po: str) -> str:
     if not new_po:
         return orig
@@ -254,11 +425,13 @@ def _merge_po(orig: str, new_po: str) -> str:
 def main():
     wb = xl.load_workbook(EXCEL_PATH)
     ws = wb[SHEET_NAME]
+    clear_target_cells(ws)
     store_row, item_col = build_mappings(ws)
     not_found_store, not_found_item, updated = [], [], []
 
     pdf_list = sorted(PDF_DIR.glob("*.pdf"))
     for pdf_file in pdf_list:
+        pdf_had_update = False
         try:
             pages = parse_pdf(pdf_file)
             for lines in pages:
@@ -292,20 +465,38 @@ def main():
                 for it in page_info["items"]:
                     item_std = _map_item(it["desc"])
                     c = item_col.get(item_std)
+                    matched_header = item_std
                     if c is None:
-                        not_found_item.append({"store": resolved_store_name, "item": item_std, "qty": it["qty"], "po": page_info["po"]})
+                        # Fuzzy fallback by token overlap
+                        c, matched_header = find_best_item_col(it["desc"], item_col)
+                    if c is None:
+                        not_found_item.append({"store": resolved_store_name, "item": matched_header or item_std, "qty": it.get("qty"), "uom": it.get("uom", ""), "po": page_info["po"]})
                         continue
 
-                    ws.cell(r, c).value = it["qty"]
+                    # 写入“数字 + UOM”，并根据数量进行单复数调整
+                    ws.cell(r, c).value = _format_qty_uom(it["qty"], it.get("uom", ""))
                     ws.cell(r, c).fill  = HIGHLIGHT
+                    pdf_had_update = True
 
-                # PO 合并
+                # PO 写入为数字类型；如有多次写入，后写覆盖前写
                 po_cell = ws[f"{PO_COL}{r}"]
-                po_cell.value = _merge_po(str(po_cell.value or "").strip(), page_info["po"])
+                po_val = page_info["po"].strip()
+                if re.fullmatch(r"\d{1,}\Z", po_val):
+                    try:
+                        po_cell.value = int(po_val)
+                    except Exception:
+                        po_cell.value = po_val  # fallback to text if conversion fails
+                else:
+                    po_cell.value = po_val
+                if po_val:
+                    pdf_had_update = True
 
                 updated.append((resolved_store_name, page_info["po"]))
         except Exception as e:
             print(f"[!] 解析 {pdf_file.name} 出错：{e}", file=sys.stderr)
+        # 已写入则移动 PDF 到归档目录
+        if pdf_had_update:
+            _safe_move_file(pdf_file, ARCHIVE_DIR)
 
     # 覆盖保存（只保存一次）
     wb.save(EXCEL_PATH)
@@ -321,7 +512,8 @@ def main():
         if not_found_item:
             print("  [物品未匹配]")
             for od in not_found_item:
-                print(f"   - {od['store']} / {od['item']} / {od['qty']} / PO {od['po']}")
+                qty_uom = _format_qty_uom(od.get('qty') or 0, od.get('uom', '')) if od.get('qty') is not None else ''
+                print(f"   - {od['store']} / {od['item']} / {qty_uom} / PO {od['po']}")
 
 if __name__ == "__main__":
     main()

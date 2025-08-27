@@ -9,7 +9,7 @@ import re
 import fitz  # PyMuPDF
 
 # 固定 PDF 路径
-PDF_PATH = Path(r"C:\Users\User\Downloads\mos_pdfs\Savori (2808).pdf")
+PDF_PATH = Path(r"C:\Users\User\Downloads\mos_pdfs\Savori (2908).pdf")
 
 # 正则
 UNIT_RE = r"(?:ctn|ctns|pkt|pkts|tin|tins|can|cans|box|boxes|btl|btls|pc|pcs)"
