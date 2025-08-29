@@ -33,7 +33,7 @@ def merge_cover_to_all(input_folder, output_folder, cover_filename):
 # === 参数设置 ===
 input_path = r"C:\Users\User\Downloads\Re_ Innofrsh_Savori request for updated Halal cert (Exp_ May & Jun'25)"
 output_path = r"C:\Users\User\Downloads\halal cert"
-cover_pdf_name = "A477-2005 ; Innofresh exp.03-05-2026 cover EN.pdf"
+cover_pdf_name = "Halal A477-2548 valid 05.08.2026 EN cover.pdf"
 
 # === 执行函数 ===
 merge_cover_to_all(input_path, output_path, cover_pdf_name)
