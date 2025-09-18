@@ -1,4 +1,4 @@
-import os
+﻿import os
 import sys
 
 # If executed directly via `python stock_datagrid.py`, re-launch with Streamlit.
@@ -43,7 +43,23 @@ if __name__ == "__main__" and os.environ.get("ST_REDIRECTED", "0") != "1" and (g
 import streamlit as st
 import pandas as pd
 import math
-from typing import Optional, Tuple
+import datetime
+from typing import Optional, Tuple, List
+
+PRIMARY_WAREHOUSES = ["Savori Whse", "Lai Hock Whse"]
+
+
+def _normalize_warehouse_name(value) -> str:
+    if pd.isna(value):
+        return ""
+    return str(value).strip()
+
+
+def _filter_primary_warehouses(df: pd.DataFrame) -> pd.DataFrame:
+    if "warehouse" not in df.columns:
+        return df
+    mask = df["warehouse"].map(_normalize_warehouse_name).isin(PRIMARY_WAREHOUSES)
+    return df.loc[mask].copy()
 
 
 # Canonicalize unit strings to a normalized, lowercase key
@@ -687,7 +703,6 @@ def main():
         "piece": 6,
     }
     _UNIT_PRIORITY_FALLBACK = len(UNIT_PRIORITY_ORDER) + 1
-    BULLET_SEPARATOR = " \u00b7 "
 
     def _unit_priority(u: Optional[str]) -> int:
         if u is None:
@@ -703,123 +718,130 @@ def main():
             return _UNIT_PRIORITY_FALLBACK
         return UNIT_PRIORITY_ORDER.get(canon, _UNIT_PRIORITY_FALLBACK)
 
-    def unit_summary_text(df_subset: pd.DataFrame) -> str:
-        if "unit" not in df_subset.columns or "stock_qty" not in df_subset.columns:
+    def _format_quantity(value: float) -> str:
+        if pd.isna(value):
             return ""
-        d = df_subset.assign(
+        val = float(value)
+        if math.isclose(val, round(val), rel_tol=1e-9, abs_tol=1e-9):
+            return f"{int(round(val))}"
+        text_val = f"{val:,.2f}"
+        return text_val.rstrip("0").rstrip(".")
+
+    def _collect_unit_totals(df_subset: pd.DataFrame) -> List[Tuple[str, float]]:
+        if df_subset.empty:
+            return []
+        working = df_subset.assign(
             stock_qty=pd.to_numeric(df_subset["stock_qty"], errors="coerce").fillna(0),
             unit_key=df_subset["unit"].apply(_normalize_unit),
         )
         grouped = (
-            d.groupby("unit_key", dropna=False)["stock_qty"]
-            .sum()
-            .reset_index()
+            working.groupby("unit_key", dropna=False)["stock_qty"].sum().reset_index()
         )
         if grouped.empty:
-            return ""
+            return []
         grouped["priority"] = grouped["unit_key"].apply(_unit_priority)
         grouped = grouped.sort_values(by=["priority", "unit_key"], kind="stable")
-        total_sum = grouped["stock_qty"].sum()
-        parts = [
-            f"{int(v)} {_plural(u, v)}"
-            for u, v in zip(grouped["unit_key"], grouped["stock_qty"])
-            if pd.notna(u) and u != "" and (v != 0 or total_sum == 0)
-        ]
-        return BULLET_SEPARATOR.join(parts)
+        results: List[Tuple[str, float]] = []
+        for row in grouped.itertuples(index=False):
+            unit_key = getattr(row, "unit_key")
+            qty = getattr(row, "stock_qty")
+            if pd.isna(unit_key):
+                continue
+            unit_text = str(unit_key).strip()
+            if not unit_text:
+                continue
+            if pd.isna(qty):
+                continue
+            results.append((unit_text, float(qty)))
+        return results
+
+    def _format_unit_totals(unit_totals: List[Tuple[str, float]]) -> str:
+        if not unit_totals:
+            return ""
+        parts = []
+        for unit, qty in unit_totals:
+            if pd.isna(qty) or math.isclose(float(qty), 0.0, abs_tol=1e-9):
+                continue
+            qty_text = _format_quantity(float(qty))
+            parts.append(f"{qty_text} {_plural(unit, qty)}")
+        return " ".join(parts)
+
+    def unit_summary_text(df_subset: pd.DataFrame) -> str:
+        if "unit" not in df_subset.columns or "stock_qty" not in df_subset.columns:
+            return ""
+        scoped = _filter_primary_warehouses(df_subset) if "warehouse" in df_subset.columns else df_subset
+        totals = _collect_unit_totals(scoped)
+        return _format_unit_totals(totals)
 
     def warehouse_summary_text(df_subset: pd.DataFrame) -> str:
         if "warehouse" not in df_subset.columns:
             return ""
-        order = ["Savori Whse", "Lai Hock Whse"]
-        texts = []
-        d = df_subset.assign(
-            stock_qty=pd.to_numeric(df_subset["stock_qty"], errors="coerce").fillna(0),
-            unit_key=df_subset["unit"].apply(_normalize_unit),
-        )
-        if d.empty:
+        scoped = _filter_primary_warehouses(df_subset)
+        if scoped.empty:
             return ""
-        grouped = (
-            d.groupby(["warehouse", "unit_key"], dropna=False)["stock_qty"]
-            .sum()
-            .reset_index()
-        )
-        grouped["unit_priority"] = grouped["unit_key"].apply(_unit_priority)
-        wh_names = list(grouped["warehouse"].dropna().unique())
-        ordered_wh = [w for w in order if w in wh_names] + [w for w in wh_names if w not in order]
-        for wh in ordered_wh:
-            sub = (
-                grouped[grouped["warehouse"] == wh]
-                .sort_values(by=["unit_priority", "unit_key"], kind="stable")
-            )
-            parts = [
-                f"{int(row.stock_qty)} {_plural(row.unit_key, row.stock_qty)}"
-                for row in sub.itertuples(index=False)
-                if pd.notna(row.unit_key) and row.unit_key != "" and row.stock_qty != 0
-            ]
-            name = str(wh) if pd.notna(wh) else "未知仓库"
-            if parts:
-                texts.append(f"{name}: {BULLET_SEPARATOR.join(parts)}")
+        working = scoped.assign(_normalized_warehouse=scoped["warehouse"].map(_normalize_warehouse_name))
+        texts = []
+        for wh in PRIMARY_WAREHOUSES:
+            subset = working[working["_normalized_warehouse"] == wh]
+            if subset.empty:
+                continue
+            totals = _collect_unit_totals(subset)
+            formatted = _format_unit_totals(totals)
+            if formatted:
+                texts.append(f"{wh}: {formatted}")
         return " | ".join(texts)
 
     def combined_unit_wh_text(df_subset: pd.DataFrame) -> str:
-        """按单位显示合计并在括号内给出分仓加总。"""
+        """Return unit totals with optional warehouse breakdown in parentheses."""
         if "unit" not in df_subset.columns or "stock_qty" not in df_subset.columns:
             return ""
-        d = df_subset.assign(
-            stock_qty=pd.to_numeric(df_subset["stock_qty"], errors="coerce").fillna(0),
-            unit_key=df_subset["unit"].apply(_normalize_unit)
+        scoped = _filter_primary_warehouses(df_subset) if "warehouse" in df_subset.columns else df_subset
+        if scoped.empty:
+            return ""
+        totals = _collect_unit_totals(scoped)
+        if "warehouse" not in scoped.columns:
+            return _format_unit_totals(totals)
+        working = scoped.assign(
+            _normalized_warehouse=scoped["warehouse"].map(_normalize_warehouse_name),
+            stock_qty=pd.to_numeric(scoped["stock_qty"], errors="coerce").fillna(0),
+            unit_key=scoped["unit"].apply(_normalize_unit),
         )
-        if "warehouse" in d.columns:
-            piv = d.groupby(["unit_key", "warehouse"], dropna=False)["stock_qty"].sum().reset_index()
-        else:
-            piv = d.groupby(["unit_key"], dropna=False)["stock_qty"].sum().reset_index().assign(warehouse="")
-
-        totals = (
-            piv.groupby("unit_key", dropna=False)["stock_qty"]
+        working = working[working["_normalized_warehouse"].isin(PRIMARY_WAREHOUSES)]
+        if working.empty:
+            return _format_unit_totals(totals)
+        per_wh = (
+            working.groupby(["unit_key", "_normalized_warehouse"], dropna=False)["stock_qty"]
             .sum()
             .reset_index()
         )
-        totals["priority"] = totals["unit_key"].apply(_unit_priority)
-        totals = totals.sort_values(by=["priority", "unit_key"], kind="stable")
+        wh_map = {
+            unit: {row._normalized_warehouse: row.stock_qty for row in per_wh[per_wh["unit_key"] == unit].itertuples(index=False)}
+            for unit, _ in totals
+        }
         parts = []
-        order_wh = ["Savori Whse", "Lai Hock Whse"]
-        for unit, total in zip(totals["unit_key"], totals["stock_qty"]):
-            if not unit:
+        for unit, total in totals:
+            if math.isclose(total, 0.0, abs_tol=1e-9):
                 continue
-            sub = piv[piv["unit_key"] == unit].set_index("warehouse")["stock_qty"]
-            items = []
-            for wh in order_wh:
-                if wh in sub and sub[wh] != 0:
-                    items.append(f"{wh} {int(sub[wh])}")
-            for wh, val in sub.items():
-                if wh not in order_wh and val != 0:
-                    name = str(wh) if pd.notna(wh) else "未知仓库"
-                    items.append(f"{name} {int(val)}")
-            detail = f" ({' + '.join(items)})" if items else ""
-            parts.append(f"{int(total)} {_plural(unit, total)}{detail}")
-        return BULLET_SEPARATOR.join(parts)
+            qty_text = _format_quantity(total)
+            sub_parts = []
+            for wh in PRIMARY_WAREHOUSES:
+                wh_qty = wh_map.get(unit, {}).get(wh)
+                if wh_qty is None or math.isclose(wh_qty, 0.0, abs_tol=1e-9):
+                    continue
+                sub_parts.append(f"{wh} {_format_quantity(wh_qty)}")
+            detail = f" ({' + '.join(sub_parts)})" if sub_parts else ""
+            parts.append(f"{qty_text} {_plural(unit, total)}{detail}")
+        return " ".join(parts)
 
     def unit_totals_plain(df_subset: pd.DataFrame) -> str:
-        """仅显示按单位的合计（不带分仓括号），如："448 ctns 2 pkts"。"""
+        """Return combined totals per unit without warehouse breakdown."""
         if "unit" not in df_subset.columns or "stock_qty" not in df_subset.columns:
             return ""
-        d = df_subset.assign(
-            stock_qty=pd.to_numeric(df_subset["stock_qty"], errors="coerce").fillna(0),
-            unit_key=df_subset["unit"].apply(_normalize_unit)
-        )
-        totals = (
-            d.groupby("unit_key", dropna=False)["stock_qty"]
-            .sum()
-            .reset_index()
-        )
-        totals["priority"] = totals["unit_key"].apply(_unit_priority)
-        totals = totals.sort_values(by=["priority", "unit_key"], kind="stable")
-        parts = [
-            f"{int(v)} {_plural(u, v)}"
-            for u, v in zip(totals["unit_key"], totals["stock_qty"])
-            if pd.notna(u) and u != ""
-        ]
-        return " ".join(parts)
+        scoped = _filter_primary_warehouses(df_subset) if "warehouse" in df_subset.columns else df_subset
+        if scoped.empty:
+            return ""
+        totals = _collect_unit_totals(scoped)
+        return _format_unit_totals(totals)
 
     def style_with_expiry(df_subset: pd.DataFrame):
         if "expiry_date" in df_subset.columns:
@@ -871,19 +893,6 @@ def main():
             .str.strip()
         )
 
-        primary_warehouses = ["Savori Whse", "Lai Hock Whse"]
-
-        def _format_for_warehouse(group: pd.DataFrame, warehouse_name: str) -> str:
-            if "warehouse" not in group.columns:
-                return ""
-            mask = group["warehouse"].astype(str) == warehouse_name
-            if hasattr(mask, "fillna"):
-                mask = mask.fillna(False)
-            subset = group[mask]
-            if subset.empty:
-                return ""
-            return unit_totals_plain(subset)
-
         rows = []
         group_keys = ["_base_description", "_product_code"] if "product_code" in df_sup.columns else ["_base_description"]
         for sup_val, sup_group in df_sup.groupby("supplier", dropna=False):
@@ -898,19 +907,12 @@ def main():
                     code_candidate = key_vals[1]
                     code_display = str(code_candidate).strip() if pd.notna(code_candidate) and str(code_candidate).strip() else "-"
 
-                per_warehouse = {wh: _format_for_warehouse(prod_group, wh) for wh in primary_warehouses}
-
-                other_parts = []
+                per_warehouse = {}
                 if "warehouse" in prod_group.columns:
                     for wh_val, wh_group in prod_group.groupby("warehouse", dropna=False):
-                        wh_name = str(wh_val).strip() if pd.notna(wh_val) and str(wh_val).strip() else "Unknown warehouse"
-                        summary_text = unit_totals_plain(wh_group)
-                        if not summary_text:
-                            continue
-                        if wh_name in per_warehouse:
-                            per_warehouse[wh_name] = summary_text
-                        else:
-                            other_parts.append(f"{wh_name}: {summary_text}")
+                        wh_name = _normalize_warehouse_name(wh_val)
+                        if wh_name in PRIMARY_WAREHOUSES:
+                            per_warehouse[wh_name] = unit_totals_plain(wh_group)
 
                 rows.append({
                     "Supplier": sup_name,
@@ -918,7 +920,7 @@ def main():
                     "Product Code": code_display,
                     "Savori Whse": per_warehouse.get("Savori Whse", ""),
                     "Lai Hock Whse": per_warehouse.get("Lai Hock Whse", ""),
-                    "Other Warehouses": " | ".join(other_parts) if other_parts else "",
+                    "Total": unit_totals_plain(prod_group),
                 })
 
         summary_df = pd.DataFrame(rows)
@@ -926,6 +928,109 @@ def main():
             return summary_df
         summary_df = summary_df.sort_values(by=["Supplier", "Product", "Product Code"], kind="stable")
         return summary_df.reset_index(drop=True)
+
+    def description_summary(df_subset: pd.DataFrame, descriptions: list) -> pd.DataFrame:
+        if not descriptions or "description" not in df_subset.columns:
+            return pd.DataFrame()
+        base_series = (
+            df_subset["description"].astype(str)
+            .str.replace(r"\s*\([^)]*\)", "", regex=True)
+            .str.strip()
+        )
+        working = df_subset.copy()
+        working["_base_description"] = base_series
+        target = working[working["_base_description"].isin(descriptions)]
+        if target.empty:
+            return pd.DataFrame()
+
+        rows = []
+        for desc_value, group in target.groupby("_base_description", dropna=False):
+            desc_name = str(desc_value).strip() if pd.notna(desc_value) and str(desc_value).strip() else "Unnamed product"
+            code_series = group.get("product_code", pd.Series(dtype=str))
+            codes = sorted({str(c).strip() for c in code_series.dropna().tolist() if str(c).strip()})
+            per_wh = {}
+            if "warehouse" in group.columns:
+                for wh_val, wh_group in group.groupby("warehouse", dropna=False):
+                    wh_name = _normalize_warehouse_name(wh_val)
+                    if wh_name in PRIMARY_WAREHOUSES:
+                        per_wh[wh_name] = unit_totals_plain(wh_group)
+            rows.append({
+                "Description": desc_name,
+                "Product Code(s)": " / ".join(codes) if codes else "-",
+                "Savori Whse": per_wh.get("Savori Whse", ""),
+                "Lai Hock Whse": per_wh.get("Lai Hock Whse", ""),
+                "Total": unit_totals_plain(group),
+            })
+        summary_df = pd.DataFrame(rows)
+        if summary_df.empty:
+            return summary_df
+        summary_df = summary_df.sort_values(by=["Description", "Product Code(s)"], kind="stable")
+        return summary_df.reset_index(drop=True)
+
+    def build_expiry_summary(df_subset: pd.DataFrame) -> pd.DataFrame:
+        if "expiry_date" not in df_subset.columns:
+            return pd.DataFrame()
+        working = df_subset.copy()
+        working["expiry_date"] = pd.to_datetime(working["expiry_date"], errors="coerce", format="mixed")
+        if working["expiry_date"].isna().all():
+            return pd.DataFrame()
+        working["_expiry_date_only"] = working["expiry_date"].dt.date
+
+        rows = []
+        today = pd.Timestamp.today().normalize().date()
+        for expiry_value, group in working.groupby("_expiry_date_only", dropna=False):
+            if pd.isna(expiry_value):
+                label = "无到期日"
+                sort_key = datetime.date.max
+                days_remaining = pd.NA
+            else:
+                label = expiry_value.isoformat()
+                sort_key = expiry_value
+                days_remaining = (expiry_value - today).days
+
+            per_wh = {}
+            if "warehouse" in group.columns:
+                for wh_val, wh_group in group.groupby("warehouse", dropna=False):
+                    wh_name = _normalize_warehouse_name(wh_val)
+                    if wh_name in PRIMARY_WAREHOUSES:
+                        per_wh[wh_name] = unit_totals_plain(wh_group)
+            rows.append({
+                "Expiry": label,
+                "Savori Whse": per_wh.get("Savori Whse", ""),
+                "Lai Hock Whse": per_wh.get("Lai Hock Whse", ""),
+                "Total": unit_totals_plain(group),
+                "Days Remaining": days_remaining,
+                "_sort": sort_key,
+            })
+
+        summary_df = pd.DataFrame(rows)
+        if summary_df.empty:
+            return summary_df
+        summary_df["Days Remaining"] = summary_df["Days Remaining"].astype("Int64")
+        summary_df = summary_df.sort_values(by="_sort", kind="stable").drop(columns="_sort").reset_index(drop=True)
+        return summary_df
+
+    def style_expiry_summary(df_summary: pd.DataFrame, highlight_days: int):
+        if df_summary.empty:
+            return df_summary
+
+        def _highlight(row):
+            days = row.get("Days Remaining")
+            if pd.isna(days):
+                return [""] * len(row)
+            try:
+                if int(days) <= highlight_days:
+                    style = "background-color: rgba(255,140,0,0.22); border-left: 4px solid #ff8c00;"
+                    return [style] * len(row)
+            except Exception:
+                pass
+            return [""] * len(row)
+
+        try:
+            return df_summary.style.apply(_highlight, axis=1)
+        except Exception:
+            return df_summary
+
     combined_txt = unit_totals_plain(filtered)
     supplier_summary_df = supplier_product_summary(filtered, selected_suppliers)
     warehouse_overview = warehouse_summary_text(filtered)
@@ -997,14 +1102,20 @@ def main():
                 .str.replace(r"\s*\([^)]*\)", "", regex=True)
                 .str.strip()
             )
+            summary_table = description_summary(filtered, selected_descs)
+            if not summary_table.empty:
+                st.dataframe(summary_table, use_container_width=True, hide_index=True)
+            else:
+                st.info("No summary available for the chosen descriptions.")
             for desc in selected_descs:
                 subset_all = filtered[base_series_filtered == desc].copy()
                 if subset_all.empty:
                     st.info(f"No rows for description: {desc}")
                     continue
                 codes = sorted({
-                    str(c)
+                    str(c).strip()
                     for c in subset_all.get("product_code", pd.Series(dtype=str)).dropna().unique().tolist()
+                    if str(c).strip()
                 })
                 code_part = " / ".join(codes) if codes else ""
                 title = (f"{code_part} - {desc}" if code_part else str(desc)).upper()
@@ -1017,6 +1128,16 @@ def main():
                 wh_line = warehouse_summary_text(subset_all)
                 if wh_line:
                     st.caption(f"Warehouse split: {wh_line}")
+                expiry_summary = build_expiry_summary(subset_all)
+                with st.expander("Expiry breakdown", expanded=False):
+                    if expiry_summary.empty:
+                        st.info("No expiry grouped data.")
+                    else:
+                        styled_expiry = style_expiry_summary(expiry_summary, due_days)
+                        if hasattr(styled_expiry, "_repr_html_"):
+                            st.dataframe(styled_expiry, use_container_width=True, hide_index=True)
+                        else:
+                            st.dataframe(expiry_summary, use_container_width=True, hide_index=True)
                 if "warehouse" in subset_all.columns:
                     for wh, subset in subset_all.groupby("warehouse", dropna=False):
                         label = f"{wh if pd.notna(wh) else 'Unknown warehouse'}"
@@ -1027,6 +1148,7 @@ def main():
                     with st.expander("Details", expanded=False):
                         render_unit_summary(subset_all, title_prefix="单位汇总")
                         st.dataframe(prepare_display(subset_all), use_container_width=True, hide_index=True)
+
         else:
             render_unit_summary(filtered, title_prefix="单位汇总（全部）")
             st.divider()
