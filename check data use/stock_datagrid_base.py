@@ -656,32 +656,6 @@ def main():
     def _normalize_unit(u: Optional[str]) -> str:
         return _canonical_unit(u)
 
-    UNIT_PRIORITY_ORDER = {
-        "ctn": 0,
-        "box": 1,
-        "tin": 2,
-        "can": 3,
-        "pkt": 4,
-        "bag": 5,
-        "pc": 6,
-        "piece": 6,
-    }
-    _UNIT_PRIORITY_FALLBACK = len(UNIT_PRIORITY_ORDER) + 1
-
-    def _unit_priority(u: Optional[str]) -> int:
-        if u is None:
-            return _UNIT_PRIORITY_FALLBACK
-        if isinstance(u, float):
-            try:
-                if math.isnan(u):
-                    return _UNIT_PRIORITY_FALLBACK
-            except Exception:
-                pass
-        canon = _canonical_unit(u)
-        if not canon:
-            return _UNIT_PRIORITY_FALLBACK
-        return UNIT_PRIORITY_ORDER.get(canon, _UNIT_PRIORITY_FALLBACK)
-
     def unit_summary_text(df_subset: pd.DataFrame) -> str:
         if "unit" not in df_subset.columns or "stock_qty" not in df_subset.columns:
             return ""
@@ -689,19 +663,13 @@ def main():
             stock_qty=pd.to_numeric(df_subset["stock_qty"], errors="coerce").fillna(0),
             unit_key=df_subset["unit"].apply(_normalize_unit),
         )
-        grouped = (
-            d.groupby("unit_key", dropna=False)["stock_qty"]
-            .sum()
-            .reset_index()
-        )
-        if grouped.empty:
-            return ""
-        grouped["priority"] = grouped["unit_key"].apply(_unit_priority)
-        grouped = grouped.sort_values(by=["priority", "unit_key"], kind="stable")
-        total_sum = grouped["stock_qty"].sum()
+        s = d.groupby("unit_key", dropna=False)["stock_qty"].sum()
+        # Order by amount desc; show unit with value > 0 or all if all zeros
+        s = s.sort_values(ascending=False)
+        total_sum = s.sum()
         parts = [
             f"{int(v)} {_plural(u, v)}"
-            for u, v in zip(grouped["unit_key"], grouped["stock_qty"])
+            for u, v in s.items()
             if pd.notna(u) and u != "" and (v != 0 or total_sum == 0)
         ]
         return " · ".join(parts)
@@ -717,24 +685,13 @@ def main():
         )
         if d.empty:
             return ""
-        grouped = (
-            d.groupby(["warehouse", "unit_key"], dropna=False)["stock_qty"]
-            .sum()
-            .reset_index()
-        )
-        grouped["unit_priority"] = grouped["unit_key"].apply(_unit_priority)
+        grouped = d.groupby(["warehouse", "unit_key"], dropna=False)["stock_qty"].sum().reset_index()
+        # Build per-warehouse text in order
         wh_names = list(grouped["warehouse"].dropna().unique())
         ordered_wh = [w for w in order if w in wh_names] + [w for w in wh_names if w not in order]
         for wh in ordered_wh:
-            sub = (
-                grouped[grouped["warehouse"] == wh]
-                .sort_values(by=["unit_priority", "unit_key"], kind="stable")
-            )
-            parts = [
-                f"{int(row.stock_qty)} {_plural(row.unit_key, row.stock_qty)}"
-                for row in sub.itertuples(index=False)
-                if pd.notna(row.unit_key) and row.unit_key != "" and row.stock_qty != 0
-            ]
+            sub = grouped[grouped["warehouse"] == wh].sort_values("stock_qty", ascending=False)
+            parts = [f"{int(v)} {_plural(u, v)}" for _, u, v in sub.itertuples(index=False) if u and v != 0]
             name = str(wh) if pd.notna(wh) else "未知仓库"
             if parts:
                 texts.append(f"{name}: {' · '.join(parts)}")
@@ -753,18 +710,14 @@ def main():
         else:
             piv = d.groupby(["unit_key"], dropna=False)["stock_qty"].sum().reset_index().assign(warehouse="")
 
-        totals = (
-            piv.groupby("unit_key", dropna=False)["stock_qty"]
-            .sum()
-            .reset_index()
-        )
-        totals["priority"] = totals["unit_key"].apply(_unit_priority)
-        totals = totals.sort_values(by=["priority", "unit_key"], kind="stable")
+        # total per unit
+        totals = piv.groupby("unit_key", dropna=False)["stock_qty"].sum().sort_values(ascending=False)
         parts = []
         order_wh = ["Savori Whse", "Lai Hock Whse"]
-        for unit, total in zip(totals["unit_key"], totals["stock_qty"]):
+        for unit, total in totals.items():
             if not unit:
                 continue
+            # breakdown per warehouse for this unit
             sub = piv[piv["unit_key"] == unit].set_index("warehouse")["stock_qty"]
             items = []
             for wh in order_wh:
@@ -786,18 +739,8 @@ def main():
             stock_qty=pd.to_numeric(df_subset["stock_qty"], errors="coerce").fillna(0),
             unit_key=df_subset["unit"].apply(_normalize_unit)
         )
-        totals = (
-            d.groupby("unit_key", dropna=False)["stock_qty"]
-            .sum()
-            .reset_index()
-        )
-        totals["priority"] = totals["unit_key"].apply(_unit_priority)
-        totals = totals.sort_values(by=["priority", "unit_key"], kind="stable")
-        parts = [
-            f"{int(v)} {_plural(u, v)}"
-            for u, v in zip(totals["unit_key"], totals["stock_qty"])
-            if pd.notna(u) and u != ""
-        ]
+        s = d.groupby("unit_key", dropna=False)["stock_qty"].sum().sort_values(ascending=False)
+        parts = [f"{int(v)} {_plural(u, v)}" for u, v in s.items() if pd.notna(u) and u != ""]
         return " ".join(parts)
 
     c1, c2, _c3 = st.columns([1, 5, 0.1])
@@ -826,8 +769,6 @@ def main():
                 .reset_index()
                 .rename(columns={"unit": "单位"})
             )
-            summary_df["_priority"] = summary_df["单位"].apply(_unit_priority)
-            summary_df = summary_df.sort_values(by=["_priority", "单位"], kind="stable").drop(columns="_priority")
             st.subheader(f"{title_prefix}")
             # 数量合计显示为整数格式
             try:
