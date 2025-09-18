@@ -281,7 +281,11 @@ def load_and_normalize(file) -> Tuple[pd.DataFrame, list]:
             "supplier", "brand", "product_code", "description", "pack_size", "unit",
             "expiry_date", "relabel_to_date", "stock_qty", "warehouse",
         ]
-        combined = pd.concat(frames, ignore_index=True, sort=False)
+        valid_frames = [f for f in frames if f is not None and not f.empty]
+        if valid_frames:
+            combined = pd.concat(valid_frames, ignore_index=True, sort=False)
+        else:
+            combined = pd.DataFrame(columns=cols)
         for c in cols:
             if c not in combined.columns:
                 combined[c] = pd.NA
@@ -419,7 +423,7 @@ def apply_filters(df: pd.DataFrame):
 def apply_filters_v2(df: pd.DataFrame):
     """改进版筛选：实现 Excel 式逐步收缩，任意维度先选都能联动其它选项。
     维度顺序：Warehouse → Supplier → Brand → Description(去括号) → Product Code → Remark(来自括号)。
-    返回：筛选后的 DataFrame、所选 Description 列表、到期高亮天数。
+    返回：筛选后的 DataFrame、所选 Description 列表、到期高亮天数、当前筛选状态字典。
     """
     base = df.copy()
 
@@ -487,7 +491,10 @@ def apply_filters_v2(df: pd.DataFrame):
             wh_options = [x for x in d["warehouse"].dropna().astype(str).unique().tolist()]
             ordered = [w for w in ["Savori Whse", "Lai Hock Whse"] if w in wh_options]
             ordered += [w for w in wh_options if w not in ordered]
-            _ensure_multiselect_key("f_wh", ordered, ordered)
+            default_selection = [w for w in ["Savori Whse", "Lai Hock Whse"] if w in ordered]
+            if not default_selection:
+                default_selection = list(ordered)
+            _ensure_multiselect_key("f_wh", ordered, default_selection)
             st.multiselect("仓库", options=ordered, key="f_wh", placeholder="选择一个或多个仓库")
             sel_wh = list(ss.get("f_wh", []))
 
@@ -590,7 +597,18 @@ def apply_filters_v2(df: pd.DataFrame):
         mask_rel = work["relabel_to_date"].notna() & (work["relabel_to_date"].dt.date >= r_start) & (work["relabel_to_date"].dt.date <= r_end)
         work = work[mask_rel]
 
-    return work, sel_desc, due_days
+    selections = {
+        "warehouse": list(sel_wh),
+        "supplier": list(sel_sup),
+        "brand": list(sel_brand),
+        "description": list(sel_desc),
+        "product_code": list(sel_code),
+        "remark": list(sel_remark),
+        "use_date_filters": use_date_filters,
+        "expiry_range": (start, end) if use_date_filters else None,
+        "relabel_range": (r_start, r_end) if use_date_filters else None,
+    }
+    return work, sel_desc, due_days, selections
 
 
 def main():
@@ -629,7 +647,9 @@ def main():
     df_display = df[display_cols].copy()
 
     # 使用改进后的联动筛选
-    filtered, selected_descs, due_days = apply_filters_v2(df_display)
+    filtered, selected_descs, due_days, filter_state = apply_filters_v2(df_display)
+    filter_state = filter_state or {}
+    selected_suppliers = list(filter_state.get("supplier", []))
 
     # KPIs
     total_rows = len(filtered)
@@ -667,6 +687,7 @@ def main():
         "piece": 6,
     }
     _UNIT_PRIORITY_FALLBACK = len(UNIT_PRIORITY_ORDER) + 1
+    BULLET_SEPARATOR = " \u00b7 "
 
     def _unit_priority(u: Optional[str]) -> int:
         if u is None:
@@ -704,7 +725,7 @@ def main():
             for u, v in zip(grouped["unit_key"], grouped["stock_qty"])
             if pd.notna(u) and u != "" and (v != 0 or total_sum == 0)
         ]
-        return " · ".join(parts)
+        return BULLET_SEPARATOR.join(parts)
 
     def warehouse_summary_text(df_subset: pd.DataFrame) -> str:
         if "warehouse" not in df_subset.columns:
@@ -737,7 +758,7 @@ def main():
             ]
             name = str(wh) if pd.notna(wh) else "未知仓库"
             if parts:
-                texts.append(f"{name}: {' · '.join(parts)}")
+                texts.append(f"{name}: {BULLET_SEPARATOR.join(parts)}")
         return " | ".join(texts)
 
     def combined_unit_wh_text(df_subset: pd.DataFrame) -> str:
@@ -776,7 +797,7 @@ def main():
                     items.append(f"{name} {int(val)}")
             detail = f" ({' + '.join(items)})" if items else ""
             parts.append(f"{int(total)} {_plural(unit, total)}{detail}")
-        return " · ".join(parts)
+        return BULLET_SEPARATOR.join(parts)
 
     def unit_totals_plain(df_subset: pd.DataFrame) -> str:
         """仅显示按单位的合计（不带分仓括号），如："448 ctns 2 pkts"。"""
@@ -800,25 +821,127 @@ def main():
         ]
         return " ".join(parts)
 
-    c1, c2, _c3 = st.columns([1, 5, 0.1])
-    c1.metric("筛选后行数", f"{total_rows}")
-    combined_txt = unit_totals_plain(filtered)
-    c2.markdown(
-        f"<div style='font-size:1.05rem;font-weight:600;'>加总：{combined_txt if combined_txt else '无数据'}</div>",
-        unsafe_allow_html=True,
-    )
+    def style_with_expiry(df_subset: pd.DataFrame):
+        if "expiry_date" in df_subset.columns:
+            cutoff = (pd.Timestamp.today().normalize() + pd.Timedelta(days=due_days)).date()
 
-    # Unit-wise summary per selected description (or overall when none selected)
-    def render_unit_summary(df_subset, title_prefix="按单位汇总"):
+            def row_style(row):
+                try:
+                    d = pd.to_datetime(row.get("expiry_date"), errors="coerce", format="mixed")
+                    if pd.notna(d):
+                        d = d.date()
+                        if d <= cutoff:
+                            style = "background-color: rgba(255,140,0,0.22); border-left: 4px solid #ff8c00;"
+                            return [style] * len(row)
+                except Exception:
+                    pass
+                return [""] * len(row)
+
+            try:
+                return df_subset.style.apply(row_style, axis=1).format({"stock_qty": "{:,.0f}"})
+            except Exception:
+                try:
+                    return df_subset.style.apply(row_style, axis=1)
+                except Exception:
+                    return df_subset
+
+        try:
+            return df_subset.style.format({"stock_qty": "{:,.0f}"})
+        except Exception:
+            return df_subset
+
+
+
+    def supplier_product_summary(df_subset: pd.DataFrame, suppliers: list) -> pd.DataFrame:
+        if not suppliers or "supplier" not in df_subset.columns:
+            return pd.DataFrame()
+        df_sup = df_subset[df_subset["supplier"].isin(suppliers)].copy()
+        if df_sup.empty:
+            return pd.DataFrame()
+
+        df_sup["_base_description"] = (
+            df_sup.get("description", pd.Series(dtype=str))
+            .astype(str)
+            .str.replace(r"\s*\([^)]*\)", "", regex=True)
+            .str.strip()
+        )
+        df_sup["_product_code"] = (
+            df_sup.get("product_code", pd.Series(dtype=str))
+            .astype(str)
+            .str.strip()
+        )
+
+        primary_warehouses = ["Savori Whse", "Lai Hock Whse"]
+
+        def _format_for_warehouse(group: pd.DataFrame, warehouse_name: str) -> str:
+            if "warehouse" not in group.columns:
+                return ""
+            mask = group["warehouse"].astype(str) == warehouse_name
+            if hasattr(mask, "fillna"):
+                mask = mask.fillna(False)
+            subset = group[mask]
+            if subset.empty:
+                return ""
+            return unit_totals_plain(subset)
+
+        rows = []
+        group_keys = ["_base_description", "_product_code"] if "product_code" in df_sup.columns else ["_base_description"]
+        for sup_val, sup_group in df_sup.groupby("supplier", dropna=False):
+            sup_name = str(sup_val).strip() if pd.notna(sup_val) and str(sup_val).strip() else "Unknown supplier"
+            for key_vals, prod_group in sup_group.groupby(group_keys, dropna=False):
+                if not isinstance(key_vals, tuple):
+                    key_vals = (key_vals,)
+                base_desc_value = key_vals[0]
+                base_name = str(base_desc_value).strip() if pd.notna(base_desc_value) and str(base_desc_value).strip() else "Unnamed product"
+                code_display = "-"
+                if len(key_vals) > 1:
+                    code_candidate = key_vals[1]
+                    code_display = str(code_candidate).strip() if pd.notna(code_candidate) and str(code_candidate).strip() else "-"
+
+                per_warehouse = {wh: _format_for_warehouse(prod_group, wh) for wh in primary_warehouses}
+
+                other_parts = []
+                if "warehouse" in prod_group.columns:
+                    for wh_val, wh_group in prod_group.groupby("warehouse", dropna=False):
+                        wh_name = str(wh_val).strip() if pd.notna(wh_val) and str(wh_val).strip() else "Unknown warehouse"
+                        summary_text = unit_totals_plain(wh_group)
+                        if not summary_text:
+                            continue
+                        if wh_name in per_warehouse:
+                            per_warehouse[wh_name] = summary_text
+                        else:
+                            other_parts.append(f"{wh_name}: {summary_text}")
+
+                rows.append({
+                    "Supplier": sup_name,
+                    "Product": base_name,
+                    "Product Code": code_display,
+                    "Savori Whse": per_warehouse.get("Savori Whse", ""),
+                    "Lai Hock Whse": per_warehouse.get("Lai Hock Whse", ""),
+                    "Other Warehouses": " | ".join(other_parts) if other_parts else "",
+                })
+
+        summary_df = pd.DataFrame(rows)
+        if summary_df.empty:
+            return summary_df
+        summary_df = summary_df.sort_values(by=["Supplier", "Product", "Product Code"], kind="stable")
+        return summary_df.reset_index(drop=True)
+    combined_txt = unit_totals_plain(filtered)
+    supplier_summary_df = supplier_product_summary(filtered, selected_suppliers)
+    warehouse_overview = warehouse_summary_text(filtered)
+
+    def render_unit_summary(df_subset, title_prefix="单位汇总"):
         if "unit" in df_subset.columns and "stock_qty" in df_subset.columns:
             unit_sum = (
                 df_subset.assign(stock_qty=pd.to_numeric(df_subset["stock_qty"], errors="coerce").fillna(0))
                 .groupby("unit", dropna=False)["stock_qty"].sum()
                 .sort_values(ascending=False)
-                .rename("数量合计")
+                .rename("总量合计")
             )
             unit_cnt = (
-                df_subset.groupby("unit", dropna=False)["product_code" if "product_code" in df_subset.columns else df_subset.columns[0]].count()
+                df_subset.groupby("unit", dropna=False)[
+                    "product_code" if "product_code" in df_subset.columns else df_subset.columns[0]
+                ].count()
                 .rename("条目数")
             )
             summary_df = (
@@ -829,137 +952,92 @@ def main():
             summary_df["_priority"] = summary_df["单位"].apply(_unit_priority)
             summary_df = summary_df.sort_values(by=["_priority", "单位"], kind="stable").drop(columns="_priority")
             st.subheader(f"{title_prefix}")
-            # 数量合计显示为整数格式
             try:
-                styled_sum = summary_df.style.format({"数量合计": "{:,.0f}"})
+                styled_sum = summary_df.style.format({"总量合计": "{:,.0f}"})
                 st.dataframe(styled_sum, use_container_width=True, hide_index=True)
             except Exception:
                 st.dataframe(summary_df, use_container_width=True, hide_index=True)
 
-    if selected_descs:
-        st.divider()
-        st.subheader("按 Description 分组展示")
-        # precompute styling helper
-        def style_rows(df):
-            if "expiry_date" in df.columns:
-                today = pd.Timestamp.today().normalize().date()
-                cutoff = (pd.Timestamp.today().normalize() + pd.Timedelta(days=due_days)).date()
-                def row_style(row):
-                    try:
-                        d = pd.to_datetime(row.get("expiry_date"), errors="coerce", format="mixed")
-                        if pd.notna(d):
-                            d = d.date()
-                            if d <= cutoff:
-                                style = "background-color: rgba(255,140,0,0.22); border-left: 4px solid #ff8c00;"
-                                return [style] * len(row)
-                    except Exception:
-                        pass
-                    return [""] * len(row)
-                # 同时将 stock_qty 显示为整数
-                try:
-                    return df.style.apply(row_style, axis=1).format({"stock_qty": "{:,.0f}"})
-                except Exception:
-                    return df.style.apply(row_style, axis=1)
-            return df
+    overview_tab, detail_tab = st.tabs(["Overview", "Details"])
 
-        for desc in selected_descs:
-            base_series_filtered = filtered["description"].astype(str).str.replace(r"\s*\([^)]*\)", "", regex=True).str.strip()
-            subset_all = filtered[base_series_filtered == desc].copy()
-            # Uppercase title: CODE + DESCRIPTION
-            codes = sorted({str(c) for c in subset_all.get("product_code", pd.Series(dtype=str)).dropna().unique().tolist()})
-            code_part = " / ".join(codes) if codes else ""
-            title = (f"{code_part} - {desc}" if code_part else str(desc)).upper()
-            st.markdown(f"**{title}**")
 
-            # Compact totals: combined math sum (plain) + warehouse breakdown on next line
-            combined_txt = unit_totals_plain(subset_all)
-            st.markdown(
-                f"<div style='font-size:1.05rem;font-weight:600;'>加总：{combined_txt if combined_txt else '无数据'}</div>",
-                unsafe_allow_html=True,
-            )
-            wh_line = warehouse_summary_text(subset_all)
-            if wh_line:
-                st.markdown(
-                    f"<div style='font-size:1.05rem;font-weight:600;'>分仓：{wh_line}</div>",
-                    unsafe_allow_html=True,
-                )
-            # Per-warehouse sections (collapsible)
-            if "warehouse" in subset_all.columns:
-                for wh, subset in subset_all.groupby("warehouse", dropna=False):
-                    label = f"{wh if pd.notna(wh) else '未知仓库'}"
-                    with st.expander(label, expanded=False):
-                        render_unit_summary(subset, title_prefix="按单位汇总")
 
-                        # Format dates
-                        for col in ["expiry_date", "relabel_to_date"]:
-                            if col in subset.columns:
-                                subset[col] = pd.to_datetime(subset[col], errors="coerce", format="mixed").dt.date
+    with overview_tab:
+        col_kpi, col_totals = st.columns([1, 3])
+        col_kpi.metric("Filtered Rows", f"{total_rows}")
+        col_totals.markdown(
+            f"<div style='font-size:1.05rem;font-weight:600;'>Totals: {combined_txt if combined_txt else 'No data'}</div>",
+            unsafe_allow_html=True,
+        )
+        if warehouse_overview:
+            st.caption(f"Warehouse split: {warehouse_overview}")
 
-                        styled = style_rows(subset)
-                        st.dataframe(styled if hasattr(styled, "_repr_html_") else subset, use_container_width=True, hide_index=True)
+        if selected_suppliers:
+            st.subheader("Supplier Summary")
+            if supplier_summary_df.empty:
+                st.info("No stock found for the selected supplier filter.")
             else:
-                with st.expander("详情", expanded=False):
-                    render_unit_summary(subset_all, title_prefix="按单位汇总")
-                    for col in ["expiry_date", "relabel_to_date"]:
-                        if col in subset_all.columns:
-                            subset_all[col] = pd.to_datetime(subset_all[col], errors="coerce", format="mixed").dt.date
-                    styled = style_rows(subset_all)
-                    st.dataframe(styled if hasattr(styled, "_repr_html_") else subset_all, use_container_width=True, hide_index=True)
-    else:
-        # overall summary when no Description selection
-        render_unit_summary(filtered, title_prefix="按单位汇总（全部）")
+                st.dataframe(supplier_summary_df, use_container_width=True, hide_index=True)
 
-    # When descriptions were selected, per-section tables already shown above
-    # Otherwise show the overall filtered table here
-    if not selected_descs:
-        # Per-warehouse overall sections
-        st.divider()
-        st.subheader("按仓库分组展示（全部）")
+        render_unit_summary(filtered, title_prefix="单位汇总（当前筛选）")
 
-        def style_rows(df):
-            if "expiry_date" in df.columns:
-                today = pd.Timestamp.today().normalize().date()
-                cutoff = (pd.Timestamp.today().normalize() + pd.Timedelta(days=due_days)).date()
-
-                def row_style(row):
-                    try:
-                        d = pd.to_datetime(row.get("expiry_date"), errors="coerce", format="mixed")
-                        if pd.notna(d):
-                            d = d.date()
-                            if d <= cutoff:
-                                style = "background-color: rgba(255,140,0,0.22); border-left: 4px solid #ff8c00;"
-                                return [style] * len(row)
-                    except Exception:
-                        pass
-                    return [""] * len(row)
-
-                # 同时将 stock_qty 显示为整数
-                try:
-                    return df.style.apply(row_style, axis=1).format({"stock_qty": "{:,.0f}"})
-                except Exception:
-                    return df.style.apply(row_style, axis=1)
-            return df
-
-        if "warehouse" in filtered.columns:
-            for wh, subset in filtered.groupby("warehouse", dropna=False):
-                label = f"{wh if pd.notna(wh) else '未知仓库'}"
-                with st.expander(label, expanded=False):
-                    render_unit_summary(subset, title_prefix="按单位汇总")
-                    display_df = subset.copy()
-                    for col in ["expiry_date", "relabel_to_date"]:
-                        if col in display_df.columns:
-                            display_df[col] = pd.to_datetime(display_df[col], errors="coerce", format="mixed").dt.date
-                    styled = style_rows(display_df)
-                    st.dataframe(styled if hasattr(styled, "_repr_html_") else display_df, use_container_width=True, hide_index=True)
-        else:
-            # fallback single table
-            display_df = filtered.copy()
+    with detail_tab:
+        def prepare_display(df_subset: pd.DataFrame):
+            display_df = df_subset.copy()
             for col in ["expiry_date", "relabel_to_date"]:
                 if col in display_df.columns:
                     display_df[col] = pd.to_datetime(display_df[col], errors="coerce", format="mixed").dt.date
-            styled = style_rows(display_df)
-            st.dataframe(styled if hasattr(styled, "_repr_html_") else display_df, use_container_width=True, hide_index=True)
+            styled = style_with_expiry(display_df)
+            return styled if hasattr(styled, "_repr_html_") else display_df
 
-
+        if selected_descs:
+            st.subheader("Descriptions")
+            base_series_filtered = (
+                filtered["description"].astype(str)
+                .str.replace(r"\s*\([^)]*\)", "", regex=True)
+                .str.strip()
+            )
+            for desc in selected_descs:
+                subset_all = filtered[base_series_filtered == desc].copy()
+                if subset_all.empty:
+                    st.info(f"No rows for description: {desc}")
+                    continue
+                codes = sorted({
+                    str(c)
+                    for c in subset_all.get("product_code", pd.Series(dtype=str)).dropna().unique().tolist()
+                })
+                code_part = " / ".join(codes) if codes else ""
+                title = (f"{code_part} - {desc}" if code_part else str(desc)).upper()
+                st.markdown(f"**{title}**")
+                combined_desc_txt = unit_totals_plain(subset_all)
+                st.markdown(
+                    f"<div style='font-size:1.05rem;font-weight:600;'>Totals: {combined_desc_txt if combined_desc_txt else 'No data'}</div>",
+                    unsafe_allow_html=True,
+                )
+                wh_line = warehouse_summary_text(subset_all)
+                if wh_line:
+                    st.caption(f"Warehouse split: {wh_line}")
+                if "warehouse" in subset_all.columns:
+                    for wh, subset in subset_all.groupby("warehouse", dropna=False):
+                        label = f"{wh if pd.notna(wh) else 'Unknown warehouse'}"
+                        with st.expander(label, expanded=False):
+                            render_unit_summary(subset, title_prefix="单位汇总（仓库）")
+                            st.dataframe(prepare_display(subset), use_container_width=True, hide_index=True)
+                else:
+                    with st.expander("Details", expanded=False):
+                        render_unit_summary(subset_all, title_prefix="单位汇总")
+                        st.dataframe(prepare_display(subset_all), use_container_width=True, hide_index=True)
+        else:
+            render_unit_summary(filtered, title_prefix="单位汇总（全部）")
+            st.divider()
+            st.subheader("Warehouse breakdown")
+            if "warehouse" in filtered.columns:
+                for wh, subset in filtered.groupby("warehouse", dropna=False):
+                    label = f"{wh if pd.notna(wh) else 'Unknown warehouse'}"
+                    with st.expander(label, expanded=False):
+                        render_unit_summary(subset, title_prefix="单位汇总（仓库）")
+                        st.dataframe(prepare_display(subset), use_container_width=True, hide_index=True)
+            else:
+                st.dataframe(prepare_display(filtered), use_container_width=True, hide_index=True)
 if __name__ == "__main__":
     main()
