@@ -2,6 +2,9 @@
 import os
 import sys
 import io
+import streamlit as st
+
+
 
 # 如果直接 python stock_datagrid.py 启动，则切换到 streamlit 运行（兼容 Windows 路径空格）
 try:
@@ -491,20 +494,50 @@ def apply_filters_v2(df: pd.DataFrame):
 
 
 
+    # --- 侧边栏 ---
     with st.sidebar:
         st.header("筛选条件")
 
-        # Warehouse
-        wh_options = []
+        # ---------- 在渲染“仓库”控件之前，先根据“非仓库条件”计算签名 ----------
+        sig_wo_wh = (
+            tuple(ss.get("f_sup", [])),
+            tuple(ss.get("f_brand", [])),
+            tuple(ss.get("f_desc", [])),
+            tuple(ss.get("f_code", [])),
+            tuple(ss.get("f_remark", [])),
+            bool(ss.get("use_date_filters", False)),
+            ss.get("expiry_range"),
+            ss.get("relabel_date_range"),
+        )
+        prev_sig = ss.get("__sig_wo_wh")
+        sig_changed = (sig_wo_wh != prev_sig)
+
+        # ---------- Warehouse（包含自动复位逻辑） ----------
         if "warehouse" in base.columns:
             d = apply_all(base, exclude="warehouse")
             wh_options = [x for x in d["warehouse"].dropna().astype(str).unique().tolist()]
             ordered = [w for w in ["Savori Whse", "Lai Hock Whse"] if w in wh_options]
             ordered += [w for w in wh_options if w not in ordered]
             default_selection = [w for w in ["Savori Whse", "Lai Hock Whse"] if w in ordered] or list(ordered)
-            _ensure_multiselect_key("f_wh", ordered, default_selection)
-            st.multiselect("仓库", options=ordered, key="f_wh", placeholder="选择一个或多个仓库")
-            sel_wh = list(ss.get("f_wh", []))
+
+           # 渲染前：先把 session_state["f_wh"] 准备好
+            cur = [w for w in ss.get("f_wh", []) if w in ordered]
+            need_reset = sig_changed or (not cur and bool(ordered))
+            ss["f_wh"] = list(default_selection) if need_reset else (cur or list(default_selection))
+
+            # 渲染控件：不要再传 default
+            st.multiselect(
+                "仓库",
+                options=ordered,
+                key="f_wh",
+                placeholder="选择一个或多个仓库",
+            )
+
+
+            # 更新签名（放在控件之后）
+            ss["__sig_wo_wh"] = sig_wo_wh
+
+
 
         # Supplier
         if "supplier" in base.columns:
@@ -528,16 +561,11 @@ def apply_filters_v2(df: pd.DataFrame):
         if "description" in base.columns:
             d = apply_all(base, exclude="desc")
             base_ser = get_desc_base(d["description"]) if not d.empty else pd.Series(dtype=str)
-            if "f_desc_q" not in ss:
-                ss["f_desc_q"] = ""
-            q = st.text_input("Description 关键字", key="f_desc_q").strip()
-            ser = base_ser.dropna()
-            if q:
-                ser = ser[ser.str.contains(q, case=False, na=False)]
-            desc_options = sorted([x for x in ser.unique().tolist() if x])
+            desc_options = sorted([x for x in base_ser.dropna().unique().tolist() if x])
             _ensure_multiselect_key("f_desc", desc_options, [])
             st.multiselect("Description（去括号后）", desc_options, key="f_desc", placeholder="选择描述")
             sel_desc = list(ss.get("f_desc", []))
+
 
         # Product Code
         if "product_code" in base.columns:
@@ -558,7 +586,7 @@ def apply_filters_v2(df: pd.DataFrame):
 
         # 日期范围筛选（可选）
         use_date_filters = st.checkbox("启用日期范围筛选", value=False)
-
+        ss["use_date_filters"] = use_date_filters  # ← 新增
         start = end = None
         r_start = r_end = None
 
@@ -836,6 +864,11 @@ def on_toggle_low_stock() -> None:
 
 def main():
     st.set_page_config(page_title="Stocks DataGrid", layout="wide")
+    
+    if st.sidebar.button("退出程序"):
+        st.warning("程序已退出")
+        os._exit(0)
+
     st.title("Stock Dashboard (Stocks DataGrid)")
     st.caption("Upload an Excel file containing the 'Stocks report' and 'Lai Hock Whse' sheets (data starts on row 3).")
 
