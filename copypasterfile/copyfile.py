@@ -54,7 +54,7 @@ def main():
     entry_frame = ttk.Frame(app)
 
     entry_frame.pack(pady=10)
-    ttk.Label(entry_frame, text="请输入发票起始编号 (例如: 0925 - 001)", font=("Arial", 12)).pack()
+    ttk.Label(entry_frame, text="请输入发票起始编号 (例如: 1025 - 001)", font=("Arial", 12)).pack()
     invoice_entry = ttk.Entry(entry_frame, font=("Arial", 12), width=30)
     invoice_entry.pack(pady=5)
 
@@ -70,6 +70,10 @@ def main():
         file_tree.delete(*file_tree.get_children())
 
         for root_dir, dirs, files in os.walk(source_dir):
+
+            if "history" in root_dir.lower():
+                continue
+
             for file in files:
                 full_path = os.path.join(root_dir, file)
                 if os.path.isfile(full_path):
