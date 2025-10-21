@@ -3,6 +3,7 @@ import zipfile
 import shutil
 from pathlib import Path
 
+
 def extract_and_cleanup(folder_path, src_encoding='cp437', target_encoding='gbk'):
     folder = Path(folder_path)
     temp_dir = folder / "_temp_extract"
@@ -16,11 +17,13 @@ def extract_and_cleanup(folder_path, src_encoding='cp437', target_encoding='gbk'
                     # 跳过根目录项
                     if zip_info.filename.endswith('/'):
                         # 创建目录
-                        decoded_dir = zip_info.filename.encode(src_encoding).decode(target_encoding, 'ignore')
+                        decoded_dir = zip_info.filename.encode(
+                            src_encoding).decode(target_encoding, 'ignore')
                         (temp_dir / decoded_dir).mkdir(parents=True, exist_ok=True)
                         continue
                     # 解码文件名
-                    decoded_name = zip_info.filename.encode(src_encoding).decode(target_encoding, 'ignore')
+                    decoded_name = zip_info.filename.encode(
+                        src_encoding).decode(target_encoding, 'ignore')
                     dest_path = temp_dir / decoded_name
                     dest_path.parent.mkdir(parents=True, exist_ok=True)
                     # 写入文件内容
@@ -49,7 +52,8 @@ def extract_and_cleanup(folder_path, src_encoding='cp437', target_encoding='gbk'
         except Exception as e:
             print(f"处理 {zip_path.name} 时出错: {e}")
 
+
 if __name__ == "__main__":
-    target_folder = r"C:\Users\User\Desktop\txt to epub\txt file"
+    target_folder = r"C:\Users\jhunj\Desktop\txt to epub\txt file"
     extract_and_cleanup(target_folder)
     print("全部zip文件已处理完毕，已清理临时文件。")

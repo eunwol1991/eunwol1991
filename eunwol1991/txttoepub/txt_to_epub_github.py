@@ -13,11 +13,12 @@ import shutil
 from datetime import datetime, timezone
 from typing import List, Tuple
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+logging.basicConfig(level=logging.INFO,
+                    format="%(asctime)s [%(levelname)s] %(message)s")
 
 # Default folders used after conversion
-HISTORY_DIR = r"C:\Users\User\Desktop\txt to epub\history"
-FINAL_EPUB_DIR = r"C:\Users\User\iCloudDrive\Downloads\中文小说"
+HISTORY_DIR = r"C:\Users\jhunj\Desktop\txt to epub\history"
+FINAL_EPUB_DIR = r"C:\Users\jhunj\iCloudDrive\Downloads\中文小说"
 
 # -------------------- Configuration --------------------
 # Users may tweak the following constants directly instead of
@@ -39,6 +40,7 @@ NOISE_PATTERNS = [re.compile(p, re.IGNORECASE) for p in [
     r"请记住本站域名",
     r"（未完待续）",
 ]]
+
 
 @functools.lru_cache(maxsize=None)
 def detect_encoding(file_path: str, sample_size: int = 4096) -> str:
@@ -79,7 +81,8 @@ def detect_encoding(file_path: str, sample_size: int = 4096) -> str:
     except ImportError:
         pass
 
-    logging.warning(f"{file_path} encoding not detected, falling back to utf-8 (ignore)")
+    logging.warning(
+        f"{file_path} encoding not detected, falling back to utf-8 (ignore)")
     return 'utf-8'
 
 
@@ -117,6 +120,7 @@ DEFAULT_PATTERN_STRS = [
     r"前言.*",
     r"Chapter\s*\d+.*",
 ]
+
 
 def compile_patterns(extra: List[str]) -> List[re.Pattern]:
     patterns = [re.compile(p, re.IGNORECASE) for p in DEFAULT_PATTERN_STRS]
@@ -178,7 +182,8 @@ def detect_title_author(file_path: str, max_lines: int = 10) -> Tuple[str, str]:
     enc = detect_encoding(file_path)
     try:
         with open(file_path, 'r', encoding=enc, errors='ignore') as f:
-            lines = [clean_text(f.readline()).strip() for _ in range(max_lines)]
+            lines = [clean_text(f.readline()).strip()
+                     for _ in range(max_lines)]
     except Exception:
         lines = []
 
@@ -304,6 +309,7 @@ def _normalize_paragraphs(text: str) -> List[str]:
             result.append(line)
     return result
 
+
 def chapter_to_xhtml(idx: int, title: str, text: str) -> str:
     # 标题：先清洗→替换命名实体→再 HTML 转义
     title_clean = clean_text(title)
@@ -334,7 +340,6 @@ def chapter_to_xhtml(idx: int, title: str, text: str) -> str:
     )
 
 
-
 def create_epub(title: str, author: str, chapters: List[Tuple[str, str]], out_path: str, lang: str = 'zh'):
     tmp_path = out_path + '.tmp'
     uid = str(uuid.uuid4())
@@ -351,11 +356,13 @@ def create_epub(title: str, author: str, chapters: List[Tuple[str, str]], out_pa
     if COVER_FILE and os.path.isfile(COVER_FILE):
         ext = os.path.splitext(COVER_FILE)[1].lower()
         if ext in ('.jpg', '.jpeg', '.png'):
-            media_type = 'image/jpeg' if ext in ('.jpg', '.jpeg') else 'image/png'
+            media_type = 'image/jpeg' if ext in ('.jpg',
+                                                 '.jpeg') else 'image/png'
             cover_info = (ext, media_type)
 
     with zipfile.ZipFile(tmp_path, 'w') as epub:
-        epub.writestr('mimetype', 'application/epub+zip', compress_type=zipfile.ZIP_STORED)
+        epub.writestr('mimetype', 'application/epub+zip',
+                      compress_type=zipfile.ZIP_STORED)
         epub.writestr(
             'META-INF/container.xml',
             """<?xml version='1.0' encoding='UTF-8'?>
@@ -399,18 +406,22 @@ def create_epub(title: str, author: str, chapters: List[Tuple[str, str]], out_pa
                 f"<body>\n  <h1>{esc_title}</h1>\n  <p>{esc_author}</p>\n</body>\n</html>"
             )
         epub.writestr('OEBPS/cover.xhtml', cover_xhtml)
-        manifest.append("<item id='cover' href='cover.xhtml' media-type='application/xhtml+xml'/>")
+        manifest.append(
+            "<item id='cover' href='cover.xhtml' media-type='application/xhtml+xml'/>")
         spine.append("<itemref idref='cover' linear='yes'/>")
         spine.append("<itemref idref='nav' linear='no'/>")
 
         for i, (ch_title, ch_text) in enumerate(chapters, 1):
             fname = f'chapter{i}.xhtml'
-            epub.writestr(f'OEBPS/{fname}', chapter_to_xhtml(i, ch_title, ch_text))
-            manifest.append(f"<item id='c{i}' href='{fname}' media-type='application/xhtml+xml'/>")
+            epub.writestr(f'OEBPS/{fname}',
+                          chapter_to_xhtml(i, ch_title, ch_text))
+            manifest.append(
+                f"<item id='c{i}' href='{fname}' media-type='application/xhtml+xml'/>")
             spine.append(f"<itemref idref='c{i}'/>")
             title_clean = clean_text(ch_title)
             esc_title = html.escape(fix_named_entities(title_clean))
-            nav_list.append(f"      <li><a href='{fname}#chap{i}'>{esc_title}</a></li>")
+            nav_list.append(
+                f"      <li><a href='{fname}#chap{i}'>{esc_title}</a></li>")
             nav_points.append(
                 f"    <navPoint id='navPoint-{i}' playOrder='{i}'>\n      <navLabel><text>{esc_title}</text></navLabel>\n      <content src='{fname}#chap{i}'/>\n    </navPoint>"
             )
@@ -441,7 +452,8 @@ def create_epub(title: str, author: str, chapters: List[Tuple[str, str]], out_pa
             + "\n  </navMap>\n</ncx>",
         )
 
-        manifest.append("<item id='ncx' href='toc.ncx' media-type='application/x-dtbncx+xml'/>")
+        manifest.append(
+            "<item id='ncx' href='toc.ncx' media-type='application/x-dtbncx+xml'/>")
         manifest_str = '\n    '.join(manifest)
         spine_str = '\n    '.join(spine)
 
@@ -537,15 +549,21 @@ def batch_convert(
 
 
 def main():
-    default_in = r'C:\Users\User\Desktop\txt to epub\txt file'
-    default_out = r'C:\Users\User\Desktop\txt to epub\epub file'
-    parser = argparse.ArgumentParser(description="Batch convert Chinese txt to EPUB")
-    parser.add_argument('-i', '--input', default=default_in, help='input directory')
-    parser.add_argument('-o', '--output', default=default_out, help='temporary output directory')
-    parser.add_argument('--history', default=HISTORY_DIR, help='directory to move processed txt files')
-    parser.add_argument('--dest', default=FINAL_EPUB_DIR, help='directory to move generated EPUB files')
+    default_in = r'C:\Users\jhunj\Desktop\txt to epub\txt file'
+    default_out = r'C:\Users\jhunj\Desktop\txt to epub\epub file'
+    parser = argparse.ArgumentParser(
+        description="Batch convert Chinese txt to EPUB")
+    parser.add_argument('-i', '--input', default=default_in,
+                        help='input directory')
+    parser.add_argument('-o', '--output', default=default_out,
+                        help='temporary output directory')
+    parser.add_argument('--history', default=HISTORY_DIR,
+                        help='directory to move processed txt files')
+    parser.add_argument('--dest', default=FINAL_EPUB_DIR,
+                        help='directory to move generated EPUB files')
     parser.add_argument('--lang', default='zh', help='language code')
-    parser.add_argument('-p', '--pattern', action='append', default=[], help='additional chapter regex, can be used multiple times')
+    parser.add_argument('-p', '--pattern', action='append', default=[],
+                        help='additional chapter regex, can be used multiple times')
     args = parser.parse_args()
     patterns = compile_patterns(args.pattern)
     logging.info(
@@ -558,7 +576,9 @@ def main():
         MOVE_TO_HISTORY,
         MAX_TITLE_LEN,
     )
-    batch_convert(args.input, args.output, args.lang, patterns, args.history, args.dest)
+    batch_convert(args.input, args.output, args.lang,
+                  patterns, args.history, args.dest)
+
 
 if __name__ == '__main__':
     main()

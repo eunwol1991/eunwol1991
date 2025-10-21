@@ -6,6 +6,7 @@ from bs4 import BeautifulSoup
 import chardet
 from PIL import Image, ImageDraw, ImageFont
 
+
 def txt_to_epub(txt_file, epub_output_dir):
     # 检查文件是否存在
     if not os.path.isfile(txt_file):
@@ -106,7 +107,8 @@ def txt_to_epub(txt_file, epub_output_dir):
     '''
 
     # 添加 CSS 文件
-    nav_css = epub.EpubItem(uid="style_nav", file_name="style/nav.css", media_type="text/css", content=style)
+    nav_css = epub.EpubItem(
+        uid="style_nav", file_name="style/nav.css", media_type="text/css", content=style)
     book.add_item(nav_css)
 
     # 设置书籍的 spine（阅读顺序）
@@ -129,6 +131,7 @@ def txt_to_epub(txt_file, epub_output_dir):
 
     print("成功生成电子书：{}".format(epub_path))
 
+
 def create_chapter(title, content, index):
     # 创建章节内容
     soup = BeautifulSoup('', 'html.parser')
@@ -147,10 +150,13 @@ def create_chapter(title, content, index):
             soup.append(p)
 
     # 创建章节对象
-    c = epub.EpubHtml(title=title, file_name='chap_{}.xhtml'.format(index), lang='zh')
+    c = epub.EpubHtml(
+        title=title, file_name='chap_{}.xhtml'.format(index), lang='zh')
     c.content = str(soup)
-    c.add_item(epub.EpubItem(uid="style_nav", file_name="style/nav.css", media_type="text/css"))
+    c.add_item(epub.EpubItem(uid="style_nav",
+               file_name="style/nav.css", media_type="text/css"))
     return c
+
 
 def generate_cover_image(title, author):
     # 封面图片尺寸
@@ -211,10 +217,11 @@ def generate_cover_image(title, author):
 
     return cover_content
 
+
 if __name__ == '__main__':
     # 输入和输出目录
-    txt_input_dir = r'C:\Users\User\Desktop\txt to epub\txt file'
-    epub_output_dir = r'C:\Users\User\Desktop\txt to epub\epub file'
+    txt_input_dir = r'C:\Users\jhunj\Desktop\txt to epub\txt file'
+    epub_output_dir = r'C:\Users\jhunj\Desktop\txt to epub\epub file'
 
     # 处理路径中的中文字符
     txt_input_dir = os.path.abspath(txt_input_dir)

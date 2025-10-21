@@ -2,16 +2,19 @@ import os
 import win32com.client as win32
 
 # 要处理的根目录
-root_folder = r"C:\Users\User\Dropbox\DO & INV\DO & INV 2025"
+root_folder = r"C:\Users\jhunj\Dropbox\DO & INV\DO & INV 2025"
 # 要跳过的目录
-skip_folder = os.path.join(root_folder, "1. Order Summary & Sales Summary(Mth end)")
+skip_folder = os.path.join(
+    root_folder, "1. Order Summary & Sales Summary(Mth end)")
 
 # 筛选关键字
 keywords = ["xx25", "xx24"]
 
+
 def set_book_bw(excel, file_path):
     try:
-        wb = excel.Workbooks.Open(Filename=file_path, UpdateLinks=0, ReadOnly=False)
+        wb = excel.Workbooks.Open(
+            Filename=file_path, UpdateLinks=0, ReadOnly=False)
         count = 0
         for sheet in wb.Sheets:
             try:
@@ -24,6 +27,7 @@ def set_book_bw(excel, file_path):
         print(f"[OK] {file_path}  — 设置为黑白的表：{count}")
     except Exception as e:
         print(f"[FAIL] {file_path} — {e}")
+
 
 def main():
     excel = win32.Dispatch("Excel.Application")
@@ -47,6 +51,7 @@ def main():
     print("\n=== 已跳过的文件（不含 xx25 / xx24） ===")
     for f in skipped_files:
         print(f)
+
 
 if __name__ == "__main__":
     main()

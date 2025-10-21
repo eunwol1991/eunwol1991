@@ -27,7 +27,7 @@ except Exception:  # pragma: no cover
 
 
 # ===== Defaults (editable) =====
-BASE_DIR = r"C:\\Users\\User\\Dropbox\\DO & INV\\DO & INV 2025"
+BASE_DIR = r"C:\\Users\\jhunj\\Dropbox\\DO & INV\\DO & INV 2025"
 TARGET_MONTH = "0925"  # e.g. 0825 / 0925
 VALID_TAGS = {"INV", "DO & INV"}
 FILENAME_PATTERN = re.compile(
@@ -43,7 +43,7 @@ def shorten_path(path: str, keep: int = 3) -> str:
     parts = path.split(os.sep)
     if len(parts) <= keep + 1:
         return path
-    return "…" + os.sep + os.sep.join(parts[-keep - 1 :])
+    return "…" + os.sep + os.sep.join(parts[-keep - 1:])
 
 
 def extract_invoice_number_from_pdf(pdf_path: str) -> str | None:
@@ -103,7 +103,8 @@ def enumerate_candidates(base_dir: str, target_month: str) -> list[tuple[str, st
 def scan_files(base_dir: str, target_month: str, on_progress=None):
     """Scan base_dir and build structured results. on_progress(total, current, note)."""
     files = defaultdict(
-        lambda: defaultdict(lambda: defaultdict(lambda: {"xlsx": [], "pdf": []}))
+        lambda: defaultdict(lambda: defaultdict(
+            lambda: {"xlsx": [], "pdf": []}))
     )
     invalid_files: list[str] = []
 
@@ -182,7 +183,8 @@ def scan_files(base_dir: str, target_month: str, on_progress=None):
                 for pdf_path in f["pdf"]:
                     if on_progress:
                         try:
-                            on_progress(total, current, f"读取 {os.path.basename(pdf_path)}")
+                            on_progress(total, current,
+                                        f"读取 {os.path.basename(pdf_path)}")
                         except Exception:
                             pass
                     content_no = extract_invoice_number_from_pdf(pdf_path)
@@ -197,7 +199,8 @@ def scan_files(base_dir: str, target_month: str, on_progress=None):
         "invalid_files": invalid_files,
         "unpaired": sorted(unpaired, key=lambda x: (x[0], x[1], x[2])),
         "duplicates": sorted(
-            duplicates, key=lambda x: (x["prefix"], x["year"], x["number"])  # type: ignore
+            duplicates, key=lambda x: (
+                x["prefix"], x["year"], x["number"])  # type: ignore
         ),
         "gaps": sorted(gaps, key=lambda x: (x[0], x[1])),
         "mismatches": mismatches,
@@ -239,7 +242,8 @@ def _report_text(result, base_dir: str, target_month: str, elapsed: float | None
     header("③ 🔁 重复编号")
     if result["duplicates"]:
         for item in result["duplicates"]:
-            lines.append(f"  - [{item['prefix']}] {item['year']} - {item['number']:03d}")
+            lines.append(
+                f"  - [{item['prefix']}] {item['year']} - {item['number']:03d}")
             if len(item["xlsx"]) > 1:
                 lines.append("    多个 DO & INV (.xlsx):")
                 for p in item["xlsx"]:
@@ -304,11 +308,13 @@ def launch_gui():
             self._font_size = 12
             self.option_add("*Font", base_font)
             self.style = ttk.Style(self)
-            self.style.configure("TLabel", background="#F4F5F7", foreground="#111827")
+            self.style.configure(
+                "TLabel", background="#F4F5F7", foreground="#111827")
             self.style.configure("TFrame", background="#F4F5F7")
             self.style.configure("TButton", padding=8)
             self.style.configure("Treeview", rowheight=28, font=base_font)
-            self.style.configure("Treeview.Heading", font=("Segoe UI", 12, "bold"))
+            self.style.configure("Treeview.Heading",
+                                 font=("Segoe UI", 12, "bold"))
 
             self._build_menubar()
             self._build_ui()
@@ -320,29 +326,36 @@ def launch_gui():
             top = ttk.Frame(self)
             top.pack(fill=tk.X, padx=16, pady=(12, 8))
 
-            ttk.Label(top, text="根目录:").grid(row=0, column=0, sticky=tk.W, padx=(0, 8))
+            ttk.Label(top, text="根目录:").grid(
+                row=0, column=0, sticky=tk.W, padx=(0, 8))
             self.dir_var = tk.StringVar(value=BASE_DIR)
-            self.dir_entry = ttk.Entry(top, textvariable=self.dir_var, width=70)
+            self.dir_entry = ttk.Entry(
+                top, textvariable=self.dir_var, width=70)
             self.dir_entry.grid(row=0, column=1, sticky=tk.W)
             ttk.Button(top, text="浏览…", command=self._choose_dir).grid(
                 row=0, column=2, padx=8
             )
 
-            ttk.Label(top, text="月份筛选:").grid(row=0, column=3, sticky=tk.E, padx=(16, 8))
+            ttk.Label(top, text="月份筛选:").grid(
+                row=0, column=3, sticky=tk.E, padx=(16, 8))
             self.month_var = tk.StringVar(value=TARGET_MONTH)
-            self.month_entry = ttk.Entry(top, textvariable=self.month_var, width=10)
+            self.month_entry = ttk.Entry(
+                top, textvariable=self.month_var, width=10)
             self.month_entry.grid(row=0, column=4, sticky=tk.W)
 
-            self.run_btn = ttk.Button(top, text="▶ 开始检查", command=self._run_scan)
+            self.run_btn = ttk.Button(
+                top, text="▶ 开始检查", command=self._run_scan)
             self.run_btn.grid(row=0, column=5, padx=(16, 0))
 
             # Progress row
             prog = ttk.Frame(self)
             prog.pack(fill=tk.X, padx=16)
-            self.progress = ttk.Progressbar(prog, maximum=100, mode="determinate")
+            self.progress = ttk.Progressbar(
+                prog, maximum=100, mode="determinate")
             self.progress.pack(side=tk.LEFT, fill=tk.X, expand=True)
             self.status_var = tk.StringVar(value="就绪")
-            ttk.Label(prog, textvariable=self.status_var).pack(side=tk.LEFT, padx=(8, 0))
+            ttk.Label(prog, textvariable=self.status_var).pack(
+                side=tk.LEFT, padx=(8, 0))
 
             # Notebook
             self.nb = ttk.Notebook(self)
@@ -362,7 +375,8 @@ def launch_gui():
                 ("mismatch", "📋 内容不符"),
             ]
             for i, (key, label) in enumerate(self._summary_specs):
-                b = ttk.Button(grid, text=f"{label}: 0", command=lambda k=key: self._goto_tab(k))
+                b = ttk.Button(
+                    grid, text=f"{label}: 0", command=lambda k=key: self._goto_tab(k))
                 b.grid(row=i // 2, column=i % 2, sticky="ew", padx=8, pady=6)
                 grid.columnconfigure(i % 2, weight=1)
                 self.summary_buttons[key] = b
@@ -386,13 +400,15 @@ def launch_gui():
                 tv.configure(yscrollcommand=vsb.set)
                 tv.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
                 vsb.pack(side=tk.RIGHT, fill=tk.Y)
-                tv.bind("<Double-1>", lambda e, tree=tv: self._open_selected(tree))
+                tv.bind("<Double-1>", lambda e,
+                        tree=tv: self._open_selected(tree))
                 self.tabs[key] = tv
 
             # Bottom row
             bottom = ttk.Frame(self)
             bottom.pack(fill=tk.X, padx=12, pady=(0, 8))
-            ttk.Button(bottom, text="💾 导出报告", command=self._export_report).pack(side=tk.RIGHT)
+            ttk.Button(bottom, text="💾 导出报告",
+                       command=self._export_report).pack(side=tk.RIGHT)
 
         def _build_menubar(self):
             menubar = tk.Menu(self)
@@ -403,9 +419,12 @@ def launch_gui():
             menubar.add_cascade(label="文件", menu=filem)
 
             viewm = tk.Menu(menubar, tearoff=0)
-            viewm.add_command(label="放大 (Ctrl+=)", command=lambda: self._zoom(1))
-            viewm.add_command(label="缩小 (Ctrl+-)", command=lambda: self._zoom(-1))
-            viewm.add_command(label="重置 (Ctrl+0)", command=lambda: self._zoom(0))
+            viewm.add_command(label="放大 (Ctrl+=)",
+                              command=lambda: self._zoom(1))
+            viewm.add_command(label="缩小 (Ctrl+-)",
+                              command=lambda: self._zoom(-1))
+            viewm.add_command(label="重置 (Ctrl+0)",
+                              command=lambda: self._zoom(0))
             menubar.add_cascade(label="视图", menu=viewm)
 
             helpm = tk.Menu(menubar, tearoff=0)
@@ -430,16 +449,20 @@ def launch_gui():
             if direction == 0:
                 size = 12
             else:
-                size = max(10, min(22, self._font_size + (2 if direction > 0 else -2)))
+                size = max(10, min(22, self._font_size +
+                           (2 if direction > 0 else -2)))
             self._font_size = size
             base_font = ("Segoe UI", size)
             self.option_add("*Font", base_font)
-            self.style.configure("Treeview", font=base_font, rowheight=int(size * 2.2))
-            self.style.configure("Treeview.Heading", font=("Segoe UI", size, "bold"))
+            self.style.configure("Treeview", font=base_font,
+                                 rowheight=int(size * 2.2))
+            self.style.configure("Treeview.Heading",
+                                 font=("Segoe UI", size, "bold"))
 
         # Actions
         def _choose_dir(self):
-            path = filedialog.askdirectory(initialdir=self.dir_var.get() or os.getcwd())
+            path = filedialog.askdirectory(
+                initialdir=self.dir_var.get() or os.getcwd())
             if path:
                 self.dir_var.set(path)
 
@@ -464,9 +487,11 @@ def launch_gui():
                     total = len(cands) if cands else 1
 
                     def on_prog(total_i, current_i, note):
-                        self.after(0, lambda: self._progress_update(total_i or total, current_i, note))
+                        self.after(0, lambda: self._progress_update(
+                            total_i or total, current_i, note))
 
-                    self.after(0, lambda: self._progress_update(total, 0, "开始扫描…"))
+                    self.after(0, lambda: self._progress_update(
+                        total, 0, "开始扫描…"))
                     result = scan_files(base, month, on_progress=on_prog)
                 except Exception as e:
                     result = e
@@ -535,11 +560,13 @@ def launch_gui():
 
             tv = self.tabs["gaps"]
             for prefix, year, missing in result["gaps"]:
-                tv.insert("", "end", values=(prefix, year, ", ".join(f"{n:03d}" for n in missing)))
+                tv.insert("", "end", values=(prefix, year,
+                          ", ".join(f"{n:03d}" for n in missing)))
 
             tv = self.tabs["mismatch"]
             for p, reason in result["mismatches"]:
-                tv.insert("", "end", values=(os.path.basename(p), reason), tags=(p,))
+                tv.insert("", "end", values=(
+                    os.path.basename(p), reason), tags=(p,))
 
             # Summary
             counts = {
@@ -626,7 +653,8 @@ def launch_gui_modern():
             self._text = text or ""
             if not self._text:
                 return
-            self._after_id = self.widget.after(self.delay, lambda: self._show(x, y))
+            self._after_id = self.widget.after(
+                self.delay, lambda: self._show(x, y))
 
         def cancel(self):
             if self._after_id:
@@ -691,7 +719,8 @@ def launch_gui_modern():
             pass
 
     # Persist UI state in user home
-    UI_STATE_PATH = os.path.join(os.path.expanduser("~"), ".check_file_ui.json")
+    UI_STATE_PATH = os.path.join(
+        os.path.expanduser("~"), ".check_file_ui.json")
 
     def load_ui_state():
         try:
@@ -722,7 +751,8 @@ def launch_gui_modern():
             self._ui_state = load_ui_state() or {}
             self._cancel_requested = False
             self._all_issues = []
-            self._filter_ready_only = tk.BooleanVar(value=bool(self._ui_state.get("ready_only", False)))
+            self._filter_ready_only = tk.BooleanVar(
+                value=bool(self._ui_state.get("ready_only", False)))
             self._current_filter_type = None
             self._theme = self._ui_state.get("theme", "light")
 
@@ -734,7 +764,8 @@ def launch_gui_modern():
             # Azure-ttk-theme
             self.style = ttk.Style(self)
             try:
-                self.tk.call("source", r"C:\\Users\\User\\puython\\check data use\\azure.tcl")
+                self.tk.call(
+                    "source", r"C:\\Users\\jhunj\\puython\\check data use\\azure.tcl")
                 # 默认 light，再根据保存主题切换
                 self.tk.call("set_theme", "light")
                 if str(self._theme).lower() == "dark":
@@ -771,8 +802,10 @@ def launch_gui_modern():
             self.dir_var = tk.StringVar()
             self.dir_entry = ttk.Entry(row1, textvariable=self.dir_var)
             self.dir_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
-            ttk.Button(row1, text="浏览…", width=10, command=self._choose_dir).pack(side=tk.LEFT, padx=(pad, pad))
-            self.run_btn = ttk.Button(row1, text="开始检查", command=self._run_scan)
+            ttk.Button(row1, text="浏览…", width=10, command=self._choose_dir).pack(
+                side=tk.LEFT, padx=(pad, pad))
+            self.run_btn = ttk.Button(
+                row1, text="开始检查", command=self._run_scan)
             self.run_btn.pack(side=tk.RIGHT)
             try:
                 self.run_btn.configure(style="Accent.TButton")
@@ -784,21 +817,25 @@ def launch_gui_modern():
 
             ttk.Label(row2, text="月份代号:").pack(side=tk.LEFT)
             self.month_var = tk.StringVar()
-            self.month_entry = PlaceholderEntry(row2, textvariable=self.month_var, width=12, placeholder="如：0925")
+            self.month_entry = PlaceholderEntry(
+                row2, textvariable=self.month_var, width=12, placeholder="如：0925")
             self.month_entry.pack(side=tk.LEFT, padx=(pad, pad))
 
-            self.ready_chk = ttk.Checkbutton(row2, text="仅显示就绪文件", variable=self._filter_ready_only, command=self._apply_issue_filters)
+            self.ready_chk = ttk.Checkbutton(
+                row2, text="仅显示就绪文件", variable=self._filter_ready_only, command=self._apply_issue_filters)
             self.ready_chk.pack(side=tk.LEFT)
             try:
                 self.ready_chk.configure(style="Switch.TCheckbutton")
             except Exception:
                 pass
 
-            ttk.Button(row2, text="导出报告", command=self._export_report).pack(side=tk.LEFT, padx=(pad, 0))
+            ttk.Button(row2, text="导出报告", command=self._export_report).pack(
+                side=tk.LEFT, padx=(pad, 0))
 
             _cur_theme = str(self._theme).lower()
             _btn_text = "Light" if _cur_theme == "dark" else "Dark"
-            self.theme_btn = ttk.Button(row2, text=_btn_text, command=self._toggle_theme)
+            self.theme_btn = ttk.Button(
+                row2, text=_btn_text, command=self._toggle_theme)
             self.theme_btn.pack(side=tk.RIGHT)
             # 尝试将“导出报告”按钮设为 Accent 样式
             try:
@@ -846,28 +883,35 @@ def launch_gui_modern():
 
                 big = ttk.Label(card, text="0", font=("Segoe UI", 24, "bold"))
                 big.pack(anchor="w")
-                ttk.Label(card, text=title, font=("Segoe UI", 12, "bold")).pack(anchor="w")
-                ttk.Label(card, text=subtitle, foreground="#6B7280").pack(anchor="w")
+                ttk.Label(card, text=title, font=(
+                    "Segoe UI", 12, "bold")).pack(anchor="w")
+                ttk.Label(card, text=subtitle,
+                          foreground="#6B7280").pack(anchor="w")
 
                 def _mkcmd(k=key):
                     return lambda: (self._set_issue_type_filter(k))
 
-                ttk.Button(card, text="查看", width=10, command=_mkcmd()).pack(anchor="e", pady=(8, 0))
+                ttk.Button(card, text="查看", width=10, command=_mkcmd()).pack(
+                    anchor="e", pady=(8, 0))
                 self.summary_cards[key] = {"big": big}
 
         def _build_issues_table(self, parent):
             cols = ("prefix", "year", "number", "type", "path")
-            labels = {"prefix": "前缀", "year": "年份", "number": "编号", "type": "类型", "path": "路径"}
-            self.issues = ttk.Treeview(parent, columns=cols, show="headings", selectmode="browse")
+            labels = {"prefix": "前缀", "year": "年份",
+                      "number": "编号", "type": "类型", "path": "路径"}
+            self.issues = ttk.Treeview(
+                parent, columns=cols, show="headings", selectmode="browse")
             self._sort_state = {c: None for c in cols}
             for c in cols:
-                self.issues.heading(c, text=labels[c], command=lambda k=c: self._sort_issues(k))
+                self.issues.heading(
+                    c, text=labels[c], command=lambda k=c: self._sort_issues(k))
             self.issues.column("prefix", width=120, anchor=tk.CENTER)
             self.issues.column("year", width=80, anchor=tk.CENTER)
             self.issues.column("number", width=90, anchor=tk.E)
             self.issues.column("type", width=130, anchor=tk.CENTER)
             self.issues.column("path", width=500, anchor=tk.W, stretch=True)
-            vsb = ttk.Scrollbar(parent, orient="vertical", command=self.issues.yview)
+            vsb = ttk.Scrollbar(parent, orient="vertical",
+                                command=self.issues.yview)
             self.issues.configure(yscrollcommand=vsb.set)
             self.issues.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, pady=8)
             vsb.pack(side=tk.RIGHT, fill=tk.Y)
@@ -891,8 +935,10 @@ def launch_gui_modern():
             bar.pack(fill=tk.X)
             self.status_var = tk.StringVar(value="就绪")
             ttk.Label(bar, textvariable=self.status_var).pack(side=tk.LEFT)
-            self.progress = ttk.Progressbar(bar, maximum=100, mode="determinate")
-            self.progress.pack(side=tk.RIGHT, fill=tk.X, expand=False, padx=(8, 0))
+            self.progress = ttk.Progressbar(
+                bar, maximum=100, mode="determinate")
+            self.progress.pack(side=tk.RIGHT, fill=tk.X,
+                               expand=False, padx=(8, 0))
 
         def _toggle_theme(self):
             try:
@@ -913,7 +959,8 @@ def launch_gui_modern():
             if direction == 0:
                 size = 12
             else:
-                size = max(11, min(18, self._font_size + (1 if direction > 0 else -1)))
+                size = max(11, min(18, self._font_size +
+                           (1 if direction > 0 else -1)))
             self._font_size = size
             base_font = ("Segoe UI", size)
             self.option_add("*Font", base_font)
@@ -925,7 +972,8 @@ def launch_gui_modern():
 
         # Actions
         def _choose_dir(self):
-            path = filedialog.askdirectory(initialdir=self.dir_var.get() or os.getcwd())
+            path = filedialog.askdirectory(
+                initialdir=self.dir_var.get() or os.getcwd())
             if path:
                 self.dir_var.set(path)
                 self._persist_ui_state()
@@ -937,12 +985,14 @@ def launch_gui_modern():
 
         def _run_scan(self):
             base = self.dir_var.get().strip()
-            month = self.month_entry.get_value().strip() if hasattr(self, "month_entry") else self.month_var.get().strip()
+            month = self.month_entry.get_value().strip() if hasattr(
+                self, "month_entry") else self.month_var.get().strip()
             if not os.path.isdir(base):
                 messagebox.showerror("错误", "请选择有效的根目录")
                 return
             if fitz is None:
-                messagebox.showwarning("提示", "未安装 PyMuPDF，将无法校验 PDF 内容编号。可运行: pip install pymupdf")
+                messagebox.showwarning(
+                    "提示", "未安装 PyMuPDF，将无法校验 PDF 内容编号。可运行: pip install pymupdf")
             self._cancel_requested = False
             self.run_btn.configure(state=tk.DISABLED)
             self.progress.configure(value=0, mode="determinate")
@@ -955,9 +1005,11 @@ def launch_gui_modern():
                     total = len(cands) if cands else 1
 
                     def on_prog(total_i, current_i, note):
-                        self.after(0, lambda: self._progress_update(total_i or total, current_i, note))
+                        self.after(0, lambda: self._progress_update(
+                            total_i or total, current_i, note))
 
-                    self.after(0, lambda: self._progress_update(total, 0, "开始扫描…"))
+                    self.after(0, lambda: self._progress_update(
+                        total, 0, "开始扫描…"))
                     result = scan_files(base, month, on_progress=on_prog)
                 except Exception as e:
                     result = e
@@ -996,21 +1048,27 @@ def launch_gui_modern():
 
             issues = []
             for p in result.get("invalid_files", []):
-                issues.append({"prefix": "", "year": "", "number": "", "type": "命名错误", "path": p})
+                issues.append({"prefix": "", "year": "",
+                              "number": "", "type": "命名错误", "path": p})
             for prefix, year, num in result.get("unpaired", []):
-                issues.append({"prefix": prefix, "year": year, "number": f"{num:03d}", "type": "缺配对", "path": ""})
+                issues.append({"prefix": prefix, "year": year,
+                              "number": f"{num:03d}", "type": "缺配对", "path": ""})
             for item in result.get("duplicates", []):
                 if len(item.get("xlsx", [])) > 1:
                     for p in item["xlsx"]:
-                        issues.append({"prefix": item["prefix"], "year": item["year"], "number": f"{item['number']:03d}", "type": "重复编号", "path": p})
+                        issues.append({"prefix": item["prefix"], "year": item["year"],
+                                      "number": f"{item['number']:03d}", "type": "重复编号", "path": p})
                 if len(item.get("pdf", [])) > 1:
                     for p in item["pdf"]:
-                        issues.append({"prefix": item["prefix"], "year": item["year"], "number": f"{item['number']:03d}", "type": "重复编号", "path": p})
+                        issues.append({"prefix": item["prefix"], "year": item["year"],
+                                      "number": f"{item['number']:03d}", "type": "重复编号", "path": p})
             for prefix, year, missing in result.get("gaps", []):
                 for n in missing:
-                    issues.append({"prefix": prefix, "year": year, "number": f"{n:03d}", "type": "编号不连续", "path": ""})
+                    issues.append({"prefix": prefix, "year": year,
+                                  "number": f"{n:03d}", "type": "编号不连续", "path": ""})
             for p, _reason in result.get("mismatches", []):
-                issues.append({"prefix": "", "year": "", "number": "", "type": "内容不符", "path": p})
+                issues.append({"prefix": "", "year": "",
+                              "number": "", "type": "内容不符", "path": p})
 
             self._all_issues = issues
             self._apply_issue_filters()
@@ -1024,7 +1082,8 @@ def launch_gui_modern():
                 "mismatch": len(result.get("mismatches", [])),
             }
             for key, _, _ in self._summary_specs:
-                self.summary_cards[key]["big"].configure(text=str(counts.get(key, 0)))
+                self.summary_cards[key]["big"].configure(
+                    text=str(counts.get(key, 0)))
 
             total = result.get("stats", {}).get("total", 0)
             if elapsed is not None:
@@ -1056,7 +1115,8 @@ def launch_gui_modern():
                 if r.get("path"):
                     tags.append(r["path"])  # store full path in tags
                 disp_path = elide_middle(r.get("path", "") or "")
-                values = (r.get("prefix", ""), r.get("year", ""), r.get("number", ""), r.get("type", ""), disp_path)
+                values = (r.get("prefix", ""), r.get("year", ""), r.get(
+                    "number", ""), r.get("type", ""), disp_path)
                 self.issues.insert("", "end", values=values, tags=tuple(tags))
 
         def _set_issue_type_filter(self, key):
@@ -1104,7 +1164,8 @@ def launch_gui_modern():
                         full_path = t
                         break
                 if full_path:
-                    self._tooltip.schedule(full_path, self.winfo_pointerx(), self.winfo_pointery())
+                    self._tooltip.schedule(
+                        full_path, self.winfo_pointerx(), self.winfo_pointery())
                 else:
                     self._tooltip.cancel()
             else:
@@ -1124,15 +1185,18 @@ def launch_gui_modern():
 
             menu = tk.Menu(self, tearoff=0)
             if full_path:
-                menu.add_command(label="打开位置", command=lambda p=full_path: open_in_explorer(p))
-                menu.add_command(label="复制路径", command=lambda p=full_path: self.clipboard_clear() or self.clipboard_append(p))
+                menu.add_command(
+                    label="打开位置", command=lambda p=full_path: open_in_explorer(p))
+                menu.add_command(label="复制路径", command=lambda p=full_path: self.clipboard_clear(
+                ) or self.clipboard_append(p))
             else:
                 menu.add_command(label="无可用路径", state="disabled")
             try:
                 fn = globals().get("suggest_name")
                 if callable(fn) and full_path:
                     menu.add_separator()
-                    menu.add_command(label="复制建议命名", command=lambda p=full_path, f=fn: self._copy_suggested_name(f, p))
+                    menu.add_command(
+                        label="复制建议命名", command=lambda p=full_path, f=fn: self._copy_suggested_name(f, p))
             except Exception:
                 pass
             menu.tk_popup(event.x_root, event.y_root)
@@ -1149,7 +1213,8 @@ def launch_gui_modern():
 
         def _sort_issues(self, col_key):
             items = list(self.issues.get_children(""))
-            idx_map = {"prefix": 0, "year": 1, "number": 2, "type": 3, "path": 4}
+            idx_map = {"prefix": 0, "year": 1,
+                       "number": 2, "type": 3, "path": 4}
             col_idx = idx_map[col_key]
             values = []
             for iid in items:
@@ -1169,18 +1234,21 @@ def launch_gui_modern():
                 values.reverse()
             for idx, (_, iid) in enumerate(values):
                 self.issues.move(iid, "", idx)
-                tags = [t for t in self.issues.item(iid, "tags") if t not in ("odd", "even")]
+                tags = [t for t in self.issues.item(
+                    iid, "tags") if t not in ("odd", "even")]
                 tags.insert(0, "odd" if (idx % 2) else "even")
                 self.issues.item(iid, tags=tuple(tags))
 
         def _export_report(self):
             try:
                 base = self.dir_var.get().strip()
-                month = self.month_entry.get_value().strip() if hasattr(self, "month_entry") else self.month_var.get().strip()
+                month = self.month_entry.get_value().strip() if hasattr(
+                    self, "month_entry") else self.month_var.get().strip()
                 t0 = time.time()
                 res = scan_files(base, month)
                 txt = _report_text(res, base, month, time.time() - t0)
-                path = filedialog.asksaveasfilename(title="导出报告", defaultextension=".txt", filetypes=[["Text", "*.txt"], ["All Files", "*.*"]], initialfile="文件检查报告.txt")
+                path = filedialog.asksaveasfilename(title="导出报告", defaultextension=".txt", filetypes=[
+                                                    ["Text", "*.txt"], ["All Files", "*.*"]], initialfile="文件检查报告.txt")
                 if path:
                     with open(path, "w", encoding="utf-8") as f:
                         f.write(txt)

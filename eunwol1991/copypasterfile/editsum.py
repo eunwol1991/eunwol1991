@@ -1,6 +1,7 @@
 import os
 import openpyxl
 
+
 def update_Invoice_formulas(directory):
     for root, _, files in os.walk(directory):
         for file in files:
@@ -17,7 +18,8 @@ def update_Invoice_formulas(directory):
                         continue
 
                     # Match "Invoice" sheet case-insensitively
-                    sheet = workbook[[sheet for sheet in workbook.sheetnames if sheet.strip().lower() == "invoice"][0]]
+                    sheet = workbook[[
+                        sheet for sheet in workbook.sheetnames if sheet.strip().lower() == "invoice"][0]]
 
                     # Set "Amount" column to column I (Excel column index starts from 1, so I = 9)
                     amount_column = 9
@@ -39,10 +41,12 @@ def update_Invoice_formulas(directory):
                                     total_row = cell.row
 
                     # Debugging logs
-                    print(f"Subtotal row: {subtotal_row}, GST row: {gst_row}, Total row: {total_row}, Amount column: {amount_column}")
+                    print(
+                        f"Subtotal row: {subtotal_row}, GST row: {gst_row}, Total row: {total_row}, Amount column: {amount_column}")
 
                     if not subtotal_row or not gst_row or not total_row:
-                        print(f"Required rows not found in 'Invoice' sheet of {file_path}")
+                        print(
+                            f"Required rows not found in 'Invoice' sheet of {file_path}")
                         continue
 
                     # Update Subtotal formula
@@ -53,9 +57,11 @@ def update_Invoice_formulas(directory):
                             break
 
                     if amount_start_row:
-                        subtotal_cell = sheet.cell(row=subtotal_row, column=amount_column)
+                        subtotal_cell = sheet.cell(
+                            row=subtotal_row, column=amount_column)
                         subtotal_cell.value = f"=SUM({sheet.cell(row=24, column=amount_column).coordinate}:{sheet.cell(row=subtotal_row - 1, column=amount_column).coordinate})"
-                        print(f"Updated Subtotal formula to: {subtotal_cell.value}")
+                        print(
+                            f"Updated Subtotal formula to: {subtotal_cell.value}")
 
                     # Update GST formula
                     gst_cell = sheet.cell(row=gst_row, column=amount_column)
@@ -63,7 +69,8 @@ def update_Invoice_formulas(directory):
                     print(f"Updated GST formula to: {gst_cell.value}")
 
                     # Update Total formula
-                    total_cell = sheet.cell(row=total_row, column=amount_column)
+                    total_cell = sheet.cell(
+                        row=total_row, column=amount_column)
                     total_cell.value = f"=sum({sheet.cell(row=subtotal_row, column=amount_column).coordinate}:{sheet.cell(row=gst_row, column=amount_column).coordinate})"
                     print(f"Updated Total formula to: {total_cell.value}")
 
@@ -74,6 +81,7 @@ def update_Invoice_formulas(directory):
                 except Exception as e:
                     print(f"Failed to process {file_path}: {e}")
 
+
 # Example usage
-directory_path = r"C:\Users\User\Dropbox\DO & INV\DO & INV 2025\Melvin - MOS Burger\For Customer\MOS DOC (OTL) - Format"
+directory_path = r"C:\Users\jhunj\Dropbox\DO & INV\DO & INV 2025\Melvin - MOS Burger\For Customer\MOS DOC (OTL) - Format"
 update_Invoice_formulas(directory_path)

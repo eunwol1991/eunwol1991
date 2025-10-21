@@ -3,10 +3,12 @@ import shutil
 import fitz  # PyMuPDF
 
 # 目标文件夹（按你的路径填写，前面加 r 防止转义）
-ROOT = Path(r"C:\Users\User\Dropbox\Halal Update\Halal\4. Innofresh\[2025-2026] Halal certificate of Innofresh")
+ROOT = Path(
+    r"C:\Users\jhunj\Dropbox\Halal Update\Halal\4. Innofresh\[2025-2026] Halal certificate of Innofresh")
 
 # 是否给原文件做 .bak 备份（True/False）
 MAKE_BACKUP = True
+
 
 def rotate_second_page(pdf_path: Path, angle: int = 90) -> None:
     """将 pdf 的第 2 页顺时针旋转 angle 度并覆盖保存。"""
@@ -36,6 +38,7 @@ def rotate_second_page(pdf_path: Path, angle: int = 90) -> None:
     except Exception as e:
         print(f"[失败] {pdf_path.name} -> {e}")
 
+
 def main():
     if not ROOT.exists():
         print(f"目标文件夹不存在：{ROOT}")
@@ -44,6 +47,7 @@ def main():
     # 仅遍历该目录下的 PDF（不递归子文件夹，若要递归改为 ROOT.rglob('*.pdf')）
     for pdf in ROOT.glob("*.pdf"):
         rotate_second_page(pdf, angle=90)
+
 
 if __name__ == "__main__":
     main()

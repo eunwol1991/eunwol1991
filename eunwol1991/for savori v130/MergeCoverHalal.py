@@ -1,6 +1,7 @@
 import os
 from PyPDF2 import PdfMerger
 
+
 def merge_cover_to_all(input_folder, output_folder, cover_filename):
     # 获取封面完整路径
     cover_path = os.path.join(input_folder, cover_filename)
@@ -30,9 +31,10 @@ def merge_cover_to_all(input_folder, output_folder, cover_filename):
             except Exception as e:
                 print(f"❌ 合并失败 → {filename}，错误：{e}")
 
+
 # === 参数设置 ===
-input_path = r"C:\Users\User\Downloads\Re_ Innofrsh_Savori request for updated Halal cert (Exp_ May & Jun'25)"
-output_path = r"C:\Users\User\Downloads\halal cert"
+input_path = r"C:\Users\jhunj\Downloads\Re_ Innofrsh_Savori request for updated Halal cert (Exp_ May & Jun'25)"
+output_path = r"C:\Users\jhunj\Downloads\halal cert"
 cover_pdf_name = "Halal A477-2548 valid 05.08.2026 EN cover.pdf"
 
 # === 执行函数 ===

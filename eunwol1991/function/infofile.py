@@ -3,7 +3,7 @@ import threading
 import tkinter as tk
 from tkinter import ttk, scrolledtext, font, filedialog
 
-BASE_DIR = r"C:\\Users\\User\\Dropbox\\DO & INV\\DO & INV 2025"
+BASE_DIR = r"C:\\Users\\jhunj\\Dropbox\\DO & INV\\DO & INV 2025"
 
 MONTH_MAP = {
     1: "1. Jan",
@@ -20,6 +20,7 @@ MONTH_MAP = {
     12: "12. Dec",
 }
 
+
 def search_month_folder(month: int, logger):
     month_name = MONTH_MAP.get(month)
     if not month_name:
@@ -33,6 +34,7 @@ def search_month_folder(month: int, logger):
                 found = True
     if not found:
         logger("未找到")
+
 
 def clean_empty_month_folders(logger):
     deleted = skipped = failed = 0
@@ -52,6 +54,7 @@ def clean_empty_month_folders(logger):
                     logger(f"⚠️ 保留: {path} (非空)", "skip")
                     skipped += 1
     logger(f"汇总：本次删除 {deleted}，保留 {skipped}，失败 {failed}", "info")
+
 
 def create_month_folders(month: int, logger):
     month_name = MONTH_MAP.get(month)
@@ -83,6 +86,7 @@ def create_month_folders(month: int, logger):
                 logger(f"❌ 创建失败: {month_path} -> {e}", "fail")
                 failed += 1
     logger(f"汇总：本次创建 {created}，跳过 {skipped}，失败 {failed}", "info")
+
 
 class InfoApp:
     def __init__(self, master: tk.Tk):
@@ -124,7 +128,8 @@ class InfoApp:
                        variable=self.option, value=3,
                        font=self.label_font, anchor="w").grid(row=2, column=0, sticky="w", pady=2)
 
-        tk.Label(control, text="月份:", font=self.label_font).grid(row=3, column=0, sticky="w", pady=(10,2))
+        tk.Label(control, text="月份:", font=self.label_font).grid(
+            row=3, column=0, sticky="w", pady=(10, 2))
         tk.Entry(control, textvariable=self.month_var, width=10,
                  font=self.label_font).grid(row=4, column=0, sticky="w")
 
@@ -144,10 +149,12 @@ class InfoApp:
 
         self.status_label = ttk.Label(master, textvariable=self.status_var,
                                       font=self.label_font, anchor="w")
-        self.status_label.grid(row=2, column=0, columnspan=2, sticky="ew", padx=10, pady=(0,5))
+        self.status_label.grid(row=2, column=0, columnspan=2,
+                               sticky="ew", padx=10, pady=(0, 5))
 
         self.progress = ttk.Progressbar(master, mode="indeterminate")
-        self.progress.grid(row=3, column=0, columnspan=2, sticky="ew", padx=10, pady=(0,5))
+        self.progress.grid(row=3, column=0, columnspan=2,
+                           sticky="ew", padx=10, pady=(0, 5))
 
         master.bind("<Configure>", self.on_resize)
 

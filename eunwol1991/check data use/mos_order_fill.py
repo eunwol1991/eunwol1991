@@ -4,23 +4,26 @@ MOS Order → Excel 自动填表脚本（Savori三行版 + 关键字门店匹配
 """
 
 from pathlib import Path
-import re, sys, shutil
+import re
+import sys
+import shutil
 import fitz                     # PyMuPDF
 import openpyxl as xl
 from openpyxl.styles import PatternFill
 from openpyxl.utils import column_index_from_string
 
 # === 1. 配置区 ============================================================ #
-EXCEL_PATH   = Path(r"C:\Users\User\Dropbox\for jj\mos order\Order Summary For MOS - JJ.xlsx")
-SHEET_NAME   = "MOS Format"
-PDF_DIR      = Path(r"C:\Users\User\Dropbox\for jj\mos_pdfs")  # 待处理 PDF 文件夹
-PO_COL       = "AI"
-ROW_START    = 39
-ROW_END      = 73
-COL_START    = "C"
-COL_END      = "AD"
-HIGHLIGHT    = PatternFill(fill_type="solid", fgColor="00FFFCD7")
-ARCHIVE_DIR  = Path(r"C:\Users\User\Dropbox\for jj\mos order")
+EXCEL_PATH = Path(
+    r"C:\Users\jhunj\Dropbox\for jj\mos order\Order Summary For MOS - JJ.xlsx")
+SHEET_NAME = "MOS Format"
+PDF_DIR = Path(r"C:\Users\jhunj\Dropbox\for jj\mos_pdfs")  # 待处理 PDF 文件夹
+PO_COL = "AI"
+ROW_START = 39
+ROW_END = 73
+COL_START = "C"
+COL_END = "AD"
+HIGHLIGHT = PatternFill(fill_type="solid", fgColor="00FFFCD7")
+ARCHIVE_DIR = Path(r"C:\Users\jhunj\Dropbox\for jj\mos order")
 # —— PO 号下限（含）——
 PO_MIN = 600000
 
@@ -98,14 +101,17 @@ ITEM_ALIAS = {
 
 # ========================================================================== #
 UNIT_RE = r"(?:ctn|ctns|pkt|pkts|tin|tins|can|cans|box|boxes|btl|btls|pc|pcs)"
-_PLURAL_MAP = {"ctn": "ctns", "pkt": "pkts", "tin": "tins", "can": "cans", "box": "boxes", "btl": "btls", "pc": "pcs"}
+_PLURAL_MAP = {"ctn": "ctns", "pkt": "pkts", "tin": "tins",
+               "can": "cans", "box": "boxes", "btl": "btls", "pc": "pcs"}
 _SINGULAR_MAP = {v: k for k, v in _PLURAL_MAP.items()}
+
 
 def _normalize_uom(uom: str) -> str:
     u = (uom or "").strip().lower()
     if u in _SINGULAR_MAP:
         return _SINGULAR_MAP[u]
     return u
+
 
 def _format_qty_uom(qty: int, uom: str) -> str:
     base = _normalize_uom(uom)
@@ -114,8 +120,10 @@ def _format_qty_uom(qty: int, uom: str) -> str:
         return f"{qty} {plural}"
     return f"{qty} {base}"
 
+
 def _norm_spaces(s: str) -> str:
     return re.sub(r"\s+", " ", s).strip()
+
 
 def _looks_like_date_fragment(s: str) -> bool:
     """粗判是否像日期：含 '/' 或出现 20xx 年份痕迹"""
@@ -124,12 +132,15 @@ def _looks_like_date_fragment(s: str) -> bool:
     return ("/" in s) or bool(re.search(r"20\d{2}", s))
 
 # ---------- Item / Store normalization ---------- #
+
+
 def _norm_item_key(desc: str) -> str:
     s = desc.lower()
     s = re.sub(r"\(.*?\)", "", s)
     s = re.sub(r"[^a-z0-9\s,.-]+", " ", s)
     s = _norm_spaces(s)
     return s
+
 
 def _map_item(desc: str) -> str:
     key = _norm_item_key(desc)
@@ -143,6 +154,7 @@ def _map_item(desc: str) -> str:
             return ITEM_ALIAS[k]
     return desc
 
+
 def _norm_store_text(s: str) -> str:
     s = s.lower()
     s = re.sub(r"\(.*?\)", "", s)
@@ -150,6 +162,7 @@ def _norm_store_text(s: str) -> str:
     s = s.replace("mos -", " ").replace("mos–", " ").replace("-", " ")
     s = re.sub(r"[^a-z0-9\s]", " ", s)
     return _norm_spaces(s)
+
 
 def resolve_store(pdf_store_line: str, store_row_keys: list[str]) -> str | None:
     alias_hit = STORE_ALIAS.get(pdf_store_line.lower())
@@ -168,11 +181,13 @@ def resolve_store(pdf_store_line: str, store_row_keys: list[str]) -> str | None:
             return orig
     return None
 
+
 def _ensure_dir(p: Path):
     try:
         p.mkdir(parents=True, exist_ok=True)
     except Exception:
         pass
+
 
 def _safe_move_file(src: Path, dest_dir: Path):
     try:
@@ -188,11 +203,14 @@ def _safe_move_file(src: Path, dest_dir: Path):
         print(f"[!] 无法移动文件 {src} -> {dest_dir}: {e}", file=sys.stderr)
 
 # ---------- 模糊列匹配（补齐缺失函数） ---------- #
+
+
 def _tokenize_item(s: str) -> set[str]:
     """Tokenize item text for fuzzy matching: lowercased words, length>=3."""
     norm = _norm_item_key(s)
     toks = [w for w in norm.split() if len(w) >= 3]
     return set(toks)
+
 
 def find_best_item_col(desc: str, item_col: dict[str, int]) -> tuple[int | None, str | None]:
     """
@@ -205,7 +223,8 @@ def find_best_item_col(desc: str, item_col: dict[str, int]) -> tuple[int | None,
     if not pdf_tokens:
         return None, None
 
-    scored: list[tuple[int, int, str, int]] = []  # (score, overlap_chars, header, col)
+    # (score, overlap_chars, header, col)
+    scored: list[tuple[int, int, str, int]] = []
     for header, col in item_col.items():
         header_tokens = _tokenize_item(header)
         overlap = pdf_tokens & header_tokens
@@ -232,11 +251,13 @@ def find_best_item_col(desc: str, item_col: dict[str, int]) -> tuple[int | None,
 
     return None, None
 
+
 def _extract_po_from_lines(lines: list[str]) -> str:
     joined = " \n ".join(lines)
 
     # 1) 'Approved by' 附近
-    m = re.search(r"(?is)approved\s*by\s*[:\-]?[^\d]{0,80}?(\d\D?\d\D?\d\D?\d\D?\d\D?\d)", joined)
+    m = re.search(
+        r"(?is)approved\s*by\s*[:\-]?[^\d]{0,80}?(\d\D?\d\D?\d\D?\d\D?\d\D?\d)", joined)
     if m:
         raw = m.group(1)
         if not _looks_like_date_fragment(raw):
@@ -269,7 +290,8 @@ def _extract_po_from_lines(lines: list[str]) -> str:
     # 4) 全文兜底：距离 'Approved by' 最近的独立6位数字，且 >= PO_MIN
     approved_pos = re.search(r"(?i)approved\s*by", joined)
     pos = approved_pos.start() if approved_pos else 0
-    candidates = [(m.start(), m.group(0)) for m in re.finditer(r"\b\d{6}\b", joined)]
+    candidates = [(m.start(), m.group(0))
+                  for m in re.finditer(r"\b\d{6}\b", joined)]
     candidates = [c for c in candidates if int(c[1]) >= PO_MIN]
     if candidates:
         candidates.sort(key=lambda t: abs(t[0] - pos))
@@ -295,6 +317,8 @@ def parse_pdf(pdf_path: Path):
     return pages
 
 # ---------- 单页信息抽取 ---------- #
+
+
 def extract_orders_from_lines(lines: list[str]) -> dict:
     """从单页 lines 中抽取: store_line, po, items(list[{desc, qty, uom}])"""
     # 门店行（原样）
@@ -349,6 +373,8 @@ def extract_orders_from_lines(lines: list[str]) -> dict:
     return {"store_line": store_line, "po": po, "items": items}
 
 # ---------- Excel表头映射 ---------- #
+
+
 def build_mappings(ws):
     """生成 {店名: 行号}, {物品名: 列号}"""
     def _norm_store_for_excel(s: str) -> str:
@@ -373,6 +399,7 @@ def build_mappings(ws):
 
     return store_row, item_col
 
+
 def clear_target_cells(ws):
     # 清空目标范围内的历史值与高亮
     c1 = column_index_from_string(COL_START)
@@ -386,6 +413,8 @@ def clear_target_cells(ws):
         ws[f"{PO_COL}{r}"].value = None
 
 # ---------- 主流程 ---------- #
+
+
 def main():
     wb = xl.load_workbook(EXCEL_PATH)
     ws = wb[SHEET_NAME]
@@ -401,29 +430,34 @@ def main():
             for lines in pages:
                 page_info = extract_orders_from_lines(lines)
                 # 检测是否为 amend 页（包含 amend/amended/amendment 等关键字）
-                page_has_amend = any(re.search(r"\bamend", ln, flags=re.I) for ln in lines)
+                page_has_amend = any(
+                    re.search(r"\bamend", ln, flags=re.I) for ln in lines)
                 if not page_info["items"]:
                     continue  # 该页无明细
 
                 # 门店解析：优先使用 store_line；支持关键字/部分匹配
                 resolved_store_name = None
                 if page_info["store_line"]:
-                    resolved_store_name = resolve_store(page_info["store_line"], list(store_row.keys()))
+                    resolved_store_name = resolve_store(
+                        page_info["store_line"], list(store_row.keys()))
                 else:
                     # 如果 PDF 没有清晰门店行，也尝试任何包含 MOS 的行
                     for ln in lines:
                         if "mos" in ln.lower():
-                            resolved_store_name = resolve_store(ln, list(store_row.keys()))
+                            resolved_store_name = resolve_store(
+                                ln, list(store_row.keys()))
                             if resolved_store_name:
                                 break
 
                 if not resolved_store_name:
-                    not_found_store.append({"store": page_info["store_line"] or "(missing)", "po": page_info["po"]})
+                    not_found_store.append(
+                        {"store": page_info["store_line"] or "(missing)", "po": page_info["po"]})
                     continue
 
                 r = store_row.get(resolved_store_name)
                 if r is None:
-                    not_found_store.append({"store": page_info["store_line"], "po": page_info["po"]})
+                    not_found_store.append(
+                        {"store": page_info["store_line"], "po": page_info["po"]})
                     continue
 
                 # 写入每个明细
@@ -433,7 +467,8 @@ def main():
                     matched_header = item_std
                     if c is None:
                         # Fuzzy fallback by token overlap
-                        c, matched_header = find_best_item_col(it["desc"], item_col)
+                        c, matched_header = find_best_item_col(
+                            it["desc"], item_col)
                     if c is None:
                         not_found_item.append({
                             "store": resolved_store_name,
@@ -450,8 +485,9 @@ def main():
                         cell.value = None
                         cell.fill = PatternFill()
                     else:
-                        ws.cell(r, c).value = _format_qty_uom(it["qty"], it.get("uom", ""))
-                        ws.cell(r, c).fill  = HIGHLIGHT
+                        ws.cell(r, c).value = _format_qty_uom(
+                            it["qty"], it.get("uom", ""))
+                        ws.cell(r, c).fill = HIGHLIGHT
                     pdf_had_update = True
 
                 # 写入 PO（保留原先的数字/文本写入策略）
@@ -489,8 +525,11 @@ def main():
         if not_found_item:
             print("  [物品未匹配]")
             for od in not_found_item:
-                qty_uom = _format_qty_uom(od.get('qty') or 0, od.get('uom', '')) if od.get('qty') is not None else ''
-                print(f"   - {od['store']} / {od['item']} / {qty_uom} / PO {od['po']}")
+                qty_uom = _format_qty_uom(od.get('qty') or 0, od.get(
+                    'uom', '')) if od.get('qty') is not None else ''
+                print(
+                    f"   - {od['store']} / {od['item']} / {qty_uom} / PO {od['po']}")
+
 
 if __name__ == "__main__":
     main()

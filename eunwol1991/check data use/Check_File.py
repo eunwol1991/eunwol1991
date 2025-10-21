@@ -7,19 +7,22 @@ from difflib import SequenceMatcher
 init(autoreset=True)
 
 
-
-BASE_DIR = r"C:\Users\User\Dropbox\DO & INV\DO & INV 2025"
+BASE_DIR = r"C:\Users\jhunj\Dropbox\DO & INV\DO & INV 2025"
 valid_tags = {"INV", "DO & INV"}
 pattern = re.compile(
     r"^(.+?)\s*(\d{4})\s*-\s*(\d{3})\s*-\s*([A-Z &]+)", re.IGNORECASE
 )
 target_month = "1025"  # 可编辑：筛选包含该字符串的月份标识（如 0825/0925）
 
+
 def is_cancelled(fname):
     return bool(re.search(r'(?i)cancel', fname))
 
-files = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: {"xlsx": [], "pdf": []})))
+
+files = defaultdict(lambda: defaultdict(
+    lambda: defaultdict(lambda: {"xlsx": [], "pdf": []})))
 invalid_files = []
+
 
 def extract_invoice_number_from_pdf(pdf_path):
     try:
@@ -27,7 +30,8 @@ def extract_invoice_number_from_pdf(pdf_path):
         text = ""
         for page in doc[:2]:
             text += page.get_text()
-        match = re.search(r'Invoice No[\s:]*([\w. ]+)\s*(\d{4})\s*-\s*(\d{3})', text, re.IGNORECASE)
+        match = re.search(
+            r'Invoice No[\s:]*([\w. ]+)\s*(\d{4})\s*-\s*(\d{3})', text, re.IGNORECASE)
         if match:
             prefix, year, num = match.groups()
             return f"{prefix.strip()} {year.strip()} - {num.strip()}"
@@ -39,15 +43,18 @@ def extract_invoice_number_from_pdf(pdf_path):
         print(f"⚠️ 读取 PDF 内容失败: {pdf_path} ({e})")
     return None
 
+
 def print_report_header(title, char="─", width=60):
     print()
     print(f"{title} ".ljust(width, char))
+
 
 def shorten_path(path, keep=3):
     parts = path.split(os.sep)
     if len(parts) <= keep + 1:
         return path
     return "…" + os.sep + os.sep.join(parts[-keep-1:])
+
 
 def highlight_diff(a, b):
     """只高亮不同部分"""
@@ -65,6 +72,7 @@ def highlight_diff(a, b):
     return result_a, result_b
 
 # =================== 文件扫描与归档 ===================
+
 
 for root, _, filenames in os.walk(BASE_DIR):
     for filename in filenames:
@@ -164,7 +172,8 @@ for prefix, year_map in files.items():
         missing = sorted(expected - base)
         if missing:
             gap = True
-            print(f"  - [{prefix}] {year} 缺少编号：{', '.join(f'{n:03d}' for n in missing)}")
+            print(
+                f"  - [{prefix}] {year} 缺少编号：{', '.join(f'{n:03d}' for n in missing)}")
 if not gap:
     print("  ✅ 所有编号连续")
 
@@ -180,7 +189,8 @@ for prefix, year_map in files.items():
                 if not content_no:
                     mismatch_files.append((pdf_path, "无法识别内容编号"))
                 elif content_no != file_no:
-                    mismatch_files.append((pdf_path, f"内容编号: {content_no}，文件名: {file_no}"))
+                    mismatch_files.append(
+                        (pdf_path, f"内容编号: {content_no}，文件名: {file_no}"))
 if mismatch_files:
     grouped = {}
     for f, reason in mismatch_files:
@@ -197,7 +207,8 @@ if mismatch_files:
                 m = re.search(pattern, reason)
                 if m:
                     content_no, file_no = m.groups()
-                    diff_content_no, diff_file_no = highlight_diff(content_no, file_no)
+                    diff_content_no, diff_file_no = highlight_diff(
+                        content_no, file_no)
                     reason_colored = f"内容编号: {diff_content_no}，文件名: {diff_file_no}"
                 else:
                     reason_colored = reason

@@ -27,7 +27,7 @@ except Exception:  # pragma: no cover
 
 
 # ===== Defaults (editable) =====
-BASE_DIR = r"C:\\Users\\User\\Dropbox\\DO & INV\\DO & INV 2025"
+BASE_DIR = r"C:\\Users\\jhunj\\Dropbox\\DO & INV\\DO & INV 2025"
 TARGET_MONTH = "0925"  # e.g. 0825 / 0925
 VALID_TAGS = {"INV", "DO & INV"}
 FILENAME_PATTERN = re.compile(
@@ -734,7 +734,7 @@ def launch_gui_modern():
             # Azure-ttk-theme
             self.style = ttk.Style(self)
             try:
-                self.tk.call("source", r"C:\\Users\\User\\puython\\check data use\\azure.tcl")
+                self.tk.call("source", r"C:\\Users\\jhunj\\puython\\check data use\\azure.tcl")
                 # 默认 light，再根据保存主题切换
                 self.tk.call("set_theme", "light")
                 if str(self._theme).lower() == "dark":

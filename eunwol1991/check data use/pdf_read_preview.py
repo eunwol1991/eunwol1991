@@ -9,12 +9,13 @@ import re
 import fitz  # PyMuPDF
 
 # 固定 PDF 路径
-PDF_PATH = Path(r"C:\Users\User\Downloads\mos_pdfs\Savori (2908).pdf")
+PDF_PATH = Path(r"C:\Users\jhunj\Downloads\mos_pdfs\Savori (2908).pdf")
 
 # 正则
 UNIT_RE = r"(?:ctn|ctns|pkt|pkts|tin|tins|can|cans|box|boxes|btl|btls|pc|pcs)"
 PO_LINE_RE = re.compile(r"^\s*To\s*(\d{5,})\s*$", re.I)
-ISSUED_DELIVERED_RE = re.compile(r"Issued\s+Delivered\s+(MOS Burger.+?\(\d+\))", re.I)
+ISSUED_DELIVERED_RE = re.compile(
+    r"Issued\s+Delivered\s+(MOS Burger.+?\(\d+\))", re.I)
 ITEM_LINE_RE = re.compile(rf"^(\d{{5,}})\s+(.+?)\s+(\d+)\s+{UNIT_RE}\b", re.I)
 
 
@@ -29,7 +30,8 @@ def main():
                 print(f"{idx:03d}: {ln}")
 
             # 提取 PO
-            po_hits = [m.group(1) for ln in lines if (m := PO_LINE_RE.match(ln.strip()))]
+            po_hits = [m.group(1) for ln in lines if (
+                m := PO_LINE_RE.match(ln.strip()))]
             po = po_hits[-1] if po_hits else ""
 
             # 提取门店
@@ -58,7 +60,7 @@ def main():
                     continue
                 code = m.group(1)
                 desc = m.group(2)
-                qty  = int(m.group(3))
+                qty = int(m.group(3))
                 unit_m = re.search(rf"\b({UNIT_RE})\b", ln, re.I)
                 unit = unit_m.group(1) if unit_m else ""
                 print(f"code={code} | qty={qty} {unit} | desc={desc}")

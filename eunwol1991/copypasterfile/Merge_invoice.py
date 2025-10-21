@@ -3,7 +3,7 @@ import re
 from PyPDF2 import PdfMerger
 
 # 根目录路径
-ROOT_DIR = r"C:\Users\User\Dropbox\DO & INV\DO & INV 2025"
+ROOT_DIR = r"C:\Users\jhunj\Dropbox\DO & INV\DO & INV 2025"
 
 # 匹配发票 PDF 文件名
 invoice_pattern = re.compile(
@@ -147,7 +147,8 @@ def main():
         return
 
     # 运行时再生成正则
-    folder_month_pattern = re.compile(rf'^{TARGET_MONTH}\.\s*([A-Za-z]{{3}})$', re.IGNORECASE)
+    folder_month_pattern = re.compile(
+        rf'^{TARGET_MONTH}\.\s*([A-Za-z]{{3}})$', re.IGNORECASE)
 
     print(f"[START] Searching from: {ROOT_DIR}")
     recursive_search(ROOT_DIR)
