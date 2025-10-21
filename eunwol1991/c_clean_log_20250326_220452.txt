@@ -1,0 +1,70 @@
+🧾 删除文件列表：
+C:\Users\User\AppData\Local\Temp\.ses
+C:\Users\User\AppData\Local\Temp\bc3902d8132f43e3ae086a009979fa88.db
+C:\Users\User\AppData\Local\Temp\bc3902d8132f43e3ae086a009979fa88.db.ses
+C:\Users\User\AppData\Local\Temp\cv_debug.log
+C:\Users\User\AppData\Local\Temp\DA63.tmp
+C:\Users\User\AppData\Local\Temp\mat-debug-18632.log
+C:\Users\User\AppData\Local\Temp\mat-debug-27632.log
+C:\Users\User\AppData\Local\Temp\Setup Log 2025-03-14 #001.txt
+C:\Users\User\AppData\Local\Temp\vscode-inno-updater-1742997402.log
+C:\Users\User\AppData\Local\Temp\wctA9DD.tmp
+C:\Users\User\Downloads\-Stardew Valley Expanded--3753-1-15-8-1734906518.zip
+C:\Users\User\Downloads\17032025082934-0001.pdf
+C:\Users\User\Downloads\730编辑软件.rar
+C:\Users\User\Downloads\730驱动程式.rar
+C:\Users\User\Downloads\AnyDesk.exe
+C:\Users\User\Downloads\C.P 0125 - 107 - INV (MAPLE SPRING - 93 Pasir Ris).pdf
+C:\Users\User\Downloads\CAG-ACS_FAQs.pdf
+C:\Users\User\Downloads\Changi T2 Booking Details.pdf
+C:\Users\User\Downloads\ChatGPT (Early Version for Plus, Team, Enterprise, and Edu) Installer.exe
+C:\Users\User\Downloads\chromeremotedesktophost.msi
+C:\Users\User\Downloads\ChromeSetup.exe
+C:\Users\User\Downloads\Content Patcher 2.4.4-1915-2-4-4-1731043317.zip
+C:\Users\User\Downloads\Cursor Setup 0.44.8 - x64.exe
+C:\Users\User\Downloads\Delivery Memo for Hari Raya Puasa 31.03.2025 (1).pdf
+C:\Users\User\Downloads\Delivery Memo for Hari Raya Puasa 31.03.2025 （2）.pdf
+C:\Users\User\Downloads\design app.jpg
+C:\Users\User\Downloads\design app.png
+C:\Users\User\Downloads\desktop.ini
+C:\Users\User\Downloads\DropboxInstaller.exe
+C:\Users\User\Downloads\DR_USB_AX55_Nano_Win_v5001.15.118.0.zip
+C:\Users\User\Downloads\Farm Type Manager v1.24.0-3231-1-24-0-1732227130.zip
+C:\Users\User\Downloads\gcapi.dll
+C:\Users\User\Downloads\GeForce_Experience_v3.28.0.417.exe
+C:\Users\User\Downloads\GenshinImpact_install_ua_2b09ac39243e.exe
+C:\Users\User\Downloads\GenshinImpact_install_ua_a1af8bfe13a8.exe
+C:\Users\User\Downloads\GenshinImpact_install_ua_bc29d26bfd6c.exe
+C:\Users\User\Downloads\gtk3-runtime-3.24.31-2022-01-04-ts-win64.exe
+C:\Users\User\Downloads\identityv_setup_neox2_oversea_release_240912.exe
+C:\Users\User\Downloads\L3250_x64_304JAUsHomeExportAsiaML.exe
+C:\Users\User\Downloads\lghub_installer.exe
+C:\Users\User\Downloads\lively_setup_x86_full_v2108.exe
+C:\Users\User\Downloads\MaplePatch260to261.exe
+C:\Users\User\Downloads\MapleStoryV261.zip
+C:\Users\User\Downloads\OneDriveSetup.exe
+C:\Users\User\Downloads\openrouteservice-py-2.3.3.zip
+C:\Users\User\Downloads\pandoc-3.5-windows-x86_64.msi
+C:\Users\User\Downloads\Patcher.log
+C:\Users\User\Downloads\planet-240729.osm.bz2
+C:\Users\User\Downloads\ProtonVPN_v3.2.11.exe
+C:\Users\User\Downloads\python-3.12.4-amd64.exe
+C:\Users\User\Downloads\RemotePrint_x64_168JAUsHomeExportAsia_2.exe
+C:\Users\User\Downloads\resume.docx
+C:\Users\User\Downloads\RoundedTB_R3.1.zip
+C:\Users\User\Downloads\setup1.1.8.0.exe
+C:\Users\User\Downloads\SMAPI 4.1.10-2400-4-1-10-1734578111.zip
+C:\Users\User\Downloads\Stardew Valley Expanded chinese-10342-1-15-7-1732870527.zip
+C:\Users\User\Downloads\SteamSetup.exe
+C:\Users\User\Downloads\T2 Booking Details 12-Mar.pdf
+C:\Users\User\Downloads\txt2epub-master.zip
+C:\Users\User\Downloads\txt2epub-win-20240119.zip
+C:\Users\User\Downloads\VSCodeUserSetup-x64-1.90.2.exe
+C:\Users\User\Downloads\WhatsApp Image 2024-11-08 at 1.11.59 PM.jpeg
+C:\Users\User\Downloads\WhatsApp Installer.exe
+C:\Users\User\Downloads\windows_11_cursors_concept_v2_by_jepricreations_densjkc.zip
+C:\Users\User\Downloads\WirelessLan_DCH_Realtek_Z_V2024.10.138.3_29658.exe
+C:\Users\User\Downloads\x64.zip
+C:\Users\User\Downloads\屏幕截图 2025-01-05 221005.png
+C:\Users\User\Downloads\快拿去骚扰你npy！！_1_ok_来自小红书网页版.jpg
+C:\Users\User\Downloads\🇹🇼 台湾自由行攻略（台北 + 台中）.pdf

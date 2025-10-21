@@ -1,0 +1,1213 @@
+import os
+import re
+import time
+import threading
+from collections import defaultdict
+from difflib import SequenceMatcher
+
+try:
+    import fitz  # PyMuPDF
+except Exception:  # pragma: no cover
+    fitz = None
+
+# Colorama only affects CLI output; GUI does not use it.
+try:
+    from colorama import Fore, Style, init as colorama_init
+
+    colorama_init(autoreset=True)
+except Exception:  # pragma: no cover
+    class _Dummy:
+        RESET_ALL = ""
+
+    class _Fore:
+        RED = YELLOW = CYAN = ""
+
+    Fore = _Fore()
+    Style = _Dummy()
+
+
+# ===== Defaults (editable) =====
+BASE_DIR = r"C:\\Users\\User\\Dropbox\\DO & INV\\DO & INV 2025"
+TARGET_MONTH = "0925"  # e.g. 0825 / 0925
+VALID_TAGS = {"INV", "DO & INV"}
+FILENAME_PATTERN = re.compile(
+    r"^(.+?)\s*(\d{4})\s*-\s*(\d{3})\s*-\s*([A-Z &]+)", re.IGNORECASE
+)
+
+
+def is_cancelled(fname: str) -> bool:
+    return bool(re.search(r"(?i)cancel", fname))
+
+
+def shorten_path(path: str, keep: int = 3) -> str:
+    parts = path.split(os.sep)
+    if len(parts) <= keep + 1:
+        return path
+    return "…" + os.sep + os.sep.join(parts[-keep - 1 :])
+
+
+def extract_invoice_number_from_pdf(pdf_path: str) -> str | None:
+    if not fitz:
+        return None
+    try:
+        doc = fitz.open(pdf_path)
+        text = ""
+        for page in doc[:2]:
+            text += page.get_text() or ""
+        m1 = re.search(
+            r"Invoice No[\s:]*([\w. ]+)\s*(\d{4})\s*-\s*(\d{3})",
+            text,
+            re.IGNORECASE,
+        )
+        if m1:
+            prefix, year, num = m1.groups()
+            return f"{prefix.strip()} {year.strip()} - {num.strip()}"
+        m2 = re.search(r"([\w. ]+)\s*(\d{4})\s*-\s*(\d{3})", text)
+        if m2:
+            prefix, year, num = m2.groups()
+            return f"{prefix.strip()} {year.strip()} - {num.strip()}"
+    except Exception:
+        return None
+    return None
+
+
+def diff_strings(a: str, b: str) -> tuple[str, str]:
+    matcher = SequenceMatcher(None, a, b)
+    ra, rb = "", ""
+    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+        if tag == "equal":
+            ra += a[i1:i2]
+            rb += b[j1:j2]
+        else:
+            ra += a[i1:i2]
+            rb += b[j1:j2]
+    return ra, rb
+
+
+def enumerate_candidates(base_dir: str, target_month: str) -> list[tuple[str, str]]:
+    """Pre-scan: return (root, filename) already filtered by ext/month/cancel."""
+    out: list[tuple[str, str]] = []
+    for root, _, filenames in os.walk(base_dir):
+        for filename in filenames:
+            if is_cancelled(filename):
+                continue
+            ext = os.path.splitext(filename)[1].lower()
+            if ext not in [".xlsx", ".pdf"]:
+                continue
+            if target_month and (target_month not in filename) and (target_month not in root):
+                continue
+            out.append((root, filename))
+    return out
+
+
+def scan_files(base_dir: str, target_month: str, on_progress=None):
+    """Scan base_dir and build structured results. on_progress(total, current, note)."""
+    files = defaultdict(
+        lambda: defaultdict(lambda: defaultdict(lambda: {"xlsx": [], "pdf": []}))
+    )
+    invalid_files: list[str] = []
+
+    candidates = enumerate_candidates(base_dir, target_month)
+    total = len(candidates)
+    current = 0
+
+    for root, filename in candidates:
+        current += 1
+        if on_progress:
+            try:
+                on_progress(total, current - 1, f"解析 {filename}")
+            except Exception:
+                pass
+        ext = os.path.splitext(filename)[1].lower()
+        m = FILENAME_PATTERN.match(filename)
+        if not m:
+            continue
+        prefix, year, num, doc_type_raw = m.groups()
+        doc_type = doc_type_raw.strip().upper()
+        try:
+            number = int(num)
+        except ValueError:
+            continue
+        prefix = prefix.strip()
+        year = year.strip()
+        path = os.path.join(root, filename)
+
+        if doc_type not in VALID_TAGS:
+            if ("INV" in doc_type) or ("NV" in doc_type) or (doc_type == "IN"):
+                invalid_files.append(path)
+            continue
+
+        if ext == ".xlsx" and doc_type == "DO & INV":
+            files[prefix][year][number]["xlsx"].append(path)
+        elif ext == ".pdf" and doc_type == "INV":
+            files[prefix][year][number]["pdf"].append(path)
+
+    # build report
+    unpaired: list[tuple[str, str, int]] = []
+    duplicates: list[dict] = []
+    gaps: list[tuple[str, str, list[int]]] = []
+    mismatches: list[tuple[str, str]] = []  # (pdf_path, reason)
+
+    for prefix, year_map in files.items():
+        if prefix.upper() == "C.P":
+            continue
+        for year, num_map in year_map.items():
+            # duplicates and unpaired
+            for number, f in num_map.items():
+                if f["xlsx"] and not f["pdf"]:
+                    unpaired.append((prefix, year, number))
+                if len(f["xlsx"]) > 1 or len(f["pdf"]) > 1:
+                    duplicates.append(
+                        {
+                            "prefix": prefix,
+                            "year": year,
+                            "number": number,
+                            "xlsx": list(f["xlsx"]),
+                            "pdf": list(f["pdf"]),
+                        }
+                    )
+
+            # gaps (based on xlsx)
+            base = {n for n, v in num_map.items() if v["xlsx"]}
+            if base:
+                sorted_nums = sorted(base)
+                expected = set(range(min(sorted_nums), max(sorted_nums) + 1))
+                missing = sorted(expected - base)
+                if missing:
+                    gaps.append((prefix, year, missing))
+
+            # content mismatch
+            for number, f in num_map.items():
+                file_no = f"{prefix} {year} - {number:03d}"
+                for pdf_path in f["pdf"]:
+                    if on_progress:
+                        try:
+                            on_progress(total, current, f"读取 {os.path.basename(pdf_path)}")
+                        except Exception:
+                            pass
+                    content_no = extract_invoice_number_from_pdf(pdf_path)
+                    if not content_no:
+                        mismatches.append((pdf_path, "无法识别内容编号"))
+                    elif content_no != file_no:
+                        mismatches.append(
+                            (pdf_path, f"内容编号: {content_no}，文件名: {file_no}")
+                        )
+
+    return {
+        "invalid_files": invalid_files,
+        "unpaired": sorted(unpaired, key=lambda x: (x[0], x[1], x[2])),
+        "duplicates": sorted(
+            duplicates, key=lambda x: (x["prefix"], x["year"], x["number"])  # type: ignore
+        ),
+        "gaps": sorted(gaps, key=lambda x: (x[0], x[1])),
+        "mismatches": mismatches,
+        "stats": {"total": total},
+    }
+
+
+def _report_text(result, base_dir: str, target_month: str, elapsed: float | None = None):
+    lines = []
+    lines.append("📂 文件检查报告 v3.2 (GUI/CLI 共用)")
+    lines.append("=" * 64)
+    lines.append(f"根目录: {base_dir}")
+    if target_month:
+        lines.append(f"筛选月份关键词: {target_month}")
+    total = result.get("stats", {}).get("total", None)
+    if total is not None:
+        lines.append(f"扫描文件数量: {total}")
+    if elapsed is not None:
+        lines.append(f"用时: {elapsed:.2f}s")
+
+    def header(t):
+        lines.append("")
+        lines.append(f"{t} " + "─" * 40)
+
+    header("① 🅰️ 命名错误（INV 拼写类）")
+    if result["invalid_files"]:
+        for f in result["invalid_files"]:
+            lines.append(f"  - {shorten_path(f)}")
+    else:
+        lines.append("  ✓ 无")
+
+    header("② 🔗 缺配对（有 .xlsx 但缺 .pdf）")
+    if result["unpaired"]:
+        for prefix, year, num in result["unpaired"]:
+            lines.append(f"  - [{prefix}] {year} - {num:03d} 缺少 INV (.pdf)")
+    else:
+        lines.append("  ✓ 全部配对")
+
+    header("③ 🔁 重复编号")
+    if result["duplicates"]:
+        for item in result["duplicates"]:
+            lines.append(f"  - [{item['prefix']}] {item['year']} - {item['number']:03d}")
+            if len(item["xlsx"]) > 1:
+                lines.append("    多个 DO & INV (.xlsx):")
+                for p in item["xlsx"]:
+                    lines.append(f"      · {shorten_path(p)}")
+            if len(item["pdf"]) > 1:
+                lines.append("    多个 INV (.pdf):")
+                for p in item["pdf"]:
+                    lines.append(f"      · {shorten_path(p)}")
+    else:
+        lines.append("  ✓ 无重复")
+
+    header("④ 📉 编号不连续（以 .xlsx 为基准）")
+    if result["gaps"]:
+        for prefix, year, miss in result["gaps"]:
+            lines.append(
+                f"  - [{prefix}] {year} 缺少编号：{', '.join(f'{n:03d}' for n in miss)}"
+            )
+    else:
+        lines.append("  ✓ 连续")
+
+    header("⑤ 📋 内容编号与文件名不符")
+    if result["mismatches"]:
+        grouped = {}
+        for f, reason in result["mismatches"]:
+            basename = os.path.basename(f)
+            folder = os.path.dirname(f).split(os.sep)[-2:]
+            key = " / ".join(folder)
+            grouped.setdefault(key, []).append((basename, reason))
+        for folder, items in grouped.items():
+            lines.append(f"  - {folder}/")
+            for basename, reason in items:
+                lines.append(f"      · {basename} [{reason}]")
+    else:
+        lines.append("  ✓ 一致")
+
+    lines.append("")
+    lines.append("🎯 检查完成。")
+    lines.append("=" * 64)
+    return "\n".join(lines)
+
+
+def _print_cli_report(base_dir: str, target_month: str):
+    t0 = time.time()
+    result = scan_files(base_dir, target_month)
+    print(_report_text(result, base_dir, target_month, time.time() - t0))
+
+
+# ================= GUI =================
+def launch_gui():
+    import tkinter as tk
+    from tkinter import ttk, messagebox, filedialog
+
+    class App(tk.Tk):
+        def __init__(self):
+            super().__init__()
+            self.title("文件检查 - 可视化 v3.2")
+            self.configure(bg="#F4F5F7")
+            self.geometry("1000x720")
+
+            # Accessible defaults
+            base_font = ("Segoe UI", 12)
+            self._font_size = 12
+            self.option_add("*Font", base_font)
+            self.style = ttk.Style(self)
+            self.style.configure("TLabel", background="#F4F5F7", foreground="#111827")
+            self.style.configure("TFrame", background="#F4F5F7")
+            self.style.configure("TButton", padding=8)
+            self.style.configure("Treeview", rowheight=28, font=base_font)
+            self.style.configure("Treeview.Heading", font=("Segoe UI", 12, "bold"))
+
+            self._build_menubar()
+            self._build_ui()
+            self._bind_shortcuts()
+
+        # UI construction
+        def _build_ui(self):
+            # Toolbar
+            top = ttk.Frame(self)
+            top.pack(fill=tk.X, padx=16, pady=(12, 8))
+
+            ttk.Label(top, text="根目录:").grid(row=0, column=0, sticky=tk.W, padx=(0, 8))
+            self.dir_var = tk.StringVar(value=BASE_DIR)
+            self.dir_entry = ttk.Entry(top, textvariable=self.dir_var, width=70)
+            self.dir_entry.grid(row=0, column=1, sticky=tk.W)
+            ttk.Button(top, text="浏览…", command=self._choose_dir).grid(
+                row=0, column=2, padx=8
+            )
+
+            ttk.Label(top, text="月份筛选:").grid(row=0, column=3, sticky=tk.E, padx=(16, 8))
+            self.month_var = tk.StringVar(value=TARGET_MONTH)
+            self.month_entry = ttk.Entry(top, textvariable=self.month_var, width=10)
+            self.month_entry.grid(row=0, column=4, sticky=tk.W)
+
+            self.run_btn = ttk.Button(top, text="▶ 开始检查", command=self._run_scan)
+            self.run_btn.grid(row=0, column=5, padx=(16, 0))
+
+            # Progress row
+            prog = ttk.Frame(self)
+            prog.pack(fill=tk.X, padx=16)
+            self.progress = ttk.Progressbar(prog, maximum=100, mode="determinate")
+            self.progress.pack(side=tk.LEFT, fill=tk.X, expand=True)
+            self.status_var = tk.StringVar(value="就绪")
+            ttk.Label(prog, textvariable=self.status_var).pack(side=tk.LEFT, padx=(8, 0))
+
+            # Notebook
+            self.nb = ttk.Notebook(self)
+            self.nb.pack(fill=tk.BOTH, expand=True, padx=12, pady=8)
+
+            # Summary tab
+            self.summary_frame = ttk.Frame(self.nb)
+            self.nb.add(self.summary_frame, text="📊 摘要")
+            self.summary_buttons = {}
+            grid = ttk.Frame(self.summary_frame)
+            grid.pack(padx=12, pady=12, fill=tk.BOTH, expand=True)
+            self._summary_specs = [
+                ("invalid", "🅰️ 命名错误"),
+                ("unpaired", "🔗 缺配对"),
+                ("duplicates", "🔁 重复编号"),
+                ("gaps", "📉 编号不连续"),
+                ("mismatch", "📋 内容不符"),
+            ]
+            for i, (key, label) in enumerate(self._summary_specs):
+                b = ttk.Button(grid, text=f"{label}: 0", command=lambda k=key: self._goto_tab(k))
+                b.grid(row=i // 2, column=i % 2, sticky="ew", padx=8, pady=6)
+                grid.columnconfigure(i % 2, weight=1)
+                self.summary_buttons[key] = b
+
+            # Detail tabs
+            self.tabs = {}
+            for key, title, cols in [
+                ("invalid", "🅰️ 命名错误", ("路径",)),
+                ("unpaired", "🔗 缺配对", ("前缀", "年份", "编号")),
+                ("duplicates", "🔁 重复编号", ("前缀", "年份", "编号", "类型", "路径")),
+                ("gaps", "📉 编号不连续", ("前缀", "年份", "缺少编号")),
+                ("mismatch", "📋 内容不符", ("文件名", "原因")),
+            ]:
+                frame = ttk.Frame(self.nb)
+                self.nb.add(frame, text=title)
+                tv = ttk.Treeview(frame, columns=cols, show="headings")
+                for c in cols:
+                    tv.heading(c, text=c)
+                    tv.column(c, width=180, stretch=True)
+                vsb = ttk.Scrollbar(frame, orient="vertical", command=tv.yview)
+                tv.configure(yscrollcommand=vsb.set)
+                tv.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+                vsb.pack(side=tk.RIGHT, fill=tk.Y)
+                tv.bind("<Double-1>", lambda e, tree=tv: self._open_selected(tree))
+                self.tabs[key] = tv
+
+            # Bottom row
+            bottom = ttk.Frame(self)
+            bottom.pack(fill=tk.X, padx=12, pady=(0, 8))
+            ttk.Button(bottom, text="💾 导出报告", command=self._export_report).pack(side=tk.RIGHT)
+
+        def _build_menubar(self):
+            menubar = tk.Menu(self)
+            filem = tk.Menu(menubar, tearoff=0)
+            filem.add_command(label="导出报告", command=self._export_report)
+            filem.add_separator()
+            filem.add_command(label="退出", command=self.destroy)
+            menubar.add_cascade(label="文件", menu=filem)
+
+            viewm = tk.Menu(menubar, tearoff=0)
+            viewm.add_command(label="放大 (Ctrl+=)", command=lambda: self._zoom(1))
+            viewm.add_command(label="缩小 (Ctrl+-)", command=lambda: self._zoom(-1))
+            viewm.add_command(label="重置 (Ctrl+0)", command=lambda: self._zoom(0))
+            menubar.add_cascade(label="视图", menu=viewm)
+
+            helpm = tk.Menu(menubar, tearoff=0)
+            helpm.add_command(
+                label="关于",
+                command=lambda: messagebox.showinfo(
+                    "关于", "文件检查 v3.2\n低饱和配色、可访问 UI、进度与摘要"
+                ),
+            )
+            menubar.add_cascade(label="帮助", menu=helpm)
+            self.config(menu=menubar)
+
+        def _bind_shortcuts(self):
+            self.bind("<Control-=>", lambda e: self._zoom(1))
+            self.bind("<Control-+>", lambda e: self._zoom(1))
+            self.bind("<Control-minus>", lambda e: self._zoom(-1))
+            self.bind("<Control-KP_Subtract>", lambda e: self._zoom(-1))
+            self.bind("<Control-Key-0>", lambda e: self._zoom(0))
+
+        def _zoom(self, direction: int):
+            # direction: 1 zoom in, -1 zoom out, 0 reset
+            if direction == 0:
+                size = 12
+            else:
+                size = max(10, min(22, self._font_size + (2 if direction > 0 else -2)))
+            self._font_size = size
+            base_font = ("Segoe UI", size)
+            self.option_add("*Font", base_font)
+            self.style.configure("Treeview", font=base_font, rowheight=int(size * 2.2))
+            self.style.configure("Treeview.Heading", font=("Segoe UI", size, "bold"))
+
+        # Actions
+        def _choose_dir(self):
+            path = filedialog.askdirectory(initialdir=self.dir_var.get() or os.getcwd())
+            if path:
+                self.dir_var.set(path)
+
+        def _run_scan(self):
+            base = self.dir_var.get().strip()
+            month = self.month_var.get().strip()
+            if not os.path.isdir(base):
+                messagebox.showerror("错误", "请选择有效的根目录")
+                return
+            if fitz is None:
+                messagebox.showwarning(
+                    "提示", "未安装 PyMuPDF，无法检查 PDF 内容编号。可先执行: pip install pymupdf"
+                )
+            self.run_btn.configure(state=tk.DISABLED)
+            self.progress.configure(value=0)
+            self.status_var.set("准备扫描…")
+
+            def worker():
+                t0 = time.time()
+                try:
+                    cands = enumerate_candidates(base, month)
+                    total = len(cands) if cands else 1
+
+                    def on_prog(total_i, current_i, note):
+                        self.after(0, lambda: self._progress_update(total_i or total, current_i, note))
+
+                    self.after(0, lambda: self._progress_update(total, 0, "开始扫描…"))
+                    result = scan_files(base, month, on_progress=on_prog)
+                except Exception as e:
+                    result = e
+                elapsed = time.time() - t0
+                self.after(0, lambda: self._fill_result(result, elapsed))
+
+            threading.Thread(target=worker, daemon=True).start()
+
+        def _progress_update(self, total: int, current: int, note: str = ""):
+            value = int(current / max(1, total) * 100)
+            self.progress.configure(value=value)
+            if note:
+                self.status_var.set(note)
+
+        def _fill_result(self, result, elapsed: float | None = None):
+            self.run_btn.configure(state=tk.NORMAL)
+            if isinstance(result, Exception):
+                messagebox.showerror("错误", str(result))
+                self.status_var.set("出错")
+                return
+
+            # Clear trees
+            for tv in self.tabs.values():
+                for i in tv.get_children():
+                    tv.delete(i)
+
+            # Fill tabs
+            tv = self.tabs["invalid"]
+            for p in result["invalid_files"]:
+                tv.insert("", "end", values=(shorten_path(p),), tags=(p,))
+
+            tv = self.tabs["unpaired"]
+            for prefix, year, num in result["unpaired"]:
+                tv.insert("", "end", values=(prefix, year, f"{num:03d}"))
+
+            tv = self.tabs["duplicates"]
+            for item in result["duplicates"]:
+                if len(item["xlsx"]) > 1:
+                    for p in item["xlsx"]:
+                        tv.insert(
+                            "",
+                            "end",
+                            values=(
+                                item["prefix"],
+                                item["year"],
+                                f"{item['number']:03d}",
+                                "xlsx",
+                                shorten_path(p),
+                            ),
+                            tags=(p,),
+                        )
+                if len(item["pdf"]) > 1:
+                    for p in item["pdf"]:
+                        tv.insert(
+                            "",
+                            "end",
+                            values=(
+                                item["prefix"],
+                                item["year"],
+                                f"{item['number']:03d}",
+                                "pdf",
+                                shorten_path(p),
+                            ),
+                            tags=(p,),
+                        )
+
+            tv = self.tabs["gaps"]
+            for prefix, year, missing in result["gaps"]:
+                tv.insert("", "end", values=(prefix, year, ", ".join(f"{n:03d}" for n in missing)))
+
+            tv = self.tabs["mismatch"]
+            for p, reason in result["mismatches"]:
+                tv.insert("", "end", values=(os.path.basename(p), reason), tags=(p,))
+
+            # Summary
+            counts = {
+                "invalid": len(result["invalid_files"]),
+                "unpaired": len(result["unpaired"]),
+                "duplicates": len(result["duplicates"]),
+                "gaps": len(result["gaps"]),
+                "mismatch": len(result["mismatches"]),
+            }
+            for key, label in self._summary_specs:
+                self.summary_buttons[key]["text"] = f"{label}: {counts[key]}"
+
+            total = result.get("stats", {}).get("total", 0)
+            if elapsed is not None:
+                self.status_var.set(f"完成：共 {total} 个文件，用时 {elapsed:.2f}s")
+            else:
+                self.status_var.set("完成")
+            self.nb.select(self.summary_frame)  # show summary first
+
+        def _open_selected(self, tree):
+            sel = tree.selection()
+            if not sel:
+                return
+            item_id = sel[0]
+            tags = tree.item(item_id, "tags") or [""]
+            path = tags[0]
+            if path and os.path.exists(path):
+                try:
+                    os.startfile(path)
+                except Exception:
+                    pass
+
+        def _goto_tab(self, key: str):
+            mapping = {
+                "invalid": 1,
+                "unpaired": 2,
+                "duplicates": 3,
+                "gaps": 4,
+                "mismatch": 5,
+            }
+            idx = mapping.get(key)
+            if idx is not None:
+                self.nb.select(idx)
+
+        def _export_report(self):
+            try:
+                base = self.dir_var.get().strip()
+                month = self.month_var.get().strip()
+                t0 = time.time()
+                res = scan_files(base, month)
+                txt = _report_text(res, base, month, time.time() - t0)
+                path = filedialog.asksaveasfilename(
+                    title="保存报告",
+                    defaultextension=".txt",
+                    filetypes=[["Text", "*.txt"], ["All Files", "*.*"]],
+                    initialfile="文件检查报告.txt",
+                )
+                if path:
+                    with open(path, "w", encoding="utf-8") as f:
+                        f.write(txt)
+                    messagebox.showinfo("已保存", f"报告已保存到:\n{path}")
+            except Exception as e:
+                messagebox.showerror("导出失败", str(e))
+
+    app = App()
+    app.mainloop()
+
+
+def launch_gui_modern():
+    import tkinter as tk
+    from tkinter import ttk, messagebox, filedialog
+
+    # UI helpers start
+    class Tooltip:
+        def __init__(self, widget, *, delay=400):
+            self.widget = widget
+            self.delay = delay
+            self._after_id = None
+            self._tip = None
+            self._text = ""
+
+        def schedule(self, text, x, y):
+            self.cancel()
+            self._text = text or ""
+            if not self._text:
+                return
+            self._after_id = self.widget.after(self.delay, lambda: self._show(x, y))
+
+        def cancel(self):
+            if self._after_id:
+                self.widget.after_cancel(self._after_id)
+                self._after_id = None
+            self.hide()
+
+        def _show(self, x, y):
+            if self._tip or not self._text:
+                return
+            tw = tk.Toplevel(self.widget)
+            tw.wm_overrideredirect(True)
+            tw.wm_geometry(f"+{x+16}+{y+16}")
+            lbl = ttk.Label(tw, text=self._text, padding=(8, 4))
+            lbl.pack()
+            self._tip = tw
+
+        def hide(self):
+            if self._tip:
+                self._tip.destroy()
+                self._tip = None
+
+    class PlaceholderEntry(ttk.Entry):
+        def __init__(self, master=None, placeholder="", textvariable=None, **kwargs):
+            super().__init__(master, textvariable=textvariable, **kwargs)
+            self.placeholder = placeholder
+            self._has_placeholder = False
+            self.bind("<FocusIn>", self._clear_placeholder)
+            self.bind("<FocusOut>", self._set_placeholder)
+            self._set_placeholder()
+
+        def _clear_placeholder(self, _=None):
+            if self._has_placeholder:
+                self.delete(0, tk.END)
+                self.configure(foreground="")
+                self._has_placeholder = False
+
+        def _set_placeholder(self, _=None):
+            if not self.get():
+                self.insert(0, self.placeholder)
+                self.configure(foreground="#777777")
+                self._has_placeholder = True
+
+        def get_value(self):
+            v = self.get()
+            return "" if (self._has_placeholder and v == self.placeholder) else v
+
+    def elide_middle(text: str, max_len: int = 48) -> str:
+        if not text or len(text) <= max_len:
+            return text
+        head = max_len // 2 - 2
+        tail = max_len - head - 3
+        return f"{text[:head]}...{text[-tail:]}"
+
+    def open_in_explorer(path: str):
+        try:
+            if os.path.isdir(path):
+                os.startfile(path)
+            else:
+                os.startfile(os.path.dirname(path))
+        except Exception:
+            pass
+
+    # Persist UI state in user home
+    UI_STATE_PATH = os.path.join(os.path.expanduser("~"), ".check_file_ui.json")
+
+    def load_ui_state():
+        try:
+            import json
+
+            with open(UI_STATE_PATH, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return {}
+
+    def save_ui_state(data: dict):
+        try:
+            import json
+
+            with open(UI_STATE_PATH, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+        except Exception:
+            pass
+    # UI helpers end
+
+    class App(tk.Tk):
+        def __init__(self):
+            super().__init__()
+            self.title("文件检查 · 现代界面 v3.2")
+            self.geometry("1100x740")
+            self.minsize(900, 600)
+
+            self._ui_state = load_ui_state() or {}
+            self._cancel_requested = False
+            self._all_issues = []
+            self._filter_ready_only = tk.BooleanVar(value=bool(self._ui_state.get("ready_only", False)))
+            self._current_filter_type = None
+            self._theme = self._ui_state.get("theme", "light")
+
+            # Fonts and style
+            self._font_size = 12
+            base_font = ("Segoe UI", self._font_size)
+            self.option_add("*Font", base_font)
+
+            # Azure-ttk-theme
+            self.style = ttk.Style(self)
+            try:
+                self.tk.call("source", r"C:\\Users\\User\\puython\\check data use\\azure.tcl")
+                # 默认 light，再根据保存主题切换
+                self.tk.call("set_theme", "light")
+                if str(self._theme).lower() == "dark":
+                    self.tk.call("set_theme", "dark")
+            except Exception:
+                messagebox.showwarning("主题", "未找到 azure.tcl，界面将使用系统默认样式。")
+
+            # Build UI
+            self._build_toolbar()
+            self._build_notebook()
+            self._build_statusbar()
+            self._bind_shortcuts()
+
+            # Restore state
+            self.dir_var.set(self._ui_state.get("root_dir", BASE_DIR))
+            month_default = self._ui_state.get("month_code", TARGET_MONTH)
+            if month_default:
+                self.month_var.set(month_default)
+                try:
+                    self.month_entry._clear_placeholder()
+                except Exception:
+                    pass
+            self._update_status_ready()
+
+        # Toolbar (two rows)
+        def _build_toolbar(self):
+            pad = 8
+            wrap = ttk.Frame(self, padding=(16, 16, 16, 8))
+            wrap.pack(fill=tk.X)
+
+            row1 = ttk.Frame(wrap)
+            row1.pack(fill=tk.X, pady=(0, pad))
+
+            self.dir_var = tk.StringVar()
+            self.dir_entry = ttk.Entry(row1, textvariable=self.dir_var)
+            self.dir_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+            ttk.Button(row1, text="浏览…", width=10, command=self._choose_dir).pack(side=tk.LEFT, padx=(pad, pad))
+            self.run_btn = ttk.Button(row1, text="开始检查", command=self._run_scan)
+            self.run_btn.pack(side=tk.RIGHT)
+            try:
+                self.run_btn.configure(style="Accent.TButton")
+            except Exception:
+                pass
+
+            row2 = ttk.Frame(wrap)
+            row2.pack(fill=tk.X)
+
+            ttk.Label(row2, text="月份代号:").pack(side=tk.LEFT)
+            self.month_var = tk.StringVar()
+            self.month_entry = PlaceholderEntry(row2, textvariable=self.month_var, width=12, placeholder="如：0925")
+            self.month_entry.pack(side=tk.LEFT, padx=(pad, pad))
+
+            self.ready_chk = ttk.Checkbutton(row2, text="仅显示就绪文件", variable=self._filter_ready_only, command=self._apply_issue_filters)
+            self.ready_chk.pack(side=tk.LEFT)
+            try:
+                self.ready_chk.configure(style="Switch.TCheckbutton")
+            except Exception:
+                pass
+
+            ttk.Button(row2, text="导出报告", command=self._export_report).pack(side=tk.LEFT, padx=(pad, 0))
+
+            _cur_theme = str(self._theme).lower()
+            _btn_text = "Light" if _cur_theme == "dark" else "Dark"
+            self.theme_btn = ttk.Button(row2, text=_btn_text, command=self._toggle_theme)
+            self.theme_btn.pack(side=tk.RIGHT)
+            # 尝试将“导出报告”按钮设为 Accent 样式
+            try:
+                for _w in row2.pack_slaves():
+                    if _w is not self.theme_btn and getattr(_w, 'winfo_class', lambda: '')() in ('TButton', 'Accent.TButton'):
+                        _w.configure(style='Accent.TButton')
+                        break
+            except Exception:
+                pass
+
+            for w in (self, self.dir_entry, self.month_entry):
+                w.bind("<Return>", lambda e: self._run_scan())
+                w.bind("<Escape>", lambda e: self._cancel_scan())
+
+        def _build_notebook(self):
+            self.nb = ttk.Notebook(self)
+            self.nb.pack(fill=tk.BOTH, expand=True, padx=16, pady=16)
+
+            self.summary_frame = ttk.Frame(self.nb)
+            self.nb.add(self.summary_frame, text="Summary")
+            self._build_summary_cards(self.summary_frame)
+
+            self.issues_frame = ttk.Frame(self.nb)
+            self.nb.add(self.issues_frame, text="Issues")
+            self._build_issues_table(self.issues_frame)
+
+        def _build_summary_cards(self, parent):
+            grid = ttk.Frame(parent, padding=(8, 8, 8, 8))
+            grid.pack(fill=tk.BOTH, expand=True, padx=16, pady=16)
+
+            self._summary_specs = [
+                ("invalid", "命名错误", "INV 拼写或类型异常"),
+                ("unpaired", "缺配对", "有 DO&INV 无 INV"),
+                ("duplicates", "重复编号", "号码重复发生冲突"),
+                ("gaps", "编号不连续", "以 .xlsx 号段为准"),
+                ("mismatch", "内容不符", "PDF 内容编号与文件名不一致"),
+            ]
+            self.summary_cards = {}
+            for i, (key, title, subtitle) in enumerate(self._summary_specs):
+                card = ttk.Frame(grid, padding=12)
+                r, c = divmod(i, 3)
+                card.grid(row=r, column=c, sticky="nsew", padx=8, pady=8)
+                grid.columnconfigure(c, weight=1)
+                grid.rowconfigure(r, weight=1)
+
+                big = ttk.Label(card, text="0", font=("Segoe UI", 24, "bold"))
+                big.pack(anchor="w")
+                ttk.Label(card, text=title, font=("Segoe UI", 12, "bold")).pack(anchor="w")
+                ttk.Label(card, text=subtitle, foreground="#6B7280").pack(anchor="w")
+
+                def _mkcmd(k=key):
+                    return lambda: (self._set_issue_type_filter(k))
+
+                ttk.Button(card, text="查看", width=10, command=_mkcmd()).pack(anchor="e", pady=(8, 0))
+                self.summary_cards[key] = {"big": big}
+
+        def _build_issues_table(self, parent):
+            cols = ("prefix", "year", "number", "type", "path")
+            labels = {"prefix": "前缀", "year": "年份", "number": "编号", "type": "类型", "path": "路径"}
+            self.issues = ttk.Treeview(parent, columns=cols, show="headings", selectmode="browse")
+            self._sort_state = {c: None for c in cols}
+            for c in cols:
+                self.issues.heading(c, text=labels[c], command=lambda k=c: self._sort_issues(k))
+            self.issues.column("prefix", width=120, anchor=tk.CENTER)
+            self.issues.column("year", width=80, anchor=tk.CENTER)
+            self.issues.column("number", width=90, anchor=tk.E)
+            self.issues.column("type", width=130, anchor=tk.CENTER)
+            self.issues.column("path", width=500, anchor=tk.W, stretch=True)
+            vsb = ttk.Scrollbar(parent, orient="vertical", command=self.issues.yview)
+            self.issues.configure(yscrollcommand=vsb.set)
+            self.issues.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, pady=8)
+            vsb.pack(side=tk.RIGHT, fill=tk.Y)
+
+            # Interactions
+            self.issues.bind("<Double-1>", self._on_open_row)
+            self.issues.bind("<Motion>", self._on_hover_row)
+            self.issues.bind("<Leave>", lambda e: self._clear_hover())
+            self.issues.bind("<Button-3>", self._on_context_menu)
+
+            # Styling
+            self.issues.tag_configure("odd", background="#F6F6F7")
+            self.issues.tag_configure("even", background="")
+            self.issues.tag_configure("hover", background="#E8F2FF")
+            self._hover_iid = None
+            self._tooltip = Tooltip(self.issues)
+
+        # Status bar
+        def _build_statusbar(self):
+            bar = ttk.Frame(self, padding=(16, 4, 16, 16))
+            bar.pack(fill=tk.X)
+            self.status_var = tk.StringVar(value="就绪")
+            ttk.Label(bar, textvariable=self.status_var).pack(side=tk.LEFT)
+            self.progress = ttk.Progressbar(bar, maximum=100, mode="determinate")
+            self.progress.pack(side=tk.RIGHT, fill=tk.X, expand=False, padx=(8, 0))
+
+        def _toggle_theme(self):
+            try:
+                self._theme = "dark" if (self._theme != "dark") else "light"
+                self.tk.call("set_theme", self._theme)
+                self._persist_ui_state()
+            except Exception:
+                pass
+
+        def _bind_shortcuts(self):
+            self.bind("<Control-=>", lambda e: self._zoom(1))
+            self.bind("<Control-+>", lambda e: self._zoom(1))
+            self.bind("<Control-minus>", lambda e: self._zoom(-1))
+            self.bind("<Control-KP_Subtract>", lambda e: self._zoom(-1))
+            self.bind("<Control-Key-0>", lambda e: self._zoom(0))
+
+        def _zoom(self, direction: int):
+            if direction == 0:
+                size = 12
+            else:
+                size = max(11, min(18, self._font_size + (1 if direction > 0 else -1)))
+            self._font_size = size
+            base_font = ("Segoe UI", size)
+            self.option_add("*Font", base_font)
+            try:
+                ttk.Style().configure("Treeview", font=base_font, rowheight=int(size * 2.0))
+                ttk.Style().configure("Treeview.Heading", font=("Segoe UI", size, "bold"))
+            except Exception:
+                pass
+
+        # Actions
+        def _choose_dir(self):
+            path = filedialog.askdirectory(initialdir=self.dir_var.get() or os.getcwd())
+            if path:
+                self.dir_var.set(path)
+                self._persist_ui_state()
+
+        def _cancel_scan(self):
+            self._cancel_requested = True
+            self.status_var.set("已请求取消…（不会中断后台任务）")
+            self.run_btn.configure(state=tk.DISABLED)
+
+        def _run_scan(self):
+            base = self.dir_var.get().strip()
+            month = self.month_entry.get_value().strip() if hasattr(self, "month_entry") else self.month_var.get().strip()
+            if not os.path.isdir(base):
+                messagebox.showerror("错误", "请选择有效的根目录")
+                return
+            if fitz is None:
+                messagebox.showwarning("提示", "未安装 PyMuPDF，将无法校验 PDF 内容编号。可运行: pip install pymupdf")
+            self._cancel_requested = False
+            self.run_btn.configure(state=tk.DISABLED)
+            self.progress.configure(value=0, mode="determinate")
+            self._set_status_scanning(0, 1)
+
+            def worker():
+                t0 = time.time()
+                try:
+                    cands = enumerate_candidates(base, month)
+                    total = len(cands) if cands else 1
+
+                    def on_prog(total_i, current_i, note):
+                        self.after(0, lambda: self._progress_update(total_i or total, current_i, note))
+
+                    self.after(0, lambda: self._progress_update(total, 0, "开始扫描…"))
+                    result = scan_files(base, month, on_progress=on_prog)
+                except Exception as e:
+                    result = e
+                elapsed = time.time() - t0
+                self.after(0, lambda: self._fill_result(result, elapsed))
+
+            threading.Thread(target=worker, daemon=True).start()
+
+        def _set_status_scanning(self, done: int, total: int):
+            pct = int(done / max(1, total) * 100)
+            self.status_var.set(f"正在扫描… {done}/{total}（{pct}%）")
+
+        def _update_status_ready(self):
+            self.status_var.set("就绪")
+
+        def _progress_update(self, total: int, current: int, note: str = ""):
+            if self._cancel_requested:
+                self.status_var.set("已请求取消…")
+                return
+            value = int(current / max(1, total) * 100)
+            try:
+                self.progress.configure(mode="determinate")
+            except Exception:
+                pass
+            self.progress.configure(value=value)
+            self._set_status_scanning(current, total)
+            if note:
+                self.status_var.set(f"{self.status_var.get()} · {note}")
+
+        def _fill_result(self, result, elapsed: float | None = None):
+            self.run_btn.configure(state=tk.NORMAL)
+            if isinstance(result, Exception):
+                messagebox.showerror("错误", str(result))
+                self._update_status_ready()
+                return
+
+            issues = []
+            for p in result.get("invalid_files", []):
+                issues.append({"prefix": "", "year": "", "number": "", "type": "命名错误", "path": p})
+            for prefix, year, num in result.get("unpaired", []):
+                issues.append({"prefix": prefix, "year": year, "number": f"{num:03d}", "type": "缺配对", "path": ""})
+            for item in result.get("duplicates", []):
+                if len(item.get("xlsx", [])) > 1:
+                    for p in item["xlsx"]:
+                        issues.append({"prefix": item["prefix"], "year": item["year"], "number": f"{item['number']:03d}", "type": "重复编号", "path": p})
+                if len(item.get("pdf", [])) > 1:
+                    for p in item["pdf"]:
+                        issues.append({"prefix": item["prefix"], "year": item["year"], "number": f"{item['number']:03d}", "type": "重复编号", "path": p})
+            for prefix, year, missing in result.get("gaps", []):
+                for n in missing:
+                    issues.append({"prefix": prefix, "year": year, "number": f"{n:03d}", "type": "编号不连续", "path": ""})
+            for p, _reason in result.get("mismatches", []):
+                issues.append({"prefix": "", "year": "", "number": "", "type": "内容不符", "path": p})
+
+            self._all_issues = issues
+            self._apply_issue_filters()
+
+            # Update summary cards
+            counts = {
+                "invalid": len(result.get("invalid_files", [])),
+                "unpaired": len(result.get("unpaired", [])),
+                "duplicates": len(result.get("duplicates", [])),
+                "gaps": len(result.get("gaps", [])),
+                "mismatch": len(result.get("mismatches", [])),
+            }
+            for key, _, _ in self._summary_specs:
+                self.summary_cards[key]["big"].configure(text=str(counts.get(key, 0)))
+
+            total = result.get("stats", {}).get("total", 0)
+            if elapsed is not None:
+                self.status_var.set(f"完成：共 {total} 个文件，用时 {elapsed:.2f}s")
+            else:
+                self._update_status_ready()
+            self.nb.select(self.issues_frame)
+            self._persist_ui_state()
+
+        def _apply_issue_filters(self):
+            for iid in self.issues.get_children():
+                self.issues.delete(iid)
+            rows = list(self._all_issues)
+            if self._current_filter_type is not None:
+                mapping = {
+                    "invalid": "命名错误",
+                    "unpaired": "缺配对",
+                    "duplicates": "重复编号",
+                    "gaps": "编号不连续",
+                    "mismatch": "内容不符",
+                }
+                type_name = mapping.get(self._current_filter_type)
+                if type_name:
+                    rows = [r for r in rows if r["type"] == type_name]
+            if self._filter_ready_only.get():
+                rows = [r for r in rows if r.get("path")]
+            for idx, r in enumerate(rows):
+                tags = ["odd" if (idx % 2) else "even"]
+                if r.get("path"):
+                    tags.append(r["path"])  # store full path in tags
+                disp_path = elide_middle(r.get("path", "") or "")
+                values = (r.get("prefix", ""), r.get("year", ""), r.get("number", ""), r.get("type", ""), disp_path)
+                self.issues.insert("", "end", values=values, tags=tuple(tags))
+
+        def _set_issue_type_filter(self, key):
+            self._current_filter_type = key
+            self.nb.select(self.issues_frame)
+            self._apply_issue_filters()
+
+        def _on_open_row(self, event):
+            iid = self.issues.identify_row(event.y)
+            if not iid:
+                return
+            tags = self.issues.item(iid, "tags")
+            path = None
+            if tags:
+                for t in tags:
+                    if t and os.path.exists(t):
+                        path = t
+                        break
+            if path:
+                open_in_explorer(path)
+
+        def _clear_hover(self):
+            if self._hover_iid and self._hover_iid in self.issues.get_children(""):
+                tags = list(self.issues.item(self._hover_iid, "tags"))
+                if "hover" in tags:
+                    tags.remove("hover")
+                    self.issues.item(self._hover_iid, tags=tuple(tags))
+            self._hover_iid = None
+            self._tooltip.cancel()
+
+        def _on_hover_row(self, event):
+            iid = self.issues.identify_row(event.y)
+            col = self.issues.identify_column(event.x)
+            if iid != self._hover_iid:
+                self._clear_hover()
+                if iid:
+                    tags = list(self.issues.item(iid, "tags"))
+                    tags.append("hover")
+                    self.issues.item(iid, tags=tuple(tags))
+                    self._hover_iid = iid
+            if iid and col == "#5":
+                full_path = None
+                for t in self.issues.item(iid, "tags"):
+                    if t and os.path.exists(t):
+                        full_path = t
+                        break
+                if full_path:
+                    self._tooltip.schedule(full_path, self.winfo_pointerx(), self.winfo_pointery())
+                else:
+                    self._tooltip.cancel()
+            else:
+                self._tooltip.cancel()
+
+        def _on_context_menu(self, event):
+            iid = self.issues.identify_row(event.y)
+            if not iid:
+                return
+            self.issues.selection_set(iid)
+            tags = self.issues.item(iid, "tags") or []
+            full_path = None
+            for t in tags:
+                if t and os.path.exists(t):
+                    full_path = t
+                    break
+
+            menu = tk.Menu(self, tearoff=0)
+            if full_path:
+                menu.add_command(label="打开位置", command=lambda p=full_path: open_in_explorer(p))
+                menu.add_command(label="复制路径", command=lambda p=full_path: self.clipboard_clear() or self.clipboard_append(p))
+            else:
+                menu.add_command(label="无可用路径", state="disabled")
+            try:
+                fn = globals().get("suggest_name")
+                if callable(fn) and full_path:
+                    menu.add_separator()
+                    menu.add_command(label="复制建议命名", command=lambda p=full_path, f=fn: self._copy_suggested_name(f, p))
+            except Exception:
+                pass
+            menu.tk_popup(event.x_root, event.y_root)
+
+        def _copy_suggested_name(self, suggest_fn, path: str):
+            try:
+                name = suggest_fn(path)
+                if name:
+                    self.clipboard_clear()
+                    self.clipboard_append(name)
+                    self.status_var.set("已复制建议命名")
+            except Exception:
+                pass
+
+        def _sort_issues(self, col_key):
+            items = list(self.issues.get_children(""))
+            idx_map = {"prefix": 0, "year": 1, "number": 2, "type": 3, "path": 4}
+            col_idx = idx_map[col_key]
+            values = []
+            for iid in items:
+                vals = self.issues.item(iid, "values")
+                v = vals[col_idx]
+                if col_key == "number":
+                    try:
+                        v = int(v)
+                    except Exception:
+                        pass
+                values.append((v, iid))
+            asc = self._sort_state.get(col_key)
+            asc = not asc if asc is not None else True
+            self._sort_state[col_key] = asc
+            values.sort(key=lambda t: (t[0] is None, t[0]))
+            if not asc:
+                values.reverse()
+            for idx, (_, iid) in enumerate(values):
+                self.issues.move(iid, "", idx)
+                tags = [t for t in self.issues.item(iid, "tags") if t not in ("odd", "even")]
+                tags.insert(0, "odd" if (idx % 2) else "even")
+                self.issues.item(iid, tags=tuple(tags))
+
+        def _export_report(self):
+            try:
+                base = self.dir_var.get().strip()
+                month = self.month_entry.get_value().strip() if hasattr(self, "month_entry") else self.month_var.get().strip()
+                t0 = time.time()
+                res = scan_files(base, month)
+                txt = _report_text(res, base, month, time.time() - t0)
+                path = filedialog.asksaveasfilename(title="导出报告", defaultextension=".txt", filetypes=[["Text", "*.txt"], ["All Files", "*.*"]], initialfile="文件检查报告.txt")
+                if path:
+                    with open(path, "w", encoding="utf-8") as f:
+                        f.write(txt)
+                    messagebox.showinfo("已保存", f"报告已保存到:\n{path}")
+            except Exception as e:
+                messagebox.showerror("导出失败", str(e))
+
+        def _persist_ui_state(self):
+            save_ui_state({
+                "root_dir": self.dir_var.get().strip(),
+                "month_code": self.month_entry.get_value().strip() if hasattr(self, "month_entry") else self.month_var.get().strip(),
+                "theme": self._theme,
+                "ready_only": bool(self._filter_ready_only.get()),
+            })
+
+    app = App()
+    app.mainloop()
+
+
+if __name__ == "__main__":
+    # By default launch GUI; for CLI output set env CF_CLI=1
+    if os.environ.get("CF_CLI", "0") == "1":
+        _print_cli_report(BASE_DIR, TARGET_MONTH)
+    else:
+        # Use modernized UI with Azure-ttk-theme
+        try:
+            launch_gui_modern()
+        except NameError:
+            # Fallback if modern UI is not present
+            launch_gui()
