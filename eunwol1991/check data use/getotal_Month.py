@@ -15,10 +15,13 @@ import queue
 # - 右键菜单新增按值快速过滤
 # - 增加“一键清除筛选”按钮
 
+
 class InvoiceExtractorApp:
     # 文件名关键字（类级别配置）
-    CANCELED_KEYWORDS = ['cancel', 'canceled', 'cancelled', 'cancellation', 'void']
+    CANCELED_KEYWORDS = ['cancel', 'canceled',
+                         'cancelled', 'cancellation', 'void']
     REVISED_KEYWORDS = ['revised', 'revise']
+
     def __init__(self, root):
         self.root = root
         self.root.title("Invoice Information Extractor")
@@ -62,35 +65,52 @@ class InvoiceExtractorApp:
         frame = ttk.Frame(self.root, padding="20")
         frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
 
-        ttk.Label(frame, text="选择文件夹:").grid(row=0, column=0, padx=10, pady=5, sticky=tk.W)
-        ttk.Entry(frame, textvariable=self.folder_path, width=50).grid(row=0, column=1, padx=10, pady=5, sticky=tk.W)
-        ttk.Button(frame, text="浏览", command=self.browse_folder).grid(row=0, column=2, padx=10, pady=5)
+        ttk.Label(frame, text="选择文件夹:").grid(
+            row=0, column=0, padx=10, pady=5, sticky=tk.W)
+        ttk.Entry(frame, textvariable=self.folder_path, width=50).grid(
+            row=0, column=1, padx=10, pady=5, sticky=tk.W)
+        ttk.Button(frame, text="浏览", command=self.browse_folder).grid(
+            row=0, column=2, padx=10, pady=5)
 
-        check_button = ttk.Checkbutton(frame, text="仅搜索选定月份的子文件夹", variable=self.search_in_month_var)
+        check_button = ttk.Checkbutton(
+            frame, text="仅搜索选定月份的子文件夹", variable=self.search_in_month_var)
         check_button.grid(row=1, column=0, columnspan=3, padx=10, pady=10)
 
-        ttk.Label(frame, text="选择月份:").grid(row=2, column=0, padx=10, pady=5, sticky=tk.W)
-        self.month_combobox = ttk.Combobox(frame, values=[str(i).zfill(2) for i in range(1, 13)], width=5)
+        ttk.Label(frame, text="选择月份:").grid(
+            row=2, column=0, padx=10, pady=5, sticky=tk.W)
+        self.month_combobox = ttk.Combobox(
+            frame, values=[str(i).zfill(2) for i in range(1, 13)], width=5)
         self.month_combobox.grid(row=2, column=1, padx=10, pady=5, sticky=tk.W)
 
-        ttk.Label(frame, text="选择年份:").grid(row=3, column=0, padx=10, pady=5, sticky=tk.W)
-        self.year_combobox = ttk.Combobox(frame, values=[str(i) for i in range(2000, datetime.now().year + 1)], width=10)
+        ttk.Label(frame, text="选择年份:").grid(
+            row=3, column=0, padx=10, pady=5, sticky=tk.W)
+        self.year_combobox = ttk.Combobox(
+            frame, values=[str(i) for i in range(2000, datetime.now().year + 1)], width=10)
         self.year_combobox.grid(row=3, column=1, padx=10, pady=5, sticky=tk.W)
 
-        ttk.Button(frame, text="搜索发票", command=self.search_and_display_results).grid(row=4, column=0, columnspan=3, padx=10, pady=20)
-        ttk.Button(self.root, text="检查缺号", command=self.check_missing_invoice_numbers).grid(row=11, column=0, padx=20, pady=10)
+        ttk.Button(frame, text="搜索发票", command=self.search_and_display_results).grid(
+            row=4, column=0, columnspan=3, padx=10, pady=20)
+        ttk.Button(self.root, text="检查缺号", command=self.check_missing_invoice_numbers).grid(
+            row=11, column=0, padx=20, pady=10)
 
-        self.progress_bar = ttk.Progressbar(self.root, orient="horizontal", length=400, mode="determinate", variable=self.progress_var)
+        self.progress_bar = ttk.Progressbar(
+            self.root, orient="horizontal", length=400, mode="determinate", variable=self.progress_var)
         self.progress_bar.grid(row=5, column=0, padx=20, pady=10)
 
         tree_frame = ttk.Frame(self.root)
-        tree_frame.grid(row=6, column=0, padx=20, pady=20, sticky=(tk.W, tk.E, tk.N, tk.S))
+        tree_frame.grid(row=6, column=0, padx=20, pady=20,
+                        sticky=(tk.W, tk.E, tk.N, tk.S))
         # 增加了“File”列，方便显示出错的文件名
-        self.tree = ttk.Treeview(tree_frame, columns=("Invoice Date", "Invoice No", "Total", "Account", "File"), show='headings')
-        self.tree.heading("Invoice Date", text="Invoice Date", command=lambda: self.sort_treeview_column("Invoice Date"))
-        self.tree.heading("Invoice No", text="Invoice No", command=lambda: self.sort_treeview_column("Invoice No"))
-        self.tree.heading("Total", text="Total", command=lambda: self.sort_treeview_column("Total"))
-        self.tree.heading("Account", text="Account", command=lambda: self.sort_treeview_column("Account"))
+        self.tree = ttk.Treeview(tree_frame, columns=(
+            "Invoice Date", "Invoice No", "Total", "Account", "File"), show='headings')
+        self.tree.heading("Invoice Date", text="Invoice Date",
+                          command=lambda: self.sort_treeview_column("Invoice Date"))
+        self.tree.heading("Invoice No", text="Invoice No",
+                          command=lambda: self.sort_treeview_column("Invoice No"))
+        self.tree.heading("Total", text="Total",
+                          command=lambda: self.sort_treeview_column("Total"))
+        self.tree.heading("Account", text="Account",
+                          command=lambda: self.sort_treeview_column("Account"))
         self.tree.heading("File", text="File")
         self.tree.column("Invoice Date", width=100)
         self.tree.column("Invoice No", width=150)
@@ -98,7 +118,8 @@ class InvoiceExtractorApp:
         self.tree.column("Account", width=100)
         self.tree.column("File", width=200)
         # ✅ 先定义 scrollbar，再 grid
-        scrollbar = ttk.Scrollbar(tree_frame, orient=tk.VERTICAL, command=self.tree.yview)
+        scrollbar = ttk.Scrollbar(
+            tree_frame, orient=tk.VERTICAL, command=self.tree.yview)
         self.tree.configure(yscrollcommand=scrollbar.set)
 
         # ✅ 正确顺序：先定义再布局
@@ -109,32 +130,39 @@ class InvoiceExtractorApp:
         tree_frame.grid_rowconfigure(0, weight=1)
         tree_frame.grid_columnconfigure(0, weight=1)
 
-
-
-        self.total_label = ttk.Label(self.root, text="Total: 0.00", font=("Helvetica", 12))
+        self.total_label = ttk.Label(
+            self.root, text="Total: 0.00", font=("Helvetica", 12))
         self.total_label.grid(row=7, column=0, padx=20, pady=10, sticky=tk.W)
 
-        ttk.Label(frame, text="按账户过滤:").grid(row=8, column=0, padx=10, pady=5, sticky=tk.W)
-        self.account_combobox = ttk.Combobox(frame, values=["All", "Anthony", "Joshua", "Melvin"], width=10)
-        self.account_combobox.grid(row=8, column=1, padx=10, pady=5, sticky=tk.W)
+        ttk.Label(frame, text="按账户过滤:").grid(
+            row=8, column=0, padx=10, pady=5, sticky=tk.W)
+        self.account_combobox = ttk.Combobox(
+            frame, values=["All", "Anthony", "Joshua", "Melvin"], width=10)
+        self.account_combobox.grid(
+            row=8, column=1, padx=10, pady=5, sticky=tk.W)
         self.account_combobox.current(0)
-        self.account_combobox.bind("<<ComboboxSelected>>", self.filter_by_combobox_selection)
+        self.account_combobox.bind(
+            "<<ComboboxSelected>>", self.filter_by_combobox_selection)
 
-        ttk.Label(frame, text="关键字:").grid(row=9, column=0, padx=10, pady=5, sticky=tk.W)
+        ttk.Label(frame, text="关键字:").grid(
+            row=9, column=0, padx=10, pady=5, sticky=tk.W)
         self.keyword_entry = ttk.Entry(frame, width=50)
         self.keyword_entry.grid(row=9, column=1, padx=10, pady=5, sticky=tk.W)
         # 回车键应用关键字过滤
         self.keyword_entry.bind("<Return>", lambda e: self.keyword_filter())
-        ttk.Button(frame, text="按关键字过滤", command=self.keyword_filter).grid(row=9, column=2, padx=10, pady=5)
+        ttk.Button(frame, text="按关键字过滤", command=self.keyword_filter).grid(
+            row=9, column=2, padx=10, pady=5)
 
-        ttk.Button(self.root, text="导出到 Excel", command=self.export_to_excel).grid(row=10, column=0, padx=20, pady=10)
-        ttk.Button(self.root, text="清除筛选", command=self.clear_all_filters).grid(row=12, column=0, padx=20, pady=10)
+        ttk.Button(self.root, text="导出到 Excel", command=self.export_to_excel).grid(
+            row=10, column=0, padx=20, pady=10)
+        ttk.Button(self.root, text="清除筛选", command=self.clear_all_filters).grid(
+            row=12, column=0, padx=20, pady=10)
 
-        self.tree.tag_configure("error", background="pink")  # 可改为 foreground="red"
+        # 可改为 foreground="red"
+        self.tree.tag_configure("error", background="pink")
        # self.tree.bind("<ButtonRelease-1>", self.on_heading_click)
         self.tree.bind("<Double-1>", self.open_selected_pdf)
         self.setup_context_menu()
-
 
     def browse_folder(self):
         """浏览文件夹"""
@@ -185,7 +213,8 @@ class InvoiceExtractorApp:
             '09': 'sep', '10': 'oct', '11': 'nov', '12': 'dec'
         }
 
-        selected_month_name = month_map.get(self.month_combobox.get(), '').lower()
+        selected_month_name = month_map.get(
+            self.month_combobox.get(), '').lower()
 
         for root, dirs, files in os.walk(folder):
             if self.search_in_month_var.get() and selected_month_name in root.lower():
@@ -193,7 +222,8 @@ class InvoiceExtractorApp:
                     if file.lower().endswith('.pdf') and self.Month.lower() in file.lower() and 'inv' in file.lower() and 'invoice' not in file.lower():
                         pdf_path = os.path.join(root, file)
                         pdf_files.append(pdf_path)
-                        logging.info(f"在 '{selected_month_name}' 子文件夹中找到 PDF: {pdf_path}")
+                        logging.info(
+                            f"在 '{selected_month_name}' 子文件夹中找到 PDF: {pdf_path}")
             elif not self.search_in_month_var.get():
                 for file in files:
                     if file.lower().endswith('.pdf') and self.Month.lower() in file.lower() and 'inv' in file.lower() and 'invoice' not in file.lower():
@@ -214,7 +244,8 @@ class InvoiceExtractorApp:
         batch_size = 30
         for start_idx in range(0, total_files, batch_size):
             batch_files = pdf_files[start_idx:start_idx + batch_size]
-            batch_data = self.process_batch(batch_files, total_files, start_idx)
+            batch_data = self.process_batch(
+                batch_files, total_files, start_idx)
             extracted_data.extend(batch_data)
 
         self.original_df = pd.DataFrame(extracted_data)
@@ -226,9 +257,9 @@ class InvoiceExtractorApp:
             # ✅ 在这里设置默认排序方向（放这里刚刚好）
             self.sort_column = "Invoice No"
             self.sort_descending = False
-            self.results_df = self.original_df.sort_values(by=self.sort_column, ascending=True)
+            self.results_df = self.original_df.sort_values(
+                by=self.sort_column, ascending=True)
             self.gui_queue.put(('display_results', self.results_df))
-
 
     def process_batch(self, pdf_files, total_files, start_idx):
         """处理一批 PDF 文件"""
@@ -261,17 +292,18 @@ class InvoiceExtractorApp:
             return ('revised' in name_lower) or ('revise' in name_lower) or '(rev' in name_lower
 
         def base_key_from_filename(filename):
-            # 去掉扩展名
-            name = os.path.splitext(os.path.basename(filename))[0]
-            name_clean = name.strip()
-            # 先去掉括号及其后缀（如 (Revised)）做粗清洗
-            name_clean = re.split(r"\(", name_clean)[0].strip()
-            # 尝试按 " - " 进行分段，常见格式：AAA 0825 - 001 - xxx
+            # 去扩展名与括号后缀
+            name = os.path.splitext(os.path.basename(filename))[0].strip()
+            name_clean = re.split(r"\(", name)[0].strip()
             parts = [p.strip() for p in name_clean.split(' - ') if p.strip()]
-            if len(parts) >= 2:
-                # 用前两个片段作为基准键，例如 "MOS 0825 - 001"
+            # 期望格式：<客户+月份> - <流水号> - <变体字母> - ...
+            # 例如：MOS 1025 - 172 - A - DO & INV
+            if len(parts) >= 3 and re.fullmatch(r"[A-Za-z]", parts[2]):
+                # 把变体字母并入分组键（区分 A/B）
+                return f"{parts[0]} - {parts[1]} - {parts[2].upper()}"
+            elif len(parts) >= 2:
+                # 没有变体字母，按原两段键
                 return f"{parts[0]} - {parts[1]}"
-            # 后备：返回清洗后的整个名称作为分组键
             return name_clean
 
         groups = {}
@@ -285,14 +317,14 @@ class InvoiceExtractorApp:
         selected = []
         for key, paths in groups.items():
             # 先挑 revised
-            revised_paths = [p for p in paths if is_revised(os.path.basename(p).lower())]
+            revised_paths = [p for p in paths if is_revised(
+                os.path.basename(p).lower())]
             pool = revised_paths if revised_paths else paths
             # 取修改时间最新的一个
             newest = max(pool, key=lambda p: os.path.getmtime(p))
             selected.append(newest)
 
         return selected
-    
 
     def extract_invoice_info_v2_3(self, pdf_path):
         """从 PDF 中提取发票信息"""
@@ -306,9 +338,10 @@ class InvoiceExtractorApp:
 
             # 正则表达式模式
             invoice_no_patterns = [
-                re.compile(r"Invoice No\s*([A-Z0-9]{2,}\s*\d{4}\s*-\s*\d{3})"),
-                re.compile(r"Invoice No\s*([A-Z0-9.]{2,}\s*\d{4}\s*-\s*\d{3})"),
+                re.compile(
+                    r"Invoice No\s*([A-Z0-9.]{2,}\s*\d{4}\s*-\s*\d{3}(?:\s*-\s*[A-Za-z])?)")
             ]
+
             date_patterns = [
                 re.compile(r"Invoice Date\s*(\d{2}/\d{2}/\d{4})"),
                 re.compile(r"Date\s*(\d{2}/\d{2}/\d{4})")
@@ -326,6 +359,7 @@ class InvoiceExtractorApp:
             invoice_no = "Not found"
             date = "Not found"
             total = "Not found"
+
             if "abr" in pdf_path.lower():
                 total = self.extract_total_from_abr(doc, pdf_path)
             else:
@@ -333,10 +367,9 @@ class InvoiceExtractorApp:
                 for pattern in total_patterns:
                     matches = pattern.findall(text)
                     if matches:
-                        total = max(matches, key=lambda x: float(x.replace(",", "").replace("$", "")))
+                        total = max(matches, key=lambda x: float(
+                            x.replace(",", "").replace("$", "")))
                         break
-
-
 
             for pattern in invoice_no_patterns:
                 match = pattern.search(text)
@@ -352,7 +385,18 @@ class InvoiceExtractorApp:
 
             # 如果有任一字段未找到，记录日志提醒你哪一个文件出了问题
             if invoice_no == "Not found" or date == "Not found" or total == "Not found":
-                logging.info(f"【错误】文件 {pdf_path} 缺少信息：Invoice No: {invoice_no}, Invoice Date: {date}, Total: {total}")
+                logging.info(
+                    f"【错误】文件 {pdf_path} 缺少信息：Invoice No: {invoice_no}, Invoice Date: {date}, Total: {total}")
+            # 若内容里没带 - A/-B，但文件名有，则补上变体字母
+            if isinstance(invoice_no, str) and not re.search(r"-\s*[A-Za-z]\s*$", invoice_no):
+                # 从文件名尝试提取第三段单字母
+                fn = os.path.basename(pdf_path)
+                name_clean = re.split(
+                    r"\(", os.path.splitext(fn)[0])[0].strip()
+                parts = [p.strip()
+                         for p in name_clean.split(' - ') if p.strip()]
+                if len(parts) >= 3 and re.fullmatch(r"[A-Za-z]", parts[2]):
+                    invoice_no = f"{invoice_no} - {parts[2].upper()}"
 
             extracted_info = {
                 "Invoice Date": date,
@@ -366,7 +410,7 @@ class InvoiceExtractorApp:
         except Exception as e:
             logging.error(f"处理 {pdf_path} 时出错: {e}")
             return None
-        
+
     def check_missing_invoice_numbers(self):
         grouped = {}
         for no in self.original_df["Invoice No"]:
@@ -398,7 +442,8 @@ class InvoiceExtractorApp:
         frame = ttk.Frame(window, padding=10)
         frame.pack(fill=tk.BOTH, expand=True)
 
-        text_widget = tk.Text(frame, wrap=tk.WORD, font=("Consolas", 11), borderwidth=2, relief="sunken")
+        text_widget = tk.Text(frame, wrap=tk.WORD, font=(
+            "Consolas", 11), borderwidth=2, relief="sunken")
         lines = text.split("\n")
         for line in lines:
             if "缺漏:" in line and "无" not in line:
@@ -406,11 +451,13 @@ class InvoiceExtractorApp:
             else:
                 text_widget.insert(tk.END, line + "\n")
 
-        text_widget.tag_configure("missing", background="pink", font=("Consolas", 11, "bold"))
+        text_widget.tag_configure(
+            "missing", background="pink", font=("Consolas", 11, "bold"))
         text_widget.config(state=tk.DISABLED)
         text_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-        scrollbar = ttk.Scrollbar(frame, orient=tk.VERTICAL, command=text_widget.yview)
+        scrollbar = ttk.Scrollbar(
+            frame, orient=tk.VERTICAL, command=text_widget.yview)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         text_widget.config(yscrollcommand=scrollbar.set)
 
@@ -421,7 +468,6 @@ class InvoiceExtractorApp:
 
         copy_btn = ttk.Button(window, text="复制内容", command=copy_text)
         copy_btn.pack(pady=10)
-
 
     def extract_total_from_abr(self, doc, pdf_path):
         try:
@@ -439,10 +485,12 @@ class InvoiceExtractorApp:
             sorted_blocks = sorted(blocks, key=lambda b: (-b["y"], -b["x"]))
 
             for b in sorted_blocks:
-                match = re.search(r"(\d{1,3}(?:,\d{3})*\.\d{2})\s*\$?", b["text"])
+                match = re.search(
+                    r"(\d{1,3}(?:,\d{3})*\.\d{2})\s*\$?", b["text"])
                 if match:
                     value = match.group(1)
-                    logging.info(f"[ABR右下角暴力解法] 文件 {pdf_path} 抓到 Total：{value} at y={b['y']}, x={b['x']}")
+                    logging.info(
+                        f"[ABR右下角暴力解法] 文件 {pdf_path} 抓到 Total：{value} at y={b['y']}, x={b['x']}")
                     return value
 
             logging.warning(f"[ABR右下角暴力解法] 文件 {pdf_path} 没有找到任何金额")
@@ -451,8 +499,6 @@ class InvoiceExtractorApp:
         except Exception as e:
             logging.error(f"[ABR右下角暴力解法] 抓取失败：{e}")
             return "Not found"
-
-
 
     def extract_account_from_path(self, pdf_path):
         """从文件路径中提取账户信息"""
@@ -472,7 +518,8 @@ class InvoiceExtractorApp:
 
         if self.keyword:
             filtered_df = filtered_df[filtered_df.apply(
-                lambda row: row.astype(str).str.contains(self.keyword, case=False).any(),
+                lambda row: row.astype(str).str.contains(
+                    self.keyword, case=False).any(),
                 axis=1
             )]
 
@@ -503,10 +550,9 @@ class InvoiceExtractorApp:
                 row["File"]
             ), tags=tags)
 
-
-
         # 不修改 df，直接计算总和
-        total_sum = df['Total'].apply(lambda x: float(str(x).replace(',', '').replace('$', ''))).sum()
+        total_sum = df['Total'].apply(lambda x: float(
+            str(x).replace(',', '').replace('$', ''))).sum()
         self.total_label.config(text=f"Total: {total_sum:.2f}")
 
     def sort_treeview_column(self, col):
@@ -526,17 +572,17 @@ class InvoiceExtractorApp:
         if col == "Total":
             self.results_df = self.results_df.copy()
             self.results_df["Total_sortable"] = self.results_df["Total"].apply(
-                lambda x: float(str(x).replace(",", "").replace("$", "")) if pd.notnull(x) else 0
+                lambda x: float(str(x).replace(",", "").replace(
+                    "$", "")) if pd.notnull(x) else 0
             )
             self.results_df = self.results_df.sort_values(
                 by="Total_sortable", ascending=not self.sort_descending
             ).drop(columns=["Total_sortable"])
         else:
-            self.results_df = self.results_df.sort_values(by=col, ascending=not self.sort_descending)
+            self.results_df = self.results_df.sort_values(
+                by=col, ascending=not self.sort_descending)
 
         self.display_results(self.results_df)
-
-
 
     def filter_by_combobox_selection(self, event):
         """按账户过滤"""
@@ -566,7 +612,8 @@ class InvoiceExtractorApp:
         if self.results_df.empty:
             messagebox.showwarning("警告", "没有可导出的数据。")
         else:
-            file_path = filedialog.asksaveasfilename(defaultextension=".xlsx", filetypes=[("Excel 文件", "*.xlsx")])
+            file_path = filedialog.asksaveasfilename(
+                defaultextension=".xlsx", filetypes=[("Excel 文件", "*.xlsx")])
             if file_path:
                 self.results_df.to_excel(file_path, index=False)
                 messagebox.showinfo("导出成功", f"数据已成功导出到 {file_path}")
@@ -588,7 +635,8 @@ class InvoiceExtractorApp:
                 try:
                     os.startfile(full_path)  # Windows 专用
                 except AttributeError:
-                    import subprocess, sys
+                    import subprocess
+                    import sys
                     if sys.platform == "darwin":  # macOS
                         subprocess.call(["open", full_path])
                     else:  # Linux
@@ -631,7 +679,8 @@ class InvoiceExtractorApp:
         filter_window.title(f"Filter {col}")
 
         selected_values = tk.StringVar(value=values)
-        listbox = tk.Listbox(filter_window, listvariable=selected_values, selectmode=tk.MULTIPLE)
+        listbox = tk.Listbox(
+            filter_window, listvariable=selected_values, selectmode=tk.MULTIPLE)
         listbox.pack(fill=tk.BOTH, expand=True)
 
         def select_all():
@@ -650,8 +699,10 @@ class InvoiceExtractorApp:
             filter_window.destroy()
 
         ttk.Button(filter_window, text="全选", command=select_all).pack(pady=5)
-        ttk.Button(filter_window, text="全不选", command=deselect_all).pack(pady=5)
-        ttk.Button(filter_window, text="应用过滤器", command=apply_filter).pack(pady=10)
+        ttk.Button(filter_window, text="全不选",
+                   command=deselect_all).pack(pady=5)
+        ttk.Button(filter_window, text="应用过滤器",
+                   command=apply_filter).pack(pady=10)
 
     def process_gui_queue(self):
         """处理 GUI 队列"""
@@ -671,6 +722,7 @@ class InvoiceExtractorApp:
         except queue.Empty:
             pass
         self.root.after(100, self.process_gui_queue)
+
 
 if __name__ == "__main__":
     root = tk.Tk()

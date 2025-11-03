@@ -5,7 +5,6 @@ import io
 import streamlit as st
 
 
-
 # 如果直接 python stock_datagrid.py 启动，则切换到 streamlit 运行（兼容 Windows 路径空格）
 try:
     from streamlit.runtime.scriptrunner import get_script_run_ctx  # type: ignore
@@ -24,7 +23,8 @@ if __name__ == "__main__" and os.environ.get("ST_REDIRECTED", "0") != "1" and (g
             import ctypes
             from ctypes import wintypes
             GetShortPathNameW = ctypes.windll.kernel32.GetShortPathNameW
-            GetShortPathNameW.argtypes = [wintypes.LPCWSTR, wintypes.LPWSTR, wintypes.DWORD]
+            GetShortPathNameW.argtypes = [
+                wintypes.LPCWSTR, wintypes.LPWSTR, wintypes.DWORD]
             GetShortPathNameW.restype = wintypes.DWORD
             buf = ctypes.create_unicode_buffer(260)
             res = GetShortPathNameW(p, buf, 260)
@@ -34,7 +34,6 @@ if __name__ == "__main__" and os.environ.get("ST_REDIRECTED", "0") != "1" and (g
 
     os.environ["ST_REDIRECTED"] = "1"
     script_path = str(Path(__file__).resolve())
-    script_path = _short_path(script_path)
     cmd = [sys.executable, "-m", "streamlit", "run", script_path]
     if len(sys.argv) > 1:
         cmd += ["--"] + sys.argv[1:]
@@ -106,14 +105,16 @@ def _format_quantity_pair(ctn: Optional[float], pkt: Optional[float]) -> str:
         if not math.isclose(ctn_val, 0.0, abs_tol=1e-9):
             qty_text = _format_qty_number(ctn_val)
             if qty_text:
-                unit = "ctn" if math.isclose(ctn_val, 1.0, abs_tol=1e-9) else "ctns"
+                unit = "ctn" if math.isclose(
+                    ctn_val, 1.0, abs_tol=1e-9) else "ctns"
                 parts.append(f"{qty_text} {unit}")
     if pkt is not None and not pd.isna(pkt):
         pkt_val = float(pkt)
         if not math.isclose(pkt_val, 0.0, abs_tol=1e-9):
             qty_text = _format_qty_number(pkt_val)
             if qty_text:
-                unit = "pkt" if math.isclose(pkt_val, 1.0, abs_tol=1e-9) else "pkts"
+                unit = "pkt" if math.isclose(
+                    pkt_val, 1.0, abs_tol=1e-9) else "pkts"
                 parts.append(f"{qty_text} {unit}")
     return " ".join(parts) if parts else "0"
 
@@ -126,7 +127,8 @@ def _strip_html_df(df: pd.DataFrame) -> pd.DataFrame:
     clean = df.copy()
     for col in clean.columns:
         if clean[col].dtype == object:
-            clean[col] = clean[col].astype(str).apply(lambda x: re.sub(r"<.*?>", "", x))
+            clean[col] = clean[col].astype(str).apply(
+                lambda x: re.sub(r"<.*?>", "", x))
     return clean
 
 
@@ -134,9 +136,11 @@ def build_norm_desc(df: pd.DataFrame) -> pd.Series:
     """沿用既有 “去括号后” 规范化口径。"""
     if df is None or df.empty:
         return pd.Series(dtype="string", name="norm_desc")
-    desc_series = df.get("description", pd.Series(dtype="string")).astype("string").fillna("")
+    desc_series = df.get("description", pd.Series(
+        dtype="string")).astype("string").fillna("")
     base = desc_series.str.replace(r"\s*\([^)]*\)", "", regex=True).str.strip()
-    code_series = df.get("product_code", pd.Series(dtype="string")).astype("string").fillna("").str.strip()
+    code_series = df.get("product_code", pd.Series(
+        dtype="string")).astype("string").fillna("").str.strip()
     fallback_desc = desc_series.str.strip()
     norm = base.copy()
     mask_empty = norm.isna() | (norm.str.len() == 0)
@@ -201,7 +205,8 @@ def aggregate_summary(
 
     work = df.copy()
     if "warehouse" in work.columns:
-        work["_warehouse_norm"] = work["warehouse"].map(_normalize_warehouse_name)
+        work["_warehouse_norm"] = work["warehouse"].map(
+            _normalize_warehouse_name)
         work = work[work["_warehouse_norm"].isin(warehouses)]
     else:
         work["_warehouse_norm"] = ""
@@ -209,9 +214,12 @@ def aggregate_summary(
         return pd.DataFrame(columns=columns), {}
 
     work["norm_desc"] = build_norm_desc(work)
-    work["_unit_norm"] = work.get("unit", pd.Series(dtype="string")).apply(_canonical_unit)
-    work["_qty"] = pd.to_numeric(work.get("stock_qty", pd.Series(dtype=float)), errors="coerce").fillna(0.0)
-    work["_product_code_norm"] = work.get("product_code", pd.Series(dtype="string")).astype("string").fillna("").str.strip()
+    work["_unit_norm"] = work.get("unit", pd.Series(
+        dtype="string")).apply(_canonical_unit)
+    work["_qty"] = pd.to_numeric(
+        work.get("stock_qty", pd.Series(dtype=float)), errors="coerce").fillna(0.0)
+    work["_product_code_norm"] = work.get("product_code", pd.Series(
+        dtype="string")).astype("string").fillna("").str.strip()
     if "supplier" not in work.columns:
         work["supplier"] = pd.NA
 
@@ -223,8 +231,10 @@ def aggregate_summary(
             key = (key,)
         supplier_val = key[0]
         norm_desc_val = key[1] if len(key) > 1 else ""
-        supplier_name = str(supplier_val).strip() if pd.notna(supplier_val) and str(supplier_val).strip() else "Unknown supplier"
-        product_label = str(norm_desc_val).strip() if pd.notna(norm_desc_val) and str(norm_desc_val).strip() else "Unnamed product"
+        supplier_name = str(supplier_val).strip() if pd.notna(
+            supplier_val) and str(supplier_val).strip() else "Unknown supplier"
+        product_label = str(norm_desc_val).strip() if pd.notna(
+            norm_desc_val) and str(norm_desc_val).strip() else "Unnamed product"
         group_key = (supplier_name, product_label)
         detail_map[group_key] = grp.copy()
 
@@ -235,21 +245,27 @@ def aggregate_summary(
         # 组合 Pack Size
         pack_sizes = grp.get("pack_size")
         if pack_sizes is not None:
-            uniq_ps = sorted({str(x).strip() for x in pack_sizes.tolist() if str(x).strip() and str(x).strip().lower() != "nan"})
+            uniq_ps = sorted({str(x).strip() for x in pack_sizes.tolist() if str(
+                x).strip() and str(x).strip().lower() != "nan"})
             pack_size_label = " / ".join(uniq_ps) if uniq_ps else "-"
         else:
             pack_size_label = "-"
 
         # 两仓分量
         wh_totals = {wh: {"ctn": 0.0, "pkt": 0.0} for wh in warehouses}
-        wh_unit = grp.groupby(["_warehouse_norm", "_unit_norm"], dropna=False)["_qty"].sum().reset_index()
+        wh_unit = grp.groupby(["_warehouse_norm", "_unit_norm"], dropna=False)[
+            "_qty"].sum().reset_index()
         for _, r in wh_unit.iterrows():
-            wh = r["_warehouse_norm"]; unit = r["_unit_norm"]; qty = float(r["_qty"])
+            wh = r["_warehouse_norm"]
+            unit = r["_unit_norm"]
+            qty = float(r["_qty"])
             if wh in wh_totals and unit in ("ctn", "pkt"):
                 wh_totals[wh][unit] += qty
 
-        total_ctn = sum(wh_totals.get(wh, {}).get("ctn", 0.0) for wh in warehouses)
-        total_pkt = sum(wh_totals.get(wh, {}).get("pkt", 0.0) for wh in warehouses)
+        total_ctn = sum(wh_totals.get(wh, {}).get("ctn", 0.0)
+                        for wh in warehouses)
+        total_pkt = sum(wh_totals.get(wh, {}).get("pkt", 0.0)
+                        for wh in warehouses)
 
         reorder_points = _extract_reorder_points(grp)
 
@@ -271,7 +287,6 @@ def aggregate_summary(
 
     summary_df = pd.DataFrame(rows, columns=columns if rows else columns)
     return summary_df, detail_map
-
 
 
 # ----------------------------- 判定规则（批次层/产品层） -----------------------------
@@ -343,13 +358,18 @@ def split_by_expiry(
     if work.empty:
         return pd.DataFrame(columns=columns)
 
-    work["_unit_norm"] = work.get("unit", pd.Series(dtype="string")).apply(_canonical_unit)
-    work["_qty"] = pd.to_numeric(work.get("stock_qty", pd.Series(dtype=float)), errors="coerce").fillna(0.0)
+    work["_unit_norm"] = work.get("unit", pd.Series(
+        dtype="string")).apply(_canonical_unit)
+    work["_qty"] = pd.to_numeric(
+        work.get("stock_qty", pd.Series(dtype=float)), errors="coerce").fillna(0.0)
 
     # 归一 Expiry
-    work["_expiry_norm"] = pd.to_datetime(work.get("expiry_date"), errors="coerce", format="mixed")
-    work["_expiry_label"] = work["_expiry_norm"].apply(lambda x: x.date().isoformat() if pd.notna(x) else "No Expiry")
-    work["_expiry_sort_key"] = work["_expiry_norm"].apply(lambda x: x.date() if pd.notna(x) else datetime.date.max)
+    work["_expiry_norm"] = pd.to_datetime(
+        work.get("expiry_date"), errors="coerce", format="mixed")
+    work["_expiry_label"] = work["_expiry_norm"].apply(
+        lambda x: x.date().isoformat() if pd.notna(x) else "No Expiry")
+    work["_expiry_sort_key"] = work["_expiry_norm"].apply(
+        lambda x: x.date() if pd.notna(x) else datetime.date.max)
 
     # 归一 Remark
     def _extract_remark(s: str) -> str:
@@ -357,7 +377,8 @@ def split_by_expiry(
         vals = [t.strip() for t in lst if t and t.strip()]
         return ", ".join(vals) if vals else "No Remark"
 
-    work["_remark_label"] = work.get("description", pd.Series(dtype="string")).apply(_extract_remark)
+    work["_remark_label"] = work.get(
+        "description", pd.Series(dtype="string")).apply(_extract_remark)
 
     # 选择分组键
     if batch_mode == "remark":
@@ -384,17 +405,23 @@ def split_by_expiry(
         expiry_val = grp["_expiry_norm"].dropna().min()
 
         per_wh = {wh: {"ctn": 0.0, "pkt": 0.0} for wh in warehouses}
-        wh_unit = grp.groupby(["_warehouse_norm", "_unit_norm"], dropna=False)["_qty"].sum().reset_index()
+        wh_unit = grp.groupby(["_warehouse_norm", "_unit_norm"], dropna=False)[
+            "_qty"].sum().reset_index()
         for _, r in wh_unit.iterrows():
-            wh = r["_warehouse_norm"]; unit = r["_unit_norm"]; qty = float(r["_qty"])
+            wh = r["_warehouse_norm"]
+            unit = r["_unit_norm"]
+            qty = float(r["_qty"])
             if wh in per_wh and unit in ("ctn", "pkt"):
                 per_wh[wh][unit] += qty
 
-        subtotal_ctn = sum(per_wh.get(wh, {}).get("ctn", 0.0) for wh in warehouses)
-        subtotal_pkt = sum(per_wh.get(wh, {}).get("pkt", 0.0) for wh in warehouses)
+        subtotal_ctn = sum(per_wh.get(wh, {}).get("ctn", 0.0)
+                           for wh in warehouses)
+        subtotal_pkt = sum(per_wh.get(wh, {}).get("pkt", 0.0)
+                           for wh in warehouses)
 
         exp_date = expiry_val.date() if pd.notna(expiry_val) else None
-        status_batch, d2e = classify_batch_status(exp_date, subtotal_ctn, subtotal_pkt, expiry_days)
+        status_batch, d2e = classify_batch_status(
+            exp_date, subtotal_ctn, subtotal_pkt, expiry_days)
 
         if (status_batch == "Depleted") and (not show_depleted):
             continue
@@ -411,8 +438,8 @@ def split_by_expiry(
         rows.append({
             "Expiry": exp_label if exp_label is not None else "",
             "Remark": remark_label if remark_label is not None else "",
-            "Savori Whse": _format_quantity_pair(per_wh.get('Savori Whse',{}).get('ctn',0.0), per_wh.get('Savori Whse',{}).get('pkt',0.0)),
-            "Lai Hock Whse": _format_quantity_pair(per_wh.get('Lai Hock Whse',{}).get('ctn',0.0), per_wh.get('Lai Hock Whse',{}).get('pkt',0.0)),
+            "Savori Whse": _format_quantity_pair(per_wh.get('Savori Whse', {}).get('ctn', 0.0), per_wh.get('Savori Whse', {}).get('pkt', 0.0)),
+            "Lai Hock Whse": _format_quantity_pair(per_wh.get('Lai Hock Whse', {}).get('ctn', 0.0), per_wh.get('Lai Hock Whse', {}).get('pkt', 0.0)),
             "Subtotal": qty_text,
             "subtotal_ctn": subtotal_ctn,
             "subtotal_pkt": subtotal_pkt,
@@ -433,7 +460,6 @@ def split_by_expiry(
         .reset_index(drop=True)
     )
     return result
-
 
 
 # ----------------------------- 侧边栏筛选 -----------------------------
@@ -475,6 +501,7 @@ def apply_filters_v2(df: pd.DataFrame):
     sel_desc = list(ss.get("f_desc", []))
     sel_code = list(ss.get("f_code", []))
     sel_remark = list(ss.get("f_remark", []))
+
     def apply_all(df_in: pd.DataFrame, exclude: str = "") -> pd.DataFrame:
         d = df_in
 
@@ -523,13 +550,13 @@ def apply_filters_v2(df: pd.DataFrame):
             sel = list(ss.get("f_remark", []))
             exm = bool(ss.get("f_remark_ex", False))
             if sel:
-                matches = d["description"].astype(str).str.findall(r"\(([^)]*)\)")
-                has_any = matches.apply(lambda lst: any((str(x).strip() in sel) for x in (lst or [])))
+                matches = d["description"].astype(
+                    str).str.findall(r"\(([^)]*)\)")
+                has_any = matches.apply(lambda lst: any(
+                    (str(x).strip() in sel) for x in (lst or [])))
                 d = d[~has_any] if exm else d[has_any]
 
         return d
-
-
 
     # --- 侧边栏 ---
     with st.sidebar:
@@ -552,15 +579,19 @@ def apply_filters_v2(df: pd.DataFrame):
         # ---------- Warehouse（包含自动复位逻辑） ----------
         if "warehouse" in base.columns:
             d = apply_all(base, exclude="warehouse")
-            wh_options = [x for x in d["warehouse"].dropna().astype(str).unique().tolist()]
-            ordered = [w for w in ["Savori Whse", "Lai Hock Whse"] if w in wh_options]
+            wh_options = [x for x in d["warehouse"].dropna().astype(
+                str).unique().tolist()]
+            ordered = [w for w in ["Savori Whse",
+                                   "Lai Hock Whse"] if w in wh_options]
             ordered += [w for w in wh_options if w not in ordered]
-            default_selection = [w for w in ["Savori Whse", "Lai Hock Whse"] if w in ordered] or list(ordered)
+            default_selection = [w for w in [
+                "Savori Whse", "Lai Hock Whse"] if w in ordered] or list(ordered)
 
            # 渲染前：先把 session_state["f_wh"] 准备好
             cur = [w for w in ss.get("f_wh", []) if w in ordered]
             need_reset = sig_changed or (not cur and bool(ordered))
-            ss["f_wh"] = list(default_selection) if need_reset else (cur or list(default_selection))
+            ss["f_wh"] = list(default_selection) if need_reset else (
+                cur or list(default_selection))
 
             # 渲染控件：不要再传 default
             st.multiselect(
@@ -570,55 +601,64 @@ def apply_filters_v2(df: pd.DataFrame):
                 placeholder="选择一个或多个仓库",
             )
 
-
             # 更新签名（放在控件之后）
             ss["__sig_wo_wh"] = sig_wo_wh
-
-
 
         # Supplier
         if "supplier" in base.columns:
             d = apply_all(base, exclude="supplier")
-            sup_options = sorted([x for x in d["supplier"].dropna().unique().tolist()])
+            sup_options = sorted(
+                [x for x in d["supplier"].dropna().unique().tolist()])
             _ensure_multiselect_key("f_sup", sup_options, [])
-            st.multiselect("Supplier", sup_options, key="f_sup", placeholder="选择供应商")
+            st.multiselect("Supplier", sup_options,
+                           key="f_sup", placeholder="选择供应商")
             # ↓ 新增：Supplier 的排除模式开关
-            st.checkbox("Exclude selected (Supplier)", key="f_sup_ex", value=False)
+            st.checkbox("Exclude selected (Supplier)",
+                        key="f_sup_ex", value=False)
             sel_sup = list(ss.get("f_sup", []))
 
         # Brand
         if "brand" in base.columns:
             d = apply_all(base, exclude="brand")
-            brand_options = sorted([x for x in d["brand"].dropna().unique().tolist()])
+            brand_options = sorted(
+                [x for x in d["brand"].dropna().unique().tolist()])
             _ensure_multiselect_key("f_brand", brand_options, [])
-            st.multiselect("Brand", brand_options, key="f_brand", placeholder="选择品牌")
+            st.multiselect("Brand", brand_options,
+                           key="f_brand", placeholder="选择品牌")
             sel_brand = list(ss.get("f_brand", []))
 
         # Description（去括号后）
         if "description" in base.columns:
             d = apply_all(base, exclude="desc")
-            base_ser = get_desc_base(d["description"]) if not d.empty else pd.Series(dtype=str)
-            desc_options = sorted([x for x in base_ser.dropna().unique().tolist() if x])
+            base_ser = get_desc_base(
+                d["description"]) if not d.empty else pd.Series(dtype=str)
+            desc_options = sorted(
+                [x for x in base_ser.dropna().unique().tolist() if x])
             _ensure_multiselect_key("f_desc", desc_options, [])
-            st.multiselect("Description（去括号后）", desc_options, key="f_desc", placeholder="选择描述")
+            st.multiselect("Description（去括号后）", desc_options,
+                           key="f_desc", placeholder="选择描述")
             sel_desc = list(ss.get("f_desc", []))
-
 
         # Product Code
         if "product_code" in base.columns:
             d = apply_all(base, exclude="code")
-            code_options = sorted([x for x in d["product_code"].dropna().unique().tolist()])
+            code_options = sorted(
+                [x for x in d["product_code"].dropna().unique().tolist()])
             _ensure_multiselect_key("f_code", code_options, [])
-            st.multiselect("Product Code", code_options, key="f_code", placeholder="选择产品编码")
+            st.multiselect("Product Code", code_options,
+                           key="f_code", placeholder="选择产品编码")
             sel_code = list(ss.get("f_code", []))
 
         # Remark（来自括号）
         if "description" in base.columns:
             d = apply_all(base, exclude="remark")
-            remark_options = extract_remarks(d["description"]) if not d.empty else []
+            remark_options = extract_remarks(
+                d["description"]) if not d.empty else []
             _ensure_multiselect_key("f_remark", remark_options, [])
-            st.multiselect("Remark（来自描述括号）", remark_options, key="f_remark", placeholder="选择 Remark")
-            st.checkbox("Exclude selected (Remark)", key="f_remark_ex", value=False)
+            st.multiselect("Remark（来自描述括号）", remark_options,
+                           key="f_remark", placeholder="选择 Remark")
+            st.checkbox("Exclude selected (Remark)",
+                        key="f_remark_ex", value=False)
             sel_remark = list(ss.get("f_remark", []))
 
         # 日期范围筛选（可选）
@@ -641,26 +681,34 @@ def apply_filters_v2(df: pd.DataFrame):
 
         if use_date_filters:
             if "expiry_date" in base.columns:
-                min_d, max_d = base["expiry_date"].min(), base["expiry_date"].max()
+                min_d, max_d = base["expiry_date"].min(
+                ), base["expiry_date"].max()
                 if pd.notna(min_d) and pd.notna(max_d):
-                    st.session_state["expiry_range"] = _clamp(st.session_state.get("expiry_range"), min_d, max_d)
-                    st.date_input("有效期范围", key="expiry_range", min_value=min_d.date(), max_value=max_d.date())
+                    st.session_state["expiry_range"] = _clamp(
+                        st.session_state.get("expiry_range"), min_d, max_d)
+                    st.date_input("有效期范围", key="expiry_range",
+                                  min_value=min_d.date(), max_value=max_d.date())
                     start, end = st.session_state.get("expiry_range")
 
             if "relabel_to_date" in base.columns:
-                min_r, max_r = base["relabel_to_date"].min(), base["relabel_to_date"].max()
+                min_r, max_r = base["relabel_to_date"].min(
+                ), base["relabel_to_date"].max()
                 if pd.notna(min_r) and pd.notna(max_r):
-                    st.session_state["relabel_date_range"] = _clamp(st.session_state.get("relabel_date_range"), min_r, max_r)
-                    st.date_input("Relabel To 日期范围", key="relabel_date_range", min_value=min_r.date(), max_value=max_r.date())
+                    st.session_state["relabel_date_range"] = _clamp(
+                        st.session_state.get("relabel_date_range"), min_r, max_r)
+                    st.date_input("Relabel To 日期范围", key="relabel_date_range",
+                                  min_value=min_r.date(), max_value=max_r.date())
                     r_start, r_end = st.session_state.get("relabel_date_range")
 
     # 应用筛选
     work = apply_all(base)
     if use_date_filters and "expiry_date" in work.columns and start and end:
-        mask_exp = work["expiry_date"].notna() & (work["expiry_date"].dt.date >= start) & (work["expiry_date"].dt.date <= end)
+        mask_exp = work["expiry_date"].notna() & (
+            work["expiry_date"].dt.date >= start) & (work["expiry_date"].dt.date <= end)
         work = work[mask_exp]
     if use_date_filters and "relabel_to_date" in work.columns and r_start and r_end:
-        mask_rel = work["relabel_to_date"].notna() & (work["relabel_to_date"].dt.date >= r_start) & (work["relabel_to_date"].dt.date <= r_end)
+        mask_rel = work["relabel_to_date"].notna() & (
+            work["relabel_to_date"].dt.date >= r_start) & (work["relabel_to_date"].dt.date <= r_end)
         work = work[mask_rel]
 
     selections = {
@@ -735,10 +783,12 @@ def _normalize_stocks_report(df: pd.DataFrame) -> Tuple[pd.DataFrame, Optional[s
 
     for col in ["expiry_date", "relabel_to_date"]:
         if col in norm.columns:
-            norm[col] = pd.to_datetime(norm[col], errors="coerce", format="mixed")
+            norm[col] = pd.to_datetime(
+                norm[col], errors="coerce", format="mixed")
 
     if "stock_qty" in norm.columns:
-        norm["stock_qty"] = pd.to_numeric(norm["stock_qty"].astype(str).str.replace(",", "", regex=False), errors="coerce")
+        norm["stock_qty"] = pd.to_numeric(norm["stock_qty"].astype(
+            str).str.replace(",", "", regex=False), errors="coerce")
 
     for col in ["supplier", "brand", "product_code", "description", "pack_size", "unit"]:
         if col in norm.columns:
@@ -783,10 +833,12 @@ def _normalize_lai_hock_whse(df: pd.DataFrame) -> Tuple[pd.DataFrame, Optional[s
 
     for col in ["expiry_date", "relabel_to_date"]:
         if col in norm.columns:
-            norm[col] = pd.to_datetime(norm[col], errors="coerce", format="mixed")
+            norm[col] = pd.to_datetime(
+                norm[col], errors="coerce", format="mixed")
 
     if "stock_qty" in norm.columns:
-        norm["stock_qty"] = pd.to_numeric(norm["stock_qty"].astype(str).str.replace(",", "", regex=False), errors="coerce")
+        norm["stock_qty"] = pd.to_numeric(norm["stock_qty"].astype(
+            str).str.replace(",", "", regex=False), errors="coerce")
 
     if "unit" not in norm.columns:
         norm["unit"] = "CTN"
@@ -813,12 +865,14 @@ def load_and_normalize(file) -> Tuple[pd.DataFrame, list]:
     df_lh = None
     try:
         if name_sr:
-            df_sr = pd.read_excel(file, sheet_name=name_sr, header=2, dtype=str, engine="openpyxl").dropna(axis=0, how="all")
+            df_sr = pd.read_excel(file, sheet_name=name_sr, header=2,
+                                  dtype=str, engine="openpyxl").dropna(axis=0, how="all")
     except Exception as e:
         warns.append(f"读取工作表 '{name_sr}' 失败：{e}")
     try:
         if name_lh:
-            df_lh = pd.read_excel(file, sheet_name=name_lh, header=2, dtype=str, engine="openpyxl").dropna(axis=0, how="all")
+            df_lh = pd.read_excel(file, sheet_name=name_lh, header=2,
+                                  dtype=str, engine="openpyxl").dropna(axis=0, how="all")
     except Exception as e:
         warns.append(f"读取工作表 '{name_lh}' 失败：{e}")
 
@@ -829,7 +883,8 @@ def load_and_normalize(file) -> Tuple[pd.DataFrame, list]:
             warns.append(f"Stocks report: {w_sr}")
         frames.append(n_sr)
     else:
-        warns.append(f"未找到工作表：Stocks report（实际存在：{name_sr if name_sr else '无'}）")
+        warns.append(
+            f"未找到工作表：Stocks report（实际存在：{name_sr if name_sr else '无'}）")
 
     if df_lh is not None:
         n_lh, w_lh = _normalize_lai_hock_whse(df_lh)
@@ -837,7 +892,8 @@ def load_and_normalize(file) -> Tuple[pd.DataFrame, list]:
             warns.append(f"Lai Hock Whse: {w_lh}")
         frames.append(n_lh)
     else:
-        warns.append(f"未找到工作表：Lai Hock Whse（实际存在：{name_lh if name_lh else '无'}）")
+        warns.append(
+            f"未找到工作表：Lai Hock Whse（实际存在：{name_lh if name_lh else '无'}）")
 
     if frames:
         cols = [
@@ -845,13 +901,16 @@ def load_and_normalize(file) -> Tuple[pd.DataFrame, list]:
             "expiry_date", "relabel_to_date", "stock_qty", "warehouse",
         ]
         valid_frames = [f for f in frames if f is not None and not f.empty]
-        combined = pd.concat(valid_frames, ignore_index=True, sort=False) if valid_frames else pd.DataFrame(columns=cols)
+        combined = pd.concat(valid_frames, ignore_index=True,
+                             sort=False) if valid_frames else pd.DataFrame(columns=cols)
         for c in cols:
             if c not in combined.columns:
                 combined[c] = pd.NA
-        combined["stock_qty"] = pd.to_numeric(combined["stock_qty"], errors="coerce")
+        combined["stock_qty"] = pd.to_numeric(
+            combined["stock_qty"], errors="coerce")
         for col in ["expiry_date", "relabel_to_date"]:
-            combined[col] = pd.to_datetime(combined[col], errors="coerce", format="mixed")
+            combined[col] = pd.to_datetime(
+                combined[col], errors="coerce", format="mixed")
         if "unit" in combined.columns:
             combined["unit"] = combined["unit"].apply(_canonical_unit)
         combined = combined[cols]
@@ -863,7 +922,9 @@ def load_and_normalize(file) -> Tuple[pd.DataFrame, list]:
 # ----------------------------- UI 状态回调 -----------------------------
 
 def _touch_summary_refresh_token() -> None:
-    st.session_state["__summary_refresh_token"] = st.session_state.get("__summary_refresh_token", 0) + 1
+    st.session_state["__summary_refresh_token"] = st.session_state.get(
+        "__summary_refresh_token", 0) + 1
+
 
 def on_change_expiry_days() -> None:
     value = st.session_state.get("summary_expiry_days", 30)
@@ -875,6 +936,7 @@ def on_change_expiry_days() -> None:
         value_int = 1
     st.session_state["summary_expiry_days"] = value_int
     _touch_summary_refresh_token()
+
 
 def on_change_global_low_stock() -> None:
     for key in ("summary_global_low_ctn", "summary_global_low_pkt"):
@@ -888,12 +950,16 @@ def on_change_global_low_stock() -> None:
         st.session_state[key] = value_int
     _touch_summary_refresh_token()
 
+
 def on_toggle_near_expiry() -> None:
-    st.session_state["toggle_only_near"] = bool(st.session_state.get("toggle_only_near", False))
+    st.session_state["toggle_only_near"] = bool(
+        st.session_state.get("toggle_only_near", False))
     _touch_summary_refresh_token()
 
+
 def on_toggle_low_stock() -> None:
-    st.session_state["toggle_only_low"] = bool(st.session_state.get("toggle_only_low", False))
+    st.session_state["toggle_only_low"] = bool(
+        st.session_state.get("toggle_only_low", False))
     _touch_summary_refresh_token()
 
 
@@ -902,13 +968,13 @@ def on_toggle_low_stock() -> None:
 def main():
     st.set_page_config(page_title="Stocks DataGrid", layout="wide")
 
-
     if st.sidebar.button("退出程序"):
         st.warning("程序已退出")
         os._exit(0)
 
     st.title("Stock Dashboard (Stocks DataGrid)")
-    st.caption("Upload an Excel file containing the 'Stocks report' and 'Lai Hock Whse' sheets (data starts on row 3).")
+    st.caption(
+        "Upload an Excel file containing the 'Stocks report' and 'Lai Hock Whse' sheets (data starts on row 3).")
 
     uploaded = st.file_uploader("Upload Excel (.xlsx)", type=["xlsx"])
     if not uploaded:
@@ -932,7 +998,8 @@ def main():
     df_display = df[display_cols].copy()
 
     # 侧栏筛选（阈值不在侧栏）
-    filtered, selected_descs, _placeholder_due_days, filter_state = apply_filters_v2(df_display)
+    filtered, selected_descs, _placeholder_due_days, filter_state = apply_filters_v2(
+        df_display)
     total_rows = len(filtered)
 
     # 主聚合（产品层）
@@ -963,8 +1030,10 @@ def main():
 
     with controls_holder:
         toggle_cols = st.columns([1, 1, 1, 2])
-        toggle_cols[0].toggle("Show Near-Expiry Only", key="toggle_only_near", on_change=on_toggle_near_expiry)
-        toggle_cols[1].toggle("Show Low-Stock Only", key="toggle_only_low", on_change=on_toggle_low_stock)
+        toggle_cols[0].toggle(
+            "Show Near-Expiry Only", key="toggle_only_near", on_change=on_toggle_near_expiry)
+        toggle_cols[1].toggle(
+            "Show Low-Stock Only", key="toggle_only_low", on_change=on_toggle_low_stock)
         toggle_cols[2].toggle("Show Depleted", key="toggle_show_depleted")
         with toggle_cols[3]:
             threshold_cols = st.columns([1, 1, 1])
@@ -984,11 +1053,11 @@ def main():
                 help="Global packet threshold when a product ROP is missing."
             )
             mode_label = st.radio(
-            "批次分组显示",
-            options=["Expiry only", "Remark only", "Expiry + Remark"],
-            horizontal=True,
-            key="batch_mode_radio",
-            help="选择按到期、按备注，或两者同时分组展示批次"
+                "批次分组显示",
+                options=["Expiry only", "Remark only", "Expiry + Remark"],
+                horizontal=True,
+                key="batch_mode_radio",
+                help="选择按到期、按备注，或两者同时分组展示批次"
             )
             mode_map = {
                 "Expiry only": "expiry",
@@ -1021,7 +1090,8 @@ def main():
             metric_cols[1].metric("Totals", "0")
             metric_cols[2].metric("Near-Expiry", "0")
             metric_cols[3].metric("Low-Stock", "0")
-        st.info("No data found for Savori Whse / Lai Hock Whse under the current filters.")
+        st.info(
+            "No data found for Savori Whse / Lai Hock Whse under the current filters.")
         return
 
     # 1) 为每个产品构建批次层表（带状态）——使用已读取的 show_depleted / expiry_days
@@ -1066,11 +1136,13 @@ def main():
     summary_df["has_expired_batch"] = False
     summary_df["has_near_batch"] = False
     for i, r in summary_df.iterrows():
-        tuple_key = tuple(r["group_key"]) if not isinstance(r["group_key"], tuple) else r["group_key"]
+        tuple_key = tuple(r["group_key"]) if not isinstance(
+            r["group_key"], tuple) else r["group_key"]
         tbl = expiry_tables_cache.get(tuple_key)
         if tbl is None or tbl.empty:
             continue
-        pos_qty = (tbl["subtotal_ctn"].astype(float) + tbl["subtotal_pkt"].astype(float)) > 0
+        pos_qty = (tbl["subtotal_ctn"].astype(float) +
+                   tbl["subtotal_pkt"].astype(float)) > 0
         if not pos_qty.any():
             continue
         sub = tbl.loc[pos_qty]
@@ -1081,7 +1153,8 @@ def main():
 
     # 4) 计算“多标签”并产出主状态（加入 Depleted）
     summary_df["is_depleted"] = (
-        (summary_df["total_ctn"].fillna(0) + summary_df["total_pkt"].fillna(0)) == 0
+        (summary_df["total_ctn"].fillna(0) +
+         summary_df["total_pkt"].fillna(0)) == 0
     )
 
     def _primary_status(has_expired: bool, has_near: bool, is_low: bool, is_depleted: bool) -> str:
@@ -1125,9 +1198,12 @@ def main():
         summary_df = summary_df[summary_df["status_product"] != "Depleted"]
 
     # 5) 先构建展示列
-    summary_df["Savori Whse"] = [_format_quantity_pair(r.savori_ctn, r.savori_pkt) for r in summary_df.itertuples()]
-    summary_df["Lai Hock Whse"] = [_format_quantity_pair(r.lai_hock_ctn, r.lai_hock_pkt) for r in summary_df.itertuples()]
-    summary_df["Total"] = [_format_quantity_pair(r.total_ctn, r.total_pkt) for r in summary_df.itertuples()]
+    summary_df["Savori Whse"] = [_format_quantity_pair(
+        r.savori_ctn, r.savori_pkt) for r in summary_df.itertuples()]
+    summary_df["Lai Hock Whse"] = [_format_quantity_pair(
+        r.lai_hock_ctn, r.lai_hock_pkt) for r in summary_df.itertuples()]
+    summary_df["Total"] = [_format_quantity_pair(
+        r.total_ctn, r.total_pkt) for r in summary_df.itertuples()]
 
     def _format_status(tags, reason):
         if not isinstance(tags, (list, tuple)):
@@ -1148,12 +1224,14 @@ def main():
     # 6) 视图过滤（Near-Only / Low-Only / 文本）
     view_df = summary_df.copy()
     if near_only:
-        view_df = view_df[view_df["status_product"].isin(["Expired", "Near-Expiry"])]
+        view_df = view_df[view_df["status_product"].isin(
+            ["Expired", "Near-Expiry"])]
     if low_only:
         view_df = view_df[view_df["status_product"].eq("Low-Stock")]
     if product_query:
         mask = (
-            view_df["Product"].str.contains(product_query, case=False, na=False)
+            view_df["Product"].str.contains(
+                product_query, case=False, na=False)
             | view_df["Supplier"].str.contains(product_query, case=False, na=False)
             | view_df["Product Code"].str.contains(product_query, case=False, na=False)
         )
@@ -1167,17 +1245,21 @@ def main():
             metric_cols[1].metric("Totals", "0")
             metric_cols[2].metric("Near-Expiry", "0")
             metric_cols[3].metric("Low-Stock", "0")
-        st.info("No rows in the main table match the current view. Adjust filters or thresholds.")
+        st.info(
+            "No rows in the main table match the current view. Adjust filters or thresholds.")
         return
 
     # ===== 必要性修复②③：指标改为“基于当前视图”并用 Tags 口径 =====
     # Totals（所见即所得）
-    total_ctn_all = float(view_df["total_ctn"].sum()) if not view_df.empty else 0.0
-    total_pkt_all = float(view_df["total_pkt"].sum()) if not view_df.empty else 0.0
+    total_ctn_all = float(view_df["total_ctn"].sum()
+                          ) if not view_df.empty else 0.0
+    total_pkt_all = float(view_df["total_pkt"].sum()
+                          ) if not view_df.empty else 0.0
     totals_display = _format_quantity_pair(total_ctn_all, total_pkt_all)
 
     # Near-Expiry 计数：Tags 含 Expired 或 Near-Expiry 即计入（与视图一致）
-    near_mask = view_df["Status Tags"].apply(lambda tags: any(t in {"Expired", "Near-Expiry"} for t in (tags or [])))
+    near_mask = view_df["Status Tags"].apply(lambda tags: any(
+        t in {"Expired", "Near-Expiry"} for t in (tags or [])))
     near_count = int(near_mask.sum())
 
     # Low-Stock 计数：看主状态是否为 Low-Stock（你也可以用 Tag 口径）
@@ -1186,7 +1268,8 @@ def main():
     with metric_holder:
         metric_cols = st.columns([1, 1, 1, 1])
         metric_cols[0].metric("Filtered Rows", f"{total_rows}")
-        metric_cols[1].metric("Totals", totals_display if totals_display else "0")
+        metric_cols[1].metric(
+            "Totals", totals_display if totals_display else "0")
         metric_cols[2].metric("Near-Expiry", f"{near_count}")
         metric_cols[3].metric("Low-Stock", f"{low_count}")
 
@@ -1198,7 +1281,8 @@ def main():
         tbl = expiry_tables_cache.get(tuple_key)
         if tbl is None or tbl.empty:
             return 10**9
-        pos = (tbl["subtotal_ctn"].astype(float) + tbl["subtotal_pkt"].astype(float)) > 0
+        pos = (tbl["subtotal_ctn"].astype(float) +
+               tbl["subtotal_pkt"].astype(float)) > 0
         if not pos.any():
             return 10**9
         sub = tbl.loc[pos]
@@ -1206,14 +1290,17 @@ def main():
         return min(vals) if vals else 10**9
 
     view_df["status_priority"] = view_df["status_product"].map(_status_rank)
-    view_df["nearest_days"] = [_nearest_pos_days(tuple(k) if not isinstance(k, tuple) else k) for k in view_df["group_key"]]
+    view_df["nearest_days"] = [_nearest_pos_days(
+        tuple(k) if not isinstance(k, tuple) else k) for k in view_df["group_key"]]
     view_df = view_df.sort_values(
-        by=["status_priority", "nearest_days", "total_ctn", "total_pkt", "Product"],
+        by=["status_priority", "nearest_days",
+            "total_ctn", "total_pkt", "Product"],
         kind="stable",
     ).reset_index(drop=True)
 
     # 8) 主表渲染与着色
-    display_columns = ["Supplier", "Product", "Pack Size", "Product Code", "Savori Whse", "Lai Hock Whse", "Total", "Status"]
+    display_columns = ["Supplier", "Product", "Pack Size",
+                       "Product Code", "Savori Whse", "Lai Hock Whse", "Total", "Status"]
     view_df_display = view_df[display_columns].copy()
     view_df_display_clean = _strip_html_df(view_df_display)
     total_idx = list(view_df_display_clean.columns).index("Total")
@@ -1239,20 +1326,21 @@ def main():
         return styles
 
     styled_view = view_df_display_clean.style.apply(_style_row, axis=1)
-    st.dataframe(styled_view, use_container_width=True, hide_index=True)
+    st.dataframe(styled_view, width="stretch", hide_index=True)
 
     # 9) 导出：Summary + Expiry Breakdown
     export_summary_cols = [
-    "Supplier", "Product", "Pack Size", "Product Code",
-    "Savori Whse", "Lai Hock Whse", "Total", "Status",
-    "total_ctn", "total_pkt", "savori_ctn", "savori_pkt", "lai_hock_ctn", "lai_hock_pkt",
-    "reorder_point_ctn", "reorder_point_pkt", "low_stock_reason", "status_product",
+        "Supplier", "Product", "Pack Size", "Product Code",
+        "Savori Whse", "Lai Hock Whse", "Total", "Status",
+        "total_ctn", "total_pkt", "savori_ctn", "savori_pkt", "lai_hock_ctn", "lai_hock_pkt",
+        "reorder_point_ctn", "reorder_point_pkt", "low_stock_reason", "status_product",
     ]
     export_summary = view_df[export_summary_cols].copy()
 
     expiry_export_frames = []
     for _, row in view_df.iterrows():
-        tuple_key = tuple(row["group_key"]) if not isinstance(row["group_key"], tuple) else row["group_key"]
+        tuple_key = tuple(row["group_key"]) if not isinstance(
+            row["group_key"], tuple) else row["group_key"]
         expiry_table = expiry_tables_cache.get(tuple_key)
         if expiry_table is None or expiry_table.empty:
             continue
@@ -1264,13 +1352,14 @@ def main():
         export_block.insert(4, "Parent Total", row["Total"])
         expiry_export_frames.append(export_block)
 
-    valid_frames = [f for f in expiry_export_frames if f is not None and not f.empty]
+    valid_frames = [
+        f for f in expiry_export_frames if f is not None and not f.empty]
 
     expected_cols = [
-    "Supplier", "Product", "Product Code", "Product Status", "Parent Total",
-    "Expiry", "Remark", "Savori Whse", "Lai Hock Whse", "Subtotal",
-    "subtotal_ctn", "subtotal_pkt", "expiry_date", "status_batch", "days_to_expiry", "Info",
-]
+        "Supplier", "Product", "Product Code", "Product Status", "Parent Total",
+        "Expiry", "Remark", "Savori Whse", "Lai Hock Whse", "Subtotal",
+        "subtotal_ctn", "subtotal_pkt", "expiry_date", "status_batch", "days_to_expiry", "Info",
+    ]
 
     normalized = []
     for f in valid_frames:
@@ -1280,8 +1369,8 @@ def main():
                 g[c] = pd.Series([pd.NA] * len(g), dtype="string")
 
         for c in ["Supplier", "Product", "Product Code", "Product Status",
-                "Parent Total", "Expiry", "Remark", "Savori Whse", "Lai Hock Whse",
-                "Subtotal", "status_batch", "Info"]:
+                  "Parent Total", "Expiry", "Remark", "Savori Whse", "Lai Hock Whse",
+                  "Subtotal", "status_batch", "Info"]:
             if c in g.columns:
                 if g[c].dtype != "string":
                     g[c] = g[c].astype("string")
@@ -1291,10 +1380,12 @@ def main():
                 g[c] = pd.to_numeric(g[c], errors="coerce").astype("float64")
 
         if "expiry_date" in g.columns:
-            g["expiry_date"] = pd.to_datetime(g["expiry_date"], errors="coerce")
+            g["expiry_date"] = pd.to_datetime(
+                g["expiry_date"], errors="coerce")
 
         if "days_to_expiry" in g.columns:
-            g["days_to_expiry"] = pd.to_numeric(g["days_to_expiry"], errors="coerce").astype("Int64")
+            g["days_to_expiry"] = pd.to_numeric(
+                g["days_to_expiry"], errors="coerce").astype("Int64")
 
         g = g[expected_cols]
         normalized.append(g)
@@ -1318,8 +1409,10 @@ def main():
     with pd.ExcelWriter(excel_buffer) as writer:
         export_summary_clean = _strip_html_df(export_summary)
         expiry_export_clean = _strip_html_df(expiry_export_df)
-        export_summary_clean.to_excel(writer, sheet_name="Summary", index=False)
-        expiry_export_clean.to_excel(writer, sheet_name="Expiry Breakdown", index=False)
+        export_summary_clean.to_excel(
+            writer, sheet_name="Summary", index=False)
+        expiry_export_clean.to_excel(
+            writer, sheet_name="Expiry Breakdown", index=False)
 
     excel_buffer.seek(0)
     download_cols[1].download_button(
@@ -1330,26 +1423,32 @@ def main():
 
     # 10) 展开明细：批次层高亮与 Info
     for _, row in view_df.iterrows():
-        tuple_key = tuple(row["group_key"]) if not isinstance(row["group_key"], tuple) else row["group_key"]
+        tuple_key = tuple(row["group_key"]) if not isinstance(
+            row["group_key"], tuple) else row["group_key"]
         expiry_table = expiry_tables_cache.get(tuple_key)
         title = f"{row['Supplier']} | {row['Product']}"
         with st.expander(title, expanded=False):
             st.caption(f"Product Code: {row['Product Code']}")
             st.caption(f"Status: {row['Status']}")
             if row.get("low_stock_reason"):
-                st.caption(f"Low-stock trigger: {'Product ROP' if row['low_stock_reason']=='ROP' else 'Global threshold'}")
+                st.caption(
+                    f"Low-stock trigger: {'Product ROP' if row['low_stock_reason'] == 'ROP' else 'Global threshold'}")
 
             if expiry_table is None or expiry_table.empty:
                 st.info("No expiry breakdown available.")
             else:
                 if batch_mode == "expiry":
-                    display_cols2 = ["Expiry", "Savori Whse", "Lai Hock Whse", "Subtotal", "status_batch", "Info"]
+                    display_cols2 = [
+                        "Expiry", "Savori Whse", "Lai Hock Whse", "Subtotal", "status_batch", "Info"]
                 elif batch_mode == "remark":
-                    display_cols2 = ["Remark", "Savori Whse", "Lai Hock Whse", "Subtotal", "status_batch", "Info"]
+                    display_cols2 = [
+                        "Remark", "Savori Whse", "Lai Hock Whse", "Subtotal", "status_batch", "Info"]
                 else:  # both
-                    display_cols2 = ["Expiry", "Remark", "Savori Whse", "Lai Hock Whse", "Subtotal", "status_batch", "Info"]
+                    display_cols2 = ["Expiry", "Remark", "Savori Whse",
+                                     "Lai Hock Whse", "Subtotal", "status_batch", "Info"]
 
-                table_display = expiry_table[display_cols2].rename(columns={"status_batch": "Batch Status"})
+                table_display = expiry_table[display_cols2].rename(
+                    columns={"status_batch": "Batch Status"})
 
                 def _style_expiry(r):
                     status = table_display.loc[r.name, "Batch Status"]
@@ -1362,10 +1461,13 @@ def main():
                     return ["" for _ in r]
 
                 try:
-                    styled_expiry = table_display.style.apply(_style_expiry, axis=1)
-                    st.dataframe(styled_expiry, use_container_width=True, hide_index=True)
+                    styled_expiry = table_display.style.apply(
+                        _style_expiry, axis=1)
+                    st.dataframe(
+                        styled_expiry, width="stretch", hide_index=True)
                 except Exception:
-                    st.dataframe(table_display, use_container_width=True, hide_index=True)
+                    st.dataframe(
+                        table_display, width="stretch", hide_index=True)
 
                 # 校验小计与父合计一致（仅数量值）
                 subtotal_ctn_sum = float(expiry_table["subtotal_ctn"].sum())
@@ -1374,9 +1476,9 @@ def main():
                 parent_pkt = float(row["total_pkt"])
                 if (not math.isclose(subtotal_ctn_sum, parent_ctn, abs_tol=1e-6)
                         or not math.isclose(subtotal_pkt_sum, parent_pkt, abs_tol=1e-6)):
-                    st.warning("Expiry breakdown totals do not match the parent totals; please verify the source data.")
+                    st.warning(
+                        "Expiry breakdown totals do not match the parent totals; please verify the source data.")
                 st.caption(f"Total: {row['Total']}")
-
 
 
 if __name__ == "__main__" and os.environ.get("ST_REDIRECTED", "0") != "1" and (get_script_run_ctx() is None):

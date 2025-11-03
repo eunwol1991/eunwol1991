@@ -83,5 +83,5 @@ def update_Invoice_formulas(directory):
 
 
 # Example usage
-directory_path = r"C:\Users\jhunj\Dropbox\DO & INV\DO & INV 2025\Melvin - MOS Burger\For Customer\MOS DOC (OTL) - Format"
+directory_path = r"C:\Users\jhunj\Dropbox\DO & INV\DO & INV 2025\Melvin - Kebabs Faktory Pte Ltd"
 update_Invoice_formulas(directory_path)

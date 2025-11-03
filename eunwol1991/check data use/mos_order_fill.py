@@ -17,11 +17,11 @@ EXCEL_PATH = Path(
     r"C:\Users\jhunj\Dropbox\for jj\mos order\Order Summary For MOS - JJ.xlsx")
 SHEET_NAME = "MOS Format"
 PDF_DIR = Path(r"C:\Users\jhunj\Dropbox\for jj\mos_pdfs")  # 待处理 PDF 文件夹
-PO_COL = "AI"
+PO_COL = "AK"
 ROW_START = 39
 ROW_END = 73
 COL_START = "C"
-COL_END = "AD"
+COL_END = "AF"
 HIGHLIGHT = PatternFill(fill_type="solid", fgColor="00FFFCD7")
 ARCHIVE_DIR = Path(r"C:\Users\jhunj\Dropbox\for jj\mos order")
 # —— PO 号下限（含）——
@@ -95,8 +95,10 @@ ITEM_ALIAS = {
     "hard boiled egg 10pcs only":                   "Hard Boiled Egg (18 x 10pcs)",
     "fried shallot 1kg":                            "Fried Shallot (10 x 1kg)",
     "jalapenos nachos sliced":                      "Jalapeno Pepper Sliced (6 x 2.95kg)",
-    "toasted coconut flakes":                       "Toasted Coconut Flakes (36 x 200g)",
     "parsley flakes":                               "Parsley Leaves (6 x 5gm)",
+    "toasted coconut flakes":                       "Toasted Coconut Flakes (36 x 200g)",
+    "red sauce":                                    "Red Sauce (10 x 1kg)",
+    "sriracha mayo":                                "J-Lek Sriracha Hot Chilli Sauce (12 x 455ml)",
 }
 
 # ========================================================================== #
