@@ -50,6 +50,10 @@ from typing import Optional, Tuple, List, Dict
 
 PRIMARY_WAREHOUSES = ["Savori Whse", "Lai Hock Whse"]
 
+# ==== 新增：预编译正则 ====
+HTML_TAG_RE = re.compile(r"<.*?>")
+PAREN_CONTENT_RE = re.compile(r"\s*\([^)]*\)")
+
 
 # ----------------------------- 基础工具函数 -----------------------------
 
@@ -57,6 +61,19 @@ def _normalize_warehouse_name(value) -> str:
     if pd.isna(value):
         return ""
     return str(value).strip()
+
+
+def _normalize_pack_size_value(value) -> str:
+    if pd.isna(value):
+        return ""
+    text = str(value).strip()
+    if not text or text.lower() == "nan":
+        return ""
+    return text
+
+
+def _format_pack_size_label(normalized: str) -> str:
+    return normalized if normalized else "-"
 
 
 def _canonical_unit(u: Optional[str]) -> str:
@@ -120,28 +137,25 @@ def _format_quantity_pair(ctn: Optional[float], pkt: Optional[float]) -> str:
 
 
 def _strip_html_df(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    移除 DataFrame 所有单元格里的 HTML 标签，确保显示与导出内容为纯文本。
-    仅对 dtype==object 的列做清洗；不会影响数值/日期列。
-    """
+    """移除 DataFrame 所有 object 列中的 HTML 标签（向量化 + 预编译）。"""
     clean = df.copy()
-    for col in clean.columns:
-        if clean[col].dtype == object:
-            clean[col] = clean[col].astype(str).apply(
-                lambda x: re.sub(r"<.*?>", "", x))
+    for col in clean.select_dtypes(include="object").columns:
+        clean[col] = clean[col].astype(str).str.replace(HTML_TAG_RE, "", regex=True)
     return clean
 
 
+
 def build_norm_desc(df: pd.DataFrame) -> pd.Series:
-    """沿用既有 “去括号后” 规范化口径。"""
+    """沿用“去括号后”口径，优先 description(去括号) → product_code → 原 description → 'Unnamed product'。"""
     if df is None or df.empty:
         return pd.Series(dtype="string", name="norm_desc")
-    desc_series = df.get("description", pd.Series(
-        dtype="string")).astype("string").fillna("")
-    base = desc_series.str.replace(r"\s*\([^)]*\)", "", regex=True).str.strip()
-    code_series = df.get("product_code", pd.Series(
-        dtype="string")).astype("string").fillna("").str.strip()
+
+    desc_series = df.get("description", pd.Series(dtype="string")).astype("string").fillna("")
+    base = desc_series.str.replace(PAREN_CONTENT_RE, "", regex=True).str.strip()
+
+    code_series = df.get("product_code", pd.Series(dtype="string")).astype("string").fillna("").str.strip()
     fallback_desc = desc_series.str.strip()
+
     norm = base.copy()
     mask_empty = norm.isna() | (norm.str.len() == 0)
     if mask_empty.any():
@@ -152,10 +166,11 @@ def build_norm_desc(df: pd.DataFrame) -> pd.Series:
         mask_empty = norm.isna() | (norm.str.len() == 0)
     if mask_empty.any():
         norm = norm.mask(mask_empty, "Unnamed product")
-    norm = norm.fillna("").str.strip()
-    norm = norm.replace("", "Unnamed product")
+
+    norm = norm.fillna("").str.strip().replace("", "Unnamed product")
     norm.name = "norm_desc"
     return norm
+
 
 
 def _extract_reorder_points(df_group: pd.DataFrame) -> Dict[str, Optional[float]]:
@@ -191,7 +206,7 @@ def _extract_reorder_points(df_group: pd.DataFrame) -> Dict[str, Optional[float]
 def aggregate_summary(
     df: pd.DataFrame,
     warehouses: Optional[List[str]] = None,
-) -> Tuple[pd.DataFrame, Dict[Tuple[str, str], pd.DataFrame]]:
+) -> Tuple[pd.DataFrame, Dict[Tuple[str, str, str], pd.DataFrame]]:
     warehouses = warehouses or PRIMARY_WAREHOUSES
     columns = [
         "Supplier", "Product", "Pack Size", "Product Code",
@@ -223,10 +238,15 @@ def aggregate_summary(
     if "supplier" not in work.columns:
         work["supplier"] = pd.NA
 
-    rows = []
-    detail_map: Dict[Tuple[str, str], pd.DataFrame] = {}
+    if "pack_size" in work.columns:
+        work["_pack_size_norm"] = work["pack_size"].map(_normalize_pack_size_value)
+    else:
+        work["_pack_size_norm"] = ""
 
-    for key, grp in work.groupby(["supplier", "norm_desc"], dropna=False):
+    rows = []
+    detail_map: Dict[Tuple[str, str, str], pd.DataFrame] = {}
+
+    for key, grp in work.groupby(["supplier", "norm_desc", "_pack_size_norm"], dropna=False):
         if not isinstance(key, tuple):
             key = (key,)
         supplier_val = key[0]
@@ -235,21 +255,15 @@ def aggregate_summary(
             supplier_val) and str(supplier_val).strip() else "Unknown supplier"
         product_label = str(norm_desc_val).strip() if pd.notna(
             norm_desc_val) and str(norm_desc_val).strip() else "Unnamed product"
-        group_key = (supplier_name, product_label)
+        raw_pack_val = key[2] if len(key) > 2 else ""
+        pack_norm_val = _normalize_pack_size_value(raw_pack_val)
+        pack_size_label = _format_pack_size_label(pack_norm_val)
+        group_key = (supplier_name, product_label, pack_norm_val)
         detail_map[group_key] = grp.copy()
 
         # 组合 Product Code
         codes = sorted({c for c in grp["_product_code_norm"].tolist() if c})
         product_code_label = " / ".join(codes) if codes else "-"
-
-        # 组合 Pack Size
-        pack_sizes = grp.get("pack_size")
-        if pack_sizes is not None:
-            uniq_ps = sorted({str(x).strip() for x in pack_sizes.tolist() if str(
-                x).strip() and str(x).strip().lower() != "nan"})
-            pack_size_label = " / ".join(uniq_ps) if uniq_ps else "-"
-        else:
-            pack_size_label = "-"
 
         # 两仓分量
         wh_totals = {wh: {"ctn": 0.0, "pkt": 0.0} for wh in warehouses}
@@ -969,8 +983,10 @@ def main():
     st.set_page_config(page_title="Stocks DataGrid", layout="wide")
 
     if st.sidebar.button("退出程序"):
+        st.session_state["__want_exit"] = True
+    if st.session_state.get("__want_exit"):
         st.warning("程序已退出")
-        os._exit(0)
+        st.stop()
 
     st.title("Stock Dashboard (Stocks DataGrid)")
     st.caption(
@@ -1094,18 +1110,36 @@ def main():
             "No data found for Savori Whse / Lai Hock Whse under the current filters.")
         return
 
-    # 1) 为每个产品构建批次层表（带状态）——使用已读取的 show_depleted / expiry_days
-    expiry_tables_cache: Dict[Tuple[str, str], pd.DataFrame] = {}
-    for key in summary_df["group_key"]:
-        tuple_key = tuple(key) if not isinstance(key, tuple) else key
-        if tuple_key not in expiry_tables_cache:
-            source_df = detail_map.get(tuple_key, pd.DataFrame())
-            expiry_tables_cache[tuple_key] = split_by_expiry(
-                source_df,
-                expiry_days=expiry_days,
-                show_depleted=show_depleted,   # ← 修复点：变量已提前赋值
-                batch_mode=batch_mode,
-            )
+    # ===== 在 summary_df 生成后、使用前：建立 group 索引映射与缓存 =====
+    from functools import lru_cache
+
+    # 基于 filtered（侧栏后的明细）构建与 summary_df 一致的 group_key -> 行索引 映射
+    _tmp = filtered.copy()
+    _tmp["norm_desc"] = build_norm_desc(_tmp)
+    sup = _tmp.get("supplier", pd.Series(dtype="string")).astype("string").fillna("").str.strip()
+    sup = sup.mask(sup.eq(""), "Unknown supplier")
+    prod = _tmp["norm_desc"].astype("string").fillna("").str.strip().replace("", "Unnamed product")
+    if "pack_size" in _tmp.columns:
+        pack_norm_series = _tmp["pack_size"].map(_normalize_pack_size_value)
+    else:
+        pack_norm_series = pd.Series([""] * len(_tmp), index=_tmp.index)
+    _tmp["_pack_size_norm"] = pack_norm_series
+    pack_values = pack_norm_series.tolist()
+    _tmp["__group_key"] = list(zip(sup, prod, pack_values))
+    group_indices = {k: tuple(g.index) for k, g in _tmp.groupby("__group_key", dropna=False)}
+
+    @lru_cache(maxsize=2048)
+    def _cached_split(indices_tuple, expiry_days, show_depleted, batch_mode):
+        # 注意：用 filtered 的行索引切片，避免复制 detail_map 的大块 DataFrame
+        sub = filtered.loc[list(indices_tuple)]
+        return split_by_expiry(sub, expiry_days=expiry_days, show_depleted=show_depleted, batch_mode=batch_mode)
+
+    def _get_expiry_table(group_key_tuple):
+        idx = group_indices.get(group_key_tuple)
+        if not idx:
+            return pd.DataFrame()
+        return _cached_split(idx, expiry_days, show_depleted, batch_mode)
+
 
     # 2) 计算 Low-Stock（产品层，优先 ROP 再全局）
     def _opt_float(val):
@@ -1133,16 +1167,16 @@ def main():
                 summary_df.at[i, "low_stock_reason"] = "Global"
 
     # 3) 由批次层结果得出产品层的 Expired / Near-Expiry
+    # 原：使用 expiry_tables_cache[...] 取表
+# 改为：
     summary_df["has_expired_batch"] = False
     summary_df["has_near_batch"] = False
     for i, r in summary_df.iterrows():
-        tuple_key = tuple(r["group_key"]) if not isinstance(
-            r["group_key"], tuple) else r["group_key"]
-        tbl = expiry_tables_cache.get(tuple_key)
+        tuple_key = tuple(r["group_key"]) if not isinstance(r["group_key"], tuple) else r["group_key"]
+        tbl = _get_expiry_table(tuple_key)
         if tbl is None or tbl.empty:
             continue
-        pos_qty = (tbl["subtotal_ctn"].astype(float) +
-                   tbl["subtotal_pkt"].astype(float)) > 0
+        pos_qty = (tbl["subtotal_ctn"].astype(float) + tbl["subtotal_pkt"].astype(float)) > 0
         if not pos_qty.any():
             continue
         sub = tbl.loc[pos_qty]
@@ -1150,6 +1184,7 @@ def main():
             summary_df.at[i, "has_expired_batch"] = True
         if (sub["status_batch"] == "Near-Expiry").any():
             summary_df.at[i, "has_near_batch"] = True
+
 
     # 4) 计算“多标签”并产出主状态（加入 Depleted）
     summary_df["is_depleted"] = (
@@ -1221,13 +1256,27 @@ def main():
         for tags, reason in zip(summary_df["Status Tags"], summary_df["low_stock_reason"])
     ]
 
-    # 6) 视图过滤（Near-Only / Low-Only / 文本）
+   # 6) 视图过滤（Near-Only / Low-Only / 文本）——基于 Status Tags
     view_df = summary_df.copy()
-    if near_only:
-        view_df = view_df[view_df["status_product"].isin(
-            ["Expired", "Near-Expiry"])]
-    if low_only:
-        view_df = view_df[view_df["status_product"].eq("Low-Stock")]
+
+    def _has_near(tags):
+        return any(t in {"Expired", "Near-Expiry"} for t in (tags or []))
+
+    def _has_low(tags):
+        return "Low-Stock" in (tags or [])
+    
+    near_mask = view_df["Status Tags"].apply(_has_near)
+    low_mask  = view_df["Status Tags"].apply(_has_low)
+
+    if near_only and not low_only:
+        view_df = view_df[near_mask]
+    elif low_only and not near_only:
+        view_df = view_df[low_mask]
+    elif near_only and low_only:
+        # 两个开关都开：取“近效期 或 低库存”的并集
+        view_df = view_df[near_mask | low_mask]
+    # 两个都关：不过滤
+
     if product_query:
         mask = (
             view_df["Product"].str.contains(
@@ -1257,13 +1306,10 @@ def main():
                           ) if not view_df.empty else 0.0
     totals_display = _format_quantity_pair(total_ctn_all, total_pkt_all)
 
-    # Near-Expiry 计数：Tags 含 Expired 或 Near-Expiry 即计入（与视图一致）
-    near_mask = view_df["Status Tags"].apply(lambda tags: any(
-        t in {"Expired", "Near-Expiry"} for t in (tags or [])))
-    near_count = int(near_mask.sum())
+    # 计数：都基于 Tags
+    near_count = int(view_df["Status Tags"].apply(lambda tags: any(t in {"Expired","Near-Expiry"} for t in (tags or []))).sum())
+    low_count  = int(view_df["Status Tags"].apply(lambda tags: "Low-Stock" in (tags or [])).sum())
 
-    # Low-Stock 计数：看主状态是否为 Low-Stock（你也可以用 Tag 口径）
-    low_count = int(view_df["status_product"].eq("Low-Stock").sum())
 
     with metric_holder:
         metric_cols = st.columns([1, 1, 1, 1])
@@ -1273,30 +1319,36 @@ def main():
         metric_cols[2].metric("Near-Expiry", f"{near_count}")
         metric_cols[3].metric("Low-Stock", f"{low_count}")
 
-    # 7) 排序
+        # 在排序前，集中算一次各产品的“最近正库存到期天数”
+    nearest_days_map = {}
+    for k in view_df["group_key"]:
+        key = tuple(k) if not isinstance(k, tuple) else k
+        tbl = _get_expiry_table(key)
+        if tbl is None or tbl.empty:
+            nearest_days_map[key] = 10**9
+            continue
+        pos = (tbl["subtotal_ctn"].astype(float) + tbl["subtotal_pkt"].astype(float)) > 0
+        if not pos.any():
+            nearest_days_map[key] = 10**9
+            continue
+        vals = tbl.loc[pos, "days_to_expiry"].dropna()
+        try:
+            nearest_days_map[key] = int(vals.min()) if not vals.empty else 10**9
+        except Exception:
+            nearest_days_map[key] = 10**9
+
     def _status_rank(s: str) -> int:
         return {"Depleted": 0, "Expired": 1, "Near-Expiry": 2, "Low-Stock": 3, "OK": 4}.get(s, 9)
 
-    def _nearest_pos_days(tuple_key):
-        tbl = expiry_tables_cache.get(tuple_key)
-        if tbl is None or tbl.empty:
-            return 10**9
-        pos = (tbl["subtotal_ctn"].astype(float) +
-               tbl["subtotal_pkt"].astype(float)) > 0
-        if not pos.any():
-            return 10**9
-        sub = tbl.loc[pos]
-        vals = [v for v in sub["days_to_expiry"].tolist() if isinstance(v, int)]
-        return min(vals) if vals else 10**9
-
     view_df["status_priority"] = view_df["status_product"].map(_status_rank)
-    view_df["nearest_days"] = [_nearest_pos_days(
-        tuple(k) if not isinstance(k, tuple) else k) for k in view_df["group_key"]]
+    view_df["nearest_days"] = [nearest_days_map.get(tuple(k) if not isinstance(k, tuple) else k, 10**9)
+                            for k in view_df["group_key"]]
     view_df = view_df.sort_values(
-        by=["status_priority", "nearest_days",
-            "total_ctn", "total_pkt", "Product"],
+        by=["status_priority", "nearest_days", "total_ctn", "total_pkt", "Product"],
         kind="stable",
     ).reset_index(drop=True)
+
+
 
     # 8) 主表渲染与着色
     display_columns = ["Supplier", "Product", "Pack Size",
@@ -1304,6 +1356,17 @@ def main():
     view_df_display = view_df[display_columns].copy()
     view_df_display_clean = _strip_html_df(view_df_display)
     total_idx = list(view_df_display_clean.columns).index("Total")
+
+    def _tag_code(tags):
+        s = set(tags or [])
+        if "Expired" in s and "Low-Stock" in s: return 3
+        if "Near-Expiry" in s and "Low-Stock" in s: return 2
+        if "Expired" in s: return 1
+        if "Near-Expiry" in s: return 4
+        if "Low-Stock" in s: return 5
+        if "Depleted" in s: return 6
+        return 0
+    view_df["__row_code"] = view_df["Status Tags"].apply(_tag_code)
 
     def _style_row(row):
         tags = view_df.loc[row.name, "Status Tags"]
@@ -1341,7 +1404,7 @@ def main():
     for _, row in view_df.iterrows():
         tuple_key = tuple(row["group_key"]) if not isinstance(
             row["group_key"], tuple) else row["group_key"]
-        expiry_table = expiry_tables_cache.get(tuple_key)
+        expiry_table = _get_expiry_table(tuple_key)
         if expiry_table is None or expiry_table.empty:
             continue
         export_block = expiry_table.copy()
@@ -1409,10 +1472,16 @@ def main():
     with pd.ExcelWriter(excel_buffer) as writer:
         export_summary_clean = _strip_html_df(export_summary)
         expiry_export_clean = _strip_html_df(expiry_export_df)
-        export_summary_clean.to_excel(
-            writer, sheet_name="Summary", index=False)
-        expiry_export_clean.to_excel(
-            writer, sheet_name="Expiry Breakdown", index=False)
+        export_summary_clean.to_excel(writer, sheet_name="Summary", index=False)
+        expiry_export_clean.to_excel(writer, sheet_name="Expiry Breakdown", index=False)
+
+        # ==== 新增：写入 Filters 元数据（可复盘筛选条件） ====
+        meta_rows = []
+        for k, v in (filter_state or {}).items():
+            meta_rows.append({"key": str(k), "value": str(v)})
+        meta_df = pd.DataFrame(meta_rows, columns=["key", "value"])
+        meta_df.to_excel(writer, sheet_name="Filters", index=False)
+
 
     excel_buffer.seek(0)
     download_cols[1].download_button(
@@ -1425,7 +1494,7 @@ def main():
     for _, row in view_df.iterrows():
         tuple_key = tuple(row["group_key"]) if not isinstance(
             row["group_key"], tuple) else row["group_key"]
-        expiry_table = expiry_tables_cache.get(tuple_key)
+        expiry_table = _get_expiry_table(tuple_key)
         title = f"{row['Supplier']} | {row['Product']}"
         with st.expander(title, expanded=False):
             st.caption(f"Product Code: {row['Product Code']}")

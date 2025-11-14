@@ -97,8 +97,8 @@ ITEM_ALIAS = {
     "jalapenos nachos sliced":                      "Jalapeno Pepper Sliced (6 x 2.95kg)",
     "parsley flakes":                               "Parsley Leaves (6 x 5gm)",
     "toasted coconut flakes":                       "Toasted Coconut Flakes (36 x 200g)",
-    "red sauce":                                    "Red Sauce (10 x 1kg)",
-    "sriracha mayo":                                "J-Lek Sriracha Hot Chilli Sauce (12 x 455ml)",
+    "red wine sauce":                                    "Red Sauce (10 x 1kg)",
+    "j-lek sriracha sauce":                                "J-Lek Sriracha Hot Chilli Sauce (12 x 455ml)",
 }
 
 # ========================================================================== #
