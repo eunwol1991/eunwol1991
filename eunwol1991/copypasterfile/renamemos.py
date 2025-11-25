@@ -73,24 +73,29 @@ def update_excel_files(
                 # 逐格扫描
                 for row in sheet.iter_rows():
                     for cell in row:
-                        cell_value = str(cell.value).strip().lower() if cell.value is not None else ""
+                        cell_value = str(cell.value).strip(
+                        ).lower() if cell.value is not None else ""
                         if find_kw and find_kw in cell_value:
                             row_number = cell.row
 
                             # 价格公式：将 {row} 替换为行号
-                            price_formula = (price_formula_template or "").replace("{row}", str(row_number))
+                            price_formula = (price_formula_template or "").replace(
+                                "{row}", str(row_number))
 
                             if debug:
-                                log_func(f"🔍 匹配到 {find_kw} → Sheet: {sheet_name}, Row: {row_number}")
+                                log_func(
+                                    f"🔍 匹配到 {find_kw} → Sheet: {sheet_name}, Row: {row_number}")
 
                             if sheet_name == "DO":
                                 sheet[f"B{row_number}"].value = product_code
                                 sheet[f"C{row_number}"].value = product_description
-                                sheet[f"H{row_number}"].value = pack_size
+                                sheet[f"G{row_number}"].value = pack_size
+                                # sheet[f"H{row_number}"].value = None
                                 sheet[f"I{row_number}"].value = qty
                                 sheet[f"K{row_number}"].value = uom
                                 if debug:
-                                    log_func(f"✅ DO 修改: B{row_number}, C{row_number}, H{row_number}, I{row_number}, K{row_number}")
+                                    log_func(
+                                        f"✅ DO 修改: B{row_number}, C{row_number}, H{row_number}, I{row_number}, K{row_number}")
 
                             elif sheet_name == "Invoice":
                                 sheet[f"B{row_number}"].value = product_code
@@ -100,7 +105,8 @@ def update_excel_files(
                                 sheet[f"H{row_number}"].value = uom
                                 sheet[f"I{row_number}"].value = price_formula if price_formula else None
                                 if debug:
-                                    log_func(f"✅ Invoice 修改: B{row_number}, C{row_number}, F{row_number}, G{row_number}, H{row_number}, I{row_number}")
+                                    log_func(
+                                        f"✅ Invoice 修改: B{row_number}, C{row_number}, F{row_number}, G{row_number}, H{row_number}, I{row_number}")
 
                             modified = True
                             # 不跳出，继续处理所有匹配
@@ -142,8 +148,10 @@ class App(tk.Tk):
         frm_top.pack(fill=tk.X)
         ttk.Label(frm_top, text="根目录：").pack(side=tk.LEFT)
         self.dir_var = tk.StringVar()
-        ttk.Entry(frm_top, textvariable=self.dir_var, width=80).pack(side=tk.LEFT, padx=6)
-        ttk.Button(frm_top, text="浏览…", command=self.choose_dir).pack(side=tk.LEFT)
+        ttk.Entry(frm_top, textvariable=self.dir_var,
+                  width=80).pack(side=tk.LEFT, padx=6)
+        ttk.Button(frm_top, text="浏览…",
+                   command=self.choose_dir).pack(side=tk.LEFT)
 
         # 参数区
         frm_cfg = ttk.LabelFrame(self, text="参数设置", padding=10)
@@ -160,15 +168,20 @@ class App(tk.Tk):
         self.process_invoice_var = tk.BooleanVar(value=True)
 
         ttk.Label(left, text="文件名包含（忽略大小写）：").grid(row=0, column=0, sticky="w")
-        ttk.Entry(left, textvariable=self.filename_substring_var, width=30).grid(row=0, column=1, padx=6, pady=2, sticky="w")
+        ttk.Entry(left, textvariable=self.filename_substring_var, width=30).grid(
+            row=0, column=1, padx=6, pady=2, sticky="w")
 
         ttk.Label(left, text="查找关键字（忽略大小写）：").grid(row=1, column=0, sticky="w")
-        ttk.Entry(left, textvariable=self.find_keyword_var, width=30).grid(row=1, column=1, padx=6, pady=2, sticky="w")
+        ttk.Entry(left, textvariable=self.find_keyword_var, width=30).grid(
+            row=1, column=1, padx=6, pady=2, sticky="w")
 
-        ttk.Checkbutton(left, text="处理 DO 表", variable=self.process_do_var).grid(row=2, column=0, sticky="w", pady=2)
-        ttk.Checkbutton(left, text="处理 Invoice 表", variable=self.process_invoice_var).grid(row=2, column=1, sticky="w", pady=2)
+        ttk.Checkbutton(left, text="处理 DO 表", variable=self.process_do_var).grid(
+            row=2, column=0, sticky="w", pady=2)
+        ttk.Checkbutton(left, text="处理 Invoice 表", variable=self.process_invoice_var).grid(
+            row=2, column=1, sticky="w", pady=2)
 
-        ttk.Checkbutton(left, text="Debug 日志", variable=self.debug_var).grid(row=3, column=0, sticky="w", pady=2)
+        ttk.Checkbutton(left, text="Debug 日志", variable=self.debug_var).grid(
+            row=3, column=0, sticky="w", pady=2)
 
         # 右列：替换内容
         right = ttk.LabelFrame(frm_cfg, text="替换内容", padding=10)
@@ -183,23 +196,37 @@ class App(tk.Tk):
 
         r = 0
         ttk.Label(right, text="产品代码：").grid(row=r, column=0, sticky="e")
-        ttk.Entry(right, textvariable=self.product_code_var, width=28).grid(row=r, column=1, padx=6, pady=2, sticky="w"); r += 1
+        ttk.Entry(right, textvariable=self.product_code_var, width=28).grid(
+            row=r, column=1, padx=6, pady=2, sticky="w")
+        r += 1
 
         ttk.Label(right, text="产品描述：").grid(row=r, column=0, sticky="e")
-        ttk.Entry(right, textvariable=self.product_desc_var, width=28).grid(row=r, column=1, padx=6, pady=2, sticky="w"); r += 1
+        ttk.Entry(right, textvariable=self.product_desc_var, width=28).grid(
+            row=r, column=1, padx=6, pady=2, sticky="w")
+        r += 1
 
-        ttk.Label(right, text="规格（Pack Size）：").grid(row=r, column=0, sticky="e")
-        ttk.Entry(right, textvariable=self.pack_size_var, width=28).grid(row=r, column=1, padx=6, pady=2, sticky="w"); r += 1
+        ttk.Label(right, text="规格（Pack Size）：").grid(
+            row=r, column=0, sticky="e")
+        ttk.Entry(right, textvariable=self.pack_size_var, width=28).grid(
+            row=r, column=1, padx=6, pady=2, sticky="w")
+        r += 1
 
         ttk.Label(right, text="数量（Qty）：").grid(row=r, column=0, sticky="e")
-        ttk.Entry(right, textvariable=self.qty_var, width=28).grid(row=r, column=1, padx=6, pady=2, sticky="w"); r += 1
+        ttk.Entry(right, textvariable=self.qty_var, width=28).grid(
+            row=r, column=1, padx=6, pady=2, sticky="w")
+        r += 1
 
         ttk.Label(right, text="单位（UOM）：").grid(row=r, column=0, sticky="e")
-        ttk.Entry(right, textvariable=self.uom_var, width=28).grid(row=r, column=1, padx=6, pady=2, sticky="w"); r += 1
+        ttk.Entry(right, textvariable=self.uom_var, width=28).grid(
+            row=r, column=1, padx=6, pady=2, sticky="w")
+        r += 1
 
         ttk.Label(right, text="单价公式模板：").grid(row=r, column=0, sticky="e")
-        ttk.Entry(right, textvariable=self.price_tmpl_var, width=28).grid(row=r, column=1, padx=6, pady=2, sticky="w")
-        ttk.Label(right, text="例如：=3.8*G{row}，{row} 将被替换为行号").grid(row=r, column=2, sticky="w"); r += 1
+        ttk.Entry(right, textvariable=self.price_tmpl_var, width=28).grid(
+            row=r, column=1, padx=6, pady=2, sticky="w")
+        ttk.Label(
+            right, text="例如：=3.8*G{row}，{row} 将被替换为行号").grid(row=r, column=2, sticky="w")
+        r += 1
 
         # 操作区
         frm_ops = ttk.Frame(self, padding=10)

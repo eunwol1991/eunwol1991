@@ -83,17 +83,29 @@ def find_pdfs_by_ids(root_dir: str, ids, kind: str):
     pdfs = []
     all_pdfs = []
 
+    # 新增：预编译匹配 INV / DO 的正则，只匹配“独立单词”
+    inv_pattern = re.compile(r"\binv\b", re.IGNORECASE)
+    do_pattern = re.compile(r"\bdo\b", re.IGNORECASE)
+
     # 收集候选 PDF
     for dirpath, _, files in os.walk(root_dir):
         for f in files:
             if not f.lower().endswith(".pdf"):
                 continue
+
+            lname = f.lower()
+
+            # 这里是关键修改：
+            if kind == "INV" and not inv_pattern.search(lname):
+                # 只接受文件名里出现独立单词 inv 的，例如：
+                #   "MOS 1125 - 115 - INV (Compass One).pdf" ✅
+                #   "MOS Invoice #051 - 114(Except ...).pdf" ❌（不会再被算进来）
+                continue
+            if kind == "DO" and not do_pattern.search(lname):
+                # 同理，只接受独立单词 do
+                continue
+
             path = os.path.join(dirpath, f)
-            name = f.lower()
-            if kind == "INV" and "inv" not in name:
-                continue
-            if kind == "DO" and "do" not in name:
-                continue
             all_pdfs.append(path)
 
     for (n, sfx) in ids:
@@ -101,7 +113,6 @@ def find_pdfs_by_ids(root_dir: str, ids, kind: str):
         found = None
 
         if sfx:
-            # 明确后缀
             patterns = [
                 rf"(?<!\d){n3}\s*[-_ ]\s*{sfx}(?![A-Za-z0-9])",
                 rf"(?<!\d){n}\s*[-_ ]\s*{sfx}(?![A-Za-z0-9])",
@@ -109,10 +120,9 @@ def find_pdfs_by_ids(root_dir: str, ids, kind: str):
                 rf"(?<!\d){n}{sfx}(?![A-Za-z0-9])",
             ]
         else:
-            # 不带后缀：允许纯数字或任意后缀
             patterns = [
-                rf"(?<!\d){n3}(?!\d)(?:\s*[-_ ]\s*[A-Za-z])?",
-                rf"(?<!\d){n}(?!\d)(?:\s*[-_ ]\s*[A-Za-z])?",
+                rf"(?<!\d){n3}(?![A-Za-z0-9])(?:\s*[-_ ]\s*[A-Za-z])?",
+                rf"(?<!\d){n}(?![A-Za-z0-9])(?:\s*[-_ ]\s*[A-Za-z])?",
             ]
 
         for p in all_pdfs:
@@ -124,6 +134,7 @@ def find_pdfs_by_ids(root_dir: str, ids, kind: str):
         pdfs.append(((n, sfx), found if found else None))
 
     return pdfs
+
 
 # ------------------------
 # 合并 PDF（按给定顺序）

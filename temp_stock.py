@@ -1,15 +1,9 @@
-﻿from typing import Any, Optional, Tuple, List, Dict
-import datetime
-import math
-import pandas as pd
-import re
+﻿import re
 import os
 import sys
 import io
-import calendar
 import streamlit as st
 
-st.set_page_config(page_title='Warehouse Suite', layout='wide')
 
 # 如果直接 python stock_datagrid.py 启动，则切换到 streamlit 运行（兼容 Windows 路径空格）
 try:
@@ -48,6 +42,11 @@ if __name__ == "__main__" and os.environ.get("ST_REDIRECTED", "0") != "1" and (g
     subprocess.run(cmd, check=False)
     sys.exit(0)
 
+import streamlit as st
+import pandas as pd
+import math
+import datetime
+from typing import Optional, Tuple, List, Dict
 
 PRIMARY_WAREHOUSES = ["Savori Whse", "Lai Hock Whse"]
 
@@ -78,6 +77,7 @@ def _format_pack_size_label(normalized: str) -> str:
 
 
 def _canonical_unit(u: Optional[str]) -> str:
+    """把单位同义词规整为统一小写键。"""
     if u is None:
         return ""
     s = str(u).strip().lower()
@@ -99,6 +99,7 @@ def _canonical_unit(u: Optional[str]) -> str:
 
 
 def _format_qty_number(value: Optional[float]) -> Optional[str]:
+    """将数字格式化为紧凑字符串，不带无意义 0。"""
     if value is None or pd.isna(value):
         return None
     try:
@@ -114,6 +115,7 @@ def _format_qty_number(value: Optional[float]) -> Optional[str]:
 
 
 def _format_quantity_pair(ctn: Optional[float], pkt: Optional[float]) -> str:
+    """格式：'3 ctns 2 pkts'；为 0 的单位省略。"""
     parts: List[str] = []
     if ctn is not None and not pd.isna(ctn):
         ctn_val = float(ctn)
@@ -135,6 +137,7 @@ def _format_quantity_pair(ctn: Optional[float], pkt: Optional[float]) -> str:
 
 
 def _strip_html_df(df: pd.DataFrame) -> pd.DataFrame:
+    """移除 DataFrame 所有 object 列中的 HTML 标签（向量化 + 预编译）。"""
     clean = df.copy()
     for col in clean.select_dtypes(include="object").columns:
         clean[col] = clean[col].astype(str).str.replace(
@@ -142,240 +145,8 @@ def _strip_html_df(df: pd.DataFrame) -> pd.DataFrame:
     return clean
 
 
-MONTH_MAP: Dict[str, int] = {}
-for index, name in enumerate(calendar.month_name):
-    if name:
-        MONTH_MAP[name.lower()] = index
-for index, abbr in enumerate(calendar.month_abbr):
-    if abbr:
-        MONTH_MAP[abbr.lower()] = index
-
-
-def _month_sort_key(value) -> int:
-    if pd.isna(value):
-        return 999
-    text = str(value).strip()
-    if not text:
-        return 999
-    if text.isdigit():
-        num = int(text)
-        if 1 <= num <= 12:
-            return num
-    lower = text.lower()
-    if lower in MONTH_MAP:
-        return MONTH_MAP[lower]
-    if lower[:3] in MONTH_MAP:
-        return MONTH_MAP[lower[:3]]
-    return 999
-
-
-def _format_month_label(value: Any) -> str:
-    if pd.isna(value):
-        return ""
-    text = str(value).strip()
-    if not text:
-        return ""
-    if text.isdigit():
-        num = int(text)
-        if 1 <= num <= 12:
-            return calendar.month_abbr[num]
-    lower = text.lower()
-    if lower in MONTH_MAP:
-        num = MONTH_MAP[lower]
-        return calendar.month_abbr[num] if num else text
-    if lower[:3] in MONTH_MAP:
-        num = MONTH_MAP[lower[:3]]
-        return calendar.month_abbr[num] if num else text
-    return text
-
-
-def _format_qty_display(value) -> str:
-    if pd.isna(value):
-        return ""
-    try:
-        num = float(value)
-    except (TypeError, ValueError):
-        return str(value)
-    if math.isclose(num, round(num), rel_tol=1e-9, abs_tol=1e-9):
-        return f"{int(round(num)):,}"
-    formatted = f"{num:,.2f}".rstrip("0").rstrip(".")
-    return formatted
-
-
-def _format_price_display(value) -> str:
-    if pd.isna(value):
-        return ""
-    try:
-        num = float(value)
-    except (TypeError, ValueError):
-        return str(value)
-    if math.isclose(num, 0.0, abs_tol=1e-9):
-        return "0.00"
-    return f"{num:,.2f}"
-
-
-SALES_COLUMNS = [
-    "Year",
-    "Date",
-    "Month",
-    "Brand/Category",
-    "Supplier",
-    "Product Code",
-    "Product Description",
-    "Carton Packing",
-    "Customer",
-    "Outlet",
-    "Qty in Pcs",
-    "Qty in Ctns",
-    "Total Qty in Pcs",
-    "Total Qty in Ctns",
-    "Invoice #",
-    "Total Value",
-    "GST",
-    "Total Value Inclusive GST",
-    "Account",
-    "Customer PO#",
-    "Remarks",
-]
-
-SALES_NUMERIC_COLUMNS = [
-    "Qty in Pcs",
-    "Qty in Ctns",
-    "Total Value",
-    "GST",
-    "Total Value Inclusive GST",
-]
-
-SALES_DATE_COLUMNS = ["Date"]
-
-
-def _safe_divide_series(numerator, denominator) -> pd.Series:
-    numerator = pd.to_numeric(numerator, errors="coerce")
-    denominator = pd.to_numeric(denominator, errors="coerce")
-    result = numerator / denominator
-    mask = denominator.isna() | (denominator == 0)
-    return result.where(~mask, other=pd.NA)
-
-
-def _highlight_missing_cell(value) -> str:
-    if isinstance(value, str):
-        if not value.strip():
-            return "background-color: rgba(255, 235, 205, 0.6);"
-    if pd.isna(value):
-        return "background-color: rgba(255, 235, 205, 0.6);"
-    return ""
-
-
-_WEIGHT_UNIT_PATTERN = re.compile(
-    r"\d+(?:\.\d+)?\s*(?:kg|kgs|g|grams?|gm|lt|ltr|l|ml|milliliter|millilitre|liter|litre|oz|lb|lbs)\b"
-)
-
-
-def _parse_carton_packing_numeric(value) -> Optional[float]:
-    if pd.isna(value):
-        return None
-    text = str(value).strip()
-    if not text:
-        return None
-    lowered = text.lower()
-
-    match = re.search(r"(\d+)\s*[x×]", lowered)
-    if not match:
-        match = re.search(
-            r"(\d+)(?=\s*(?:kg|g|ltr|lt|l|ml|litre|litres|liter|liters))",
-            lowered,
-        )
-    if not match:
-        match = re.search(r"(\d+)", lowered)
-    if not match:
-        return None
-    try:
-        return float(match.group(1))
-    except ValueError:
-        return None
-
-
-def _infer_carton_pack_size(value) -> Optional[float]:
-    if pd.isna(value):
-        return None
-    text = str(value).strip()
-    if not text:
-        return None
-    lowered = text.lower()
-    segments = [seg.strip()
-                for seg in re.split(r"[x×*]", lowered) if seg.strip()]
-
-    numeric_segments: List[Tuple[float, bool]] = []
-    for seg in segments:
-        match = re.search(r"(\d+(?:\.\d+)?)", seg)
-        if not match:
-            continue
-        try:
-            number_value = float(match.group(1))
-        except ValueError:
-            continue
-        is_weight = bool(_WEIGHT_UNIT_PATTERN.search(seg))
-        numeric_segments.append((number_value, is_weight))
-
-    non_weight_numbers = [
-        number for number, is_weight in numeric_segments
-        if not is_weight and number > 0
-    ]
-    if non_weight_numbers:
-        product = 1.0
-        for number in non_weight_numbers:
-            product *= number
-        return product
-    if numeric_segments:
-        first_value, first_is_weight = numeric_segments[0]
-        if first_is_weight:
-            return 1.0
-        if first_value > 0:
-            return first_value
-    return None
-
-
-def _format_total_qty_text(total_pieces: float, carton_size: Optional[float]) -> str:
-    if carton_size is None or carton_size <= 0 or pd.isna(total_pieces):
-        return "-"
-    try:
-        pieces = int(round(total_pieces))
-    except (TypeError, ValueError):
-        return "-"
-    if pieces == 0:
-        return "0"
-    cartons = pieces // int(carton_size)
-    packets = pieces - cartons * int(carton_size)
-    parts: List[str] = []
-    if cartons > 0:
-        parts.append(f"{cartons} ctn{'s' if cartons != 1 else ''}")
-    if packets > 0:
-        parts.append(f"{packets} pkt{'s' if packets != 1 else ''}")
-    return " ".join(parts) if parts else "0"
-
-
-def _coerce_qty_int(value) -> int:
-    if value is None or pd.isna(value):
-        return 0
-    try:
-        return int(round(float(value)))
-    except (TypeError, ValueError):
-        return 0
-
-
-def _format_summary_total_qty(ctn_value, pkt_value, pack_size_value) -> str:
-    cartons = _coerce_qty_int(ctn_value)
-    packets = _coerce_qty_int(pkt_value)
-    pack_size = _coerce_qty_int(pack_size_value)
-    if pack_size > 0:
-        total_packets = cartons * pack_size + packets
-        formatted = _format_total_qty_text(total_packets, pack_size)
-        if formatted and formatted != "-":
-            return formatted
-    return f"{cartons} ctns {packets} pkts"
-
-
 def build_norm_desc(df: pd.DataFrame) -> pd.Series:
+    """沿用“去括号后”口径，优先 description(去括号) → product_code → 原 description → 'Unnamed product'。"""
     if df is None or df.empty:
         return pd.Series(dtype="string", name="norm_desc")
 
@@ -405,6 +176,7 @@ def build_norm_desc(df: pd.DataFrame) -> pd.Series:
 
 
 def _extract_reorder_points(df_group: pd.DataFrame) -> Dict[str, Optional[float]]:
+    """从数据中抽取每商品的 ROP（如有），返回 {'ctn': float|None, 'pkt': float|None}。"""
     result: Dict[str, Optional[float]] = {"ctn": None, "pkt": None}
     if df_group is None or df_group.empty:
         return result
@@ -436,10 +208,10 @@ def _extract_reorder_points(df_group: pd.DataFrame) -> Dict[str, Optional[float]
 def aggregate_summary(
     df: pd.DataFrame,
     warehouses: Optional[List[str]] = None,
-) -> Tuple[pd.DataFrame, Dict[Tuple[str, str, str, str], pd.DataFrame]]:
+) -> Tuple[pd.DataFrame, Dict[Tuple[str, str, str], pd.DataFrame]]:
     warehouses = warehouses or PRIMARY_WAREHOUSES
     columns = [
-        "Supplier", "Brand", "Product", "Pack Size", "Product Code",
+        "Supplier", "Product", "Pack Size", "Product Code",
         "savori_ctn", "savori_pkt", "lai_hock_ctn", "lai_hock_pkt",
         "total_ctn", "total_pkt",
         "reorder_point_ctn", "reorder_point_pkt",
@@ -473,38 +245,30 @@ def aggregate_summary(
             _normalize_pack_size_value)
     else:
         work["_pack_size_norm"] = ""
-    if "brand" in work.columns:
-        work["_brand_norm"] = (
-            work["brand"].astype("string").fillna("").str.strip()
-        )
-    else:
-        work["_brand_norm"] = ""
 
     rows = []
-    detail_map: Dict[Tuple[str, str, str, str], pd.DataFrame] = {}
+    detail_map: Dict[Tuple[str, str, str], pd.DataFrame] = {}
 
-    for key, grp in work.groupby(["supplier", "_brand_norm", "norm_desc", "_pack_size_norm"], dropna=False):
+    for key, grp in work.groupby(["supplier", "norm_desc", "_pack_size_norm"], dropna=False):
         if not isinstance(key, tuple):
             key = (key,)
         supplier_val = key[0]
-        brand_val = key[1] if len(key) > 1 else ""
-        norm_desc_val = key[2] if len(key) > 2 else ""
+        norm_desc_val = key[1] if len(key) > 1 else ""
         supplier_name = str(supplier_val).strip() if pd.notna(
             supplier_val) and str(supplier_val).strip() else "Unknown supplier"
         product_label = str(norm_desc_val).strip() if pd.notna(
             norm_desc_val) and str(norm_desc_val).strip() else "Unnamed product"
-        raw_pack_val = key[3] if len(key) > 3 else ""
+        raw_pack_val = key[2] if len(key) > 2 else ""
         pack_norm_val = _normalize_pack_size_value(raw_pack_val)
         pack_size_label = _format_pack_size_label(pack_norm_val)
-        brand_text = str(brand_val).strip() if pd.notna(
-            brand_val) and str(brand_val).strip() else ""
-        brand_label = brand_text if brand_text else "Unknown brand"
-        group_key = (supplier_name, brand_label, product_label, pack_norm_val)
+        group_key = (supplier_name, product_label, pack_norm_val)
         detail_map[group_key] = grp.copy()
 
+        # 组合 Product Code
         codes = sorted({c for c in grp["_product_code_norm"].tolist() if c})
         product_code_label = " / ".join(codes) if codes else "-"
 
+        # 两仓分量
         wh_totals = {wh: {"ctn": 0.0, "pkt": 0.0} for wh in warehouses}
         wh_unit = grp.groupby(["_warehouse_norm", "_unit_norm"], dropna=False)[
             "_qty"].sum().reset_index()
@@ -524,7 +288,6 @@ def aggregate_summary(
 
         rows.append({
             "Supplier": supplier_name,
-            "Brand": brand_label,
             "Product": product_label,
             "Pack Size": pack_size_label,
             "Product Code": product_code_label,
@@ -546,6 +309,14 @@ def aggregate_summary(
 # ----------------------------- 判定规则（批次层/产品层） -----------------------------
 
 def classify_batch_status(expiry_date: Optional[datetime.date], ctn: float, pkt: float, expiry_days: int):
+    """
+    批次层唯一判定来源：
+    - 数量>0 且 days<0 => Expired
+    - 数量>0 且 0<=days<=expiry_days => Near-Expiry
+    - 数量==0 => Depleted
+    - 否则 OK
+    返回: (status_batch:str, days_to_expiry:int|None)
+    """
     total = (ctn or 0.0) + (pkt or 0.0)
     if not isinstance(expiry_date, datetime.date):
         return ("Depleted" if total == 0 else "OK", None)
@@ -561,6 +332,7 @@ def classify_batch_status(expiry_date: Optional[datetime.date], ctn: float, pkt:
 
 
 def classify_product_status(has_expired: bool, has_near: bool, is_low_stock: bool) -> str:
+    """产品层状态优先级：Expired > Near-Expiry > Low-Stock > OK"""
     if has_expired:
         return "Expired"
     if has_near:
@@ -576,8 +348,15 @@ def split_by_expiry(
     *,
     expiry_days: int = 30,
     show_depleted: bool = True,
-    batch_mode: str = "expiry",
+    batch_mode: str = "expiry",   # "expiry" | "remark" | "both"
 ) -> pd.DataFrame:
+    """
+    返回某产品的批次分布，并给出批次层判定
+    batch_mode:
+      - "expiry": 仅按到期日分组（旧行为）
+      - "remark": 仅按 remark（来自 description 的括号）分组
+      - "both":   到期 × remark 同时分组
+    """
     warehouses = warehouses or PRIMARY_WAREHOUSES
     columns = [
         "Expiry", "Remark", "Savori Whse", "Lai Hock Whse", "Subtotal",
@@ -601,6 +380,7 @@ def split_by_expiry(
     work["_qty"] = pd.to_numeric(
         work.get("stock_qty", pd.Series(dtype=float)), errors="coerce").fillna(0.0)
 
+    # 归一 Expiry
     work["_expiry_norm"] = pd.to_datetime(
         work.get("expiry_date"), errors="coerce", format="mixed")
     work["_expiry_label"] = work["_expiry_norm"].apply(
@@ -608,6 +388,7 @@ def split_by_expiry(
     work["_expiry_sort_key"] = work["_expiry_norm"].apply(
         lambda x: x.date() if pd.notna(x) else datetime.date.max)
 
+    # 归一 Remark
     def _extract_remark(s: str) -> str:
         lst = re.findall(r"\(([^)]*)\)", str(s) or "")
         vals = [t.strip() for t in lst if t and t.strip()]
@@ -616,6 +397,7 @@ def split_by_expiry(
     work["_remark_label"] = work.get(
         "description", pd.Series(dtype="string")).apply(_extract_remark)
 
+    # 选择分组键
     if batch_mode == "remark":
         group_keys = ["_remark_label"]
     elif batch_mode == "both":
@@ -700,6 +482,10 @@ def split_by_expiry(
 # ----------------------------- 侧边栏筛选 -----------------------------
 
 def apply_filters_v2(df: pd.DataFrame):
+    """
+    Excel 式多维筛选，维度：Warehouse → Supplier → Brand → Description(去括号) → Product Code → Remark(括号内)。
+    返回：筛选后的 DataFrame、所选 Description 列表、(占位)到期高亮天数、当前筛选状态。
+    """
     base = df.copy()
 
     def get_desc_base(series: pd.Series) -> pd.Series:
@@ -736,16 +522,19 @@ def apply_filters_v2(df: pd.DataFrame):
     def apply_all(df_in: pd.DataFrame, exclude: str = "") -> pd.DataFrame:
         d = df_in
 
+        # ---------- include-only 小工具 ----------
         def _include(series: pd.Series, selected: list):
             if not selected:
                 return pd.Series(True, index=series.index)
             return series.isin(selected)
 
+        # ---------- Warehouse（include-only） ----------
         if exclude != "warehouse" and "warehouse" in d.columns:
             sel = list(ss.get("f_wh", []))
             if sel:
                 d = d[_include(d["warehouse"], sel)]
 
+        # ---------- Supplier（支持 exclude） ----------
         if exclude != "supplier" and "supplier" in d.columns:
             sel = list(ss.get("f_sup", []))
             exm = bool(ss.get("f_sup_ex", False))
@@ -753,11 +542,13 @@ def apply_filters_v2(df: pd.DataFrame):
                 m = d["supplier"].isin(sel)
                 d = d[~m] if exm else d[m]
 
+        # ---------- Brand（include-only） ----------
         if exclude != "brand" and "brand" in d.columns:
             sel = list(ss.get("f_brand", []))
             if sel:
                 d = d[_include(d["brand"], sel)]
 
+        # ---------- Description（include-only；用去括号基准） ----------
         if exclude != "desc" and "description" in d.columns:
             base_ser = get_desc_base(d["description"])
             sel = list(ss.get("f_desc", []))
@@ -765,11 +556,13 @@ def apply_filters_v2(df: pd.DataFrame):
                 m = base_ser.isin(sel)
                 d = d[m]
 
+        # ---------- Product Code（include-only） ----------
         if exclude != "code" and "product_code" in d.columns:
             sel = list(ss.get("f_code", []))
             if sel:
                 d = d[_include(d["product_code"], sel)]
 
+        # ---------- Remark（支持 exclude） ----------
         if exclude != "remark" and "description" in d.columns:
             sel = list(ss.get("f_remark", []))
             exm = bool(ss.get("f_remark_ex", False))
@@ -782,9 +575,11 @@ def apply_filters_v2(df: pd.DataFrame):
 
         return d
 
+    # --- 侧边栏 ---
     with st.sidebar:
         st.header("筛选条件")
 
+        # ---------- 在渲染“仓库”控件之前，先根据“非仓库条件”计算签名 ----------
         sig_wo_wh = (
             tuple(ss.get("f_sup", [])),
             tuple(ss.get("f_brand", [])),
@@ -798,6 +593,7 @@ def apply_filters_v2(df: pd.DataFrame):
         prev_sig = ss.get("__sig_wo_wh")
         sig_changed = (sig_wo_wh != prev_sig)
 
+        # ---------- Warehouse（包含自动复位逻辑） ----------
         if "warehouse" in base.columns:
             d = apply_all(base, exclude="warehouse")
             wh_options = [x for x in d["warehouse"].dropna().astype(
@@ -808,11 +604,13 @@ def apply_filters_v2(df: pd.DataFrame):
             default_selection = [w for w in [
                 "Savori Whse", "Lai Hock Whse"] if w in ordered] or list(ordered)
 
+           # 渲染前：先把 session_state["f_wh"] 准备好
             cur = [w for w in ss.get("f_wh", []) if w in ordered]
             need_reset = sig_changed or (not cur and bool(ordered))
             ss["f_wh"] = list(default_selection) if need_reset else (
                 cur or list(default_selection))
 
+            # 渲染控件：不要再传 default
             st.multiselect(
                 "仓库",
                 options=ordered,
@@ -820,8 +618,10 @@ def apply_filters_v2(df: pd.DataFrame):
                 placeholder="选择一个或多个仓库",
             )
 
+            # 更新签名（放在控件之后）
             ss["__sig_wo_wh"] = sig_wo_wh
 
+        # Supplier
         if "supplier" in base.columns:
             d = apply_all(base, exclude="supplier")
             sup_options = sorted(
@@ -829,10 +629,12 @@ def apply_filters_v2(df: pd.DataFrame):
             _ensure_multiselect_key("f_sup", sup_options, [])
             st.multiselect("Supplier", sup_options,
                            key="f_sup", placeholder="选择供应商")
+            # ↓ 新增：Supplier 的排除模式开关
             st.checkbox("Exclude selected (Supplier)",
                         key="f_sup_ex", value=False)
             sel_sup = list(ss.get("f_sup", []))
 
+        # Brand
         if "brand" in base.columns:
             d = apply_all(base, exclude="brand")
             brand_options = sorted(
@@ -842,6 +644,7 @@ def apply_filters_v2(df: pd.DataFrame):
                            key="f_brand", placeholder="选择品牌")
             sel_brand = list(ss.get("f_brand", []))
 
+        # Description（去括号后）
         if "description" in base.columns:
             d = apply_all(base, exclude="desc")
             base_ser = get_desc_base(
@@ -853,6 +656,7 @@ def apply_filters_v2(df: pd.DataFrame):
                            key="f_desc", placeholder="选择描述")
             sel_desc = list(ss.get("f_desc", []))
 
+        # Product Code
         if "product_code" in base.columns:
             d = apply_all(base, exclude="code")
             code_options = sorted(
@@ -862,6 +666,7 @@ def apply_filters_v2(df: pd.DataFrame):
                            key="f_code", placeholder="选择产品编码")
             sel_code = list(ss.get("f_code", []))
 
+        # Remark（来自括号）
         if "description" in base.columns:
             d = apply_all(base, exclude="remark")
             remark_options = extract_remarks(
@@ -873,8 +678,9 @@ def apply_filters_v2(df: pd.DataFrame):
                         key="f_remark_ex", value=False)
             sel_remark = list(ss.get("f_remark", []))
 
+        # 日期范围筛选（可选）
         use_date_filters = st.checkbox("启用日期范围筛选", value=False)
-        st.session_state["use_date_filters"] = use_date_filters
+        st.session_state["use_date_filters"] = use_date_filters  # ← 新增
         start = end = None
         r_start = r_end = None
 
@@ -911,6 +717,7 @@ def apply_filters_v2(df: pd.DataFrame):
                                   min_value=min_r.date(), max_value=max_r.date())
                     r_start, r_end = st.session_state.get("relabel_date_range")
 
+    # 应用筛选
     work = apply_all(base)
     if use_date_filters and "expiry_date" in work.columns and start and end:
         mask_exp = work["expiry_date"].notna() & (
@@ -932,6 +739,7 @@ def apply_filters_v2(df: pd.DataFrame):
         "expiry_range": (start, end) if use_date_filters else None,
         "relabel_range": (r_start, r_end) if use_date_filters else None,
     }
+    # 这里不再从侧栏提供 due_days；返回一个占位值，主流程用 Summary Bar 的值
     return work, sel_desc, st.session_state.get("summary_expiry_days", 30), selections
 
 
@@ -939,6 +747,7 @@ def apply_filters_v2(df: pd.DataFrame):
 
 @st.cache_data(show_spinner=False)
 def _find_sheet_name(file, desired: str) -> Optional[str]:
+    """在工作簿中查找最匹配的工作表名，优先精确匹配，其次忽略大小写/空格。"""
     try:
         xls = pd.ExcelFile(file, engine="openpyxl")
     except Exception:
@@ -958,6 +767,7 @@ def _find_sheet_name(file, desired: str) -> Optional[str]:
 
 
 def _normalize_stocks_report(df: pd.DataFrame) -> Tuple[pd.DataFrame, Optional[str]]:
+    """规范化 'Stocks report'（Savori Whse）。严格从 J 列获取库存。"""
     expected_map = {
         0: "supplier",
         1: "brand",
@@ -968,7 +778,7 @@ def _normalize_stocks_report(df: pd.DataFrame) -> Tuple[pd.DataFrame, Optional[s
         6: "expiry_date",
         7: "relabel_to_date",
         8: "daily_update_stock_i",
-        9: "stock_qty",
+        9: "stock_qty",  # 来自 J
     }
     warning = None
     pos_renames = {}
@@ -1005,17 +815,19 @@ def _normalize_stocks_report(df: pd.DataFrame) -> Tuple[pd.DataFrame, Optional[s
 
 
 def _normalize_lai_hock_whse(df: pd.DataFrame) -> Tuple[pd.DataFrame, Optional[str]]:
+    """规范化 'Lai Hock Whse'（第三方仓）。"""
     expected_map = {
         0: "supplier",
         1: "brand",
         2: "product_code",
         3: "description",
+        # 4: 忽略
         5: "pack_size",
         6: "unit",
         7: "expiry_date",
         8: "relabel_to_date",
         9: "stocks_balance",
-        10: "stock_qty",
+        10: "stock_qty",  # from updated_stocks
     }
 
     warn_msgs = []
@@ -1061,6 +873,7 @@ def _normalize_lai_hock_whse(df: pd.DataFrame) -> Tuple[pd.DataFrame, Optional[s
 
 
 def load_and_normalize(file) -> Tuple[pd.DataFrame, list]:
+    """读取并整合两个工作表，返回统一列的合并 DataFrame 与告警列表。"""
     warns = []
     name_sr = _find_sheet_name(file, "Stocks report")
     name_lh = _find_sheet_name(file, "Lai Hock Whse")
@@ -1167,9 +980,10 @@ def on_toggle_low_stock() -> None:
     _touch_summary_refresh_token()
 
 
-# ----------------------------- 主程序：Stock 页 -----------------------------
+# ----------------------------- 主程序 -----------------------------
 
-def run_stock_page():
+def main():
+    st.set_page_config(page_title="Stocks DataGrid", layout="wide")
 
     if st.sidebar.button("退出程序"):
         st.session_state["__want_exit"] = True
@@ -1202,13 +1016,16 @@ def run_stock_page():
     display_cols = [c for c in display_cols if c in df.columns]
     df_display = df[display_cols].copy()
 
+    # 侧栏筛选（阈值不在侧栏）
     filtered, selected_descs, _placeholder_due_days, filter_state = apply_filters_v2(
         df_display)
     total_rows = len(filtered)
 
+    # 主聚合（产品层）
     summary_df, detail_map = aggregate_summary(filtered)
     summary_df = summary_df.copy()
 
+    # 初始化 Summary Bar 状态（必要存在，避免后续读取为空）
     if "summary_expiry_days" not in st.session_state:
         st.session_state["summary_expiry_days"] = 30
     if "summary_global_low_ctn" not in st.session_state:
@@ -1224,6 +1041,7 @@ def run_stock_page():
     if "product_quick_filter" not in st.session_state:
         st.session_state["product_quick_filter"] = ""
 
+    # Summary Bar
     summary_bar = st.container()
     with summary_bar:
         metric_holder = st.container()
@@ -1270,10 +1088,11 @@ def run_stock_page():
         product_query_raw = st.text_input(
             "Product Quick Filter",
             key="product_quick_filter",
-            placeholder="Filter by supplier / brand / product / code",
-            help="Client-side filter that applies to Supplier, Brand, Product, and Product Code.",
+            placeholder="Filter by supplier / product / code",
+            help="Client-side filter that applies to Supplier, Product, and Product Code.",
         )
 
+    # ===== 必要性修复①：把会话参数读取提前，供后续构建批次缓存使用 =====
     expiry_days = int(st.session_state.get("summary_expiry_days", 30))
     global_low_ctn = int(st.session_state.get("summary_global_low_ctn", 0))
     global_low_pkt = int(st.session_state.get("summary_global_low_pkt", 0))
@@ -1283,6 +1102,7 @@ def run_stock_page():
     product_query = (product_query_raw or "").strip()
 
     if summary_df.empty:
+        # 若主表为空，仍显示基础指标（与当前视图一致：0）
         with metric_holder:
             metric_cols = st.columns([1, 1, 1, 1])
             metric_cols[0].metric("Filtered Rows", f"{total_rows}")
@@ -1293,8 +1113,10 @@ def run_stock_page():
             "No data found for Savori Whse / Lai Hock Whse under the current filters.")
         return
 
+    # ===== 在 summary_df 生成后、使用前：建立 group 索引映射与缓存 =====
     from functools import lru_cache
 
+    # 基于 filtered（侧栏后的明细）构建与 summary_df 一致的 group_key -> 行索引 映射
     _tmp = filtered.copy()
     _tmp["norm_desc"] = build_norm_desc(_tmp)
     sup = _tmp.get("supplier", pd.Series(dtype="string")
@@ -1308,15 +1130,13 @@ def run_stock_page():
         pack_norm_series = pd.Series([""] * len(_tmp), index=_tmp.index)
     _tmp["_pack_size_norm"] = pack_norm_series
     pack_values = pack_norm_series.tolist()
-    brand_series = _tmp.get("brand", pd.Series(dtype="string")).astype(
-        "string").fillna("").str.strip()
-    brand_labels = brand_series.where(brand_series != "", "Unknown brand")
-    _tmp["__group_key"] = list(zip(sup, brand_labels, prod, pack_values))
+    _tmp["__group_key"] = list(zip(sup, prod, pack_values))
     group_indices = {k: tuple(g.index)
                      for k, g in _tmp.groupby("__group_key", dropna=False)}
 
     @lru_cache(maxsize=2048)
     def _cached_split(indices_tuple, expiry_days, show_depleted, batch_mode):
+        # 注意：用 filtered 的行索引切片，避免复制 detail_map 的大块 DataFrame
         sub = filtered.loc[list(indices_tuple)]
         return split_by_expiry(sub, expiry_days=expiry_days, show_depleted=show_depleted, batch_mode=batch_mode)
 
@@ -1325,6 +1145,8 @@ def run_stock_page():
         if not idx:
             return pd.DataFrame()
         return _cached_split(idx, expiry_days, show_depleted, batch_mode)
+
+    # 2) 计算 Low-Stock（产品层，优先 ROP 再全局）
 
     def _opt_float(val):
         try:
@@ -1350,6 +1172,9 @@ def run_stock_page():
                 summary_df.at[i, "is_low_stock"] = True
                 summary_df.at[i, "low_stock_reason"] = "Global"
 
+    # 3) 由批次层结果得出产品层的 Expired / Near-Expiry
+    # 原：使用 expiry_tables_cache[...] 取表
+# 改为：
     summary_df["has_expired_batch"] = False
     summary_df["has_near_batch"] = False
     for i, r in summary_df.iterrows():
@@ -1368,12 +1193,14 @@ def run_stock_page():
         if (sub["status_batch"] == "Near-Expiry").any():
             summary_df.at[i, "has_near_batch"] = True
 
+    # 4) 计算“多标签”并产出主状态（加入 Depleted）
     summary_df["is_depleted"] = (
         (summary_df["total_ctn"].fillna(0) +
          summary_df["total_pkt"].fillna(0)) == 0
     )
 
     def _primary_status(has_expired: bool, has_near: bool, is_low: bool, is_depleted: bool) -> str:
+        # Depleted 优先级最高，其次 Expired > Near-Expiry > Low-Stock > OK
         if is_depleted:
             return "Depleted"
         if has_expired:
@@ -1385,7 +1212,7 @@ def run_stock_page():
         return "OK"
 
     summary_df["Status Tags"] = [[] for _ in range(len(summary_df))]
-    summary_df["status_product"] = ""
+    summary_df["status_product"] = ""  # 主状态（用于排序/统计）
 
     for i, r in summary_df.iterrows():
         tags = []
@@ -1408,9 +1235,11 @@ def run_stock_page():
             bool(r["is_depleted"]),
         )
 
+    # ☆ 产品层同步应用 Show Depleted（隐藏 0 库存商品）
     if not show_depleted:
         summary_df = summary_df[summary_df["status_product"] != "Depleted"]
 
+    # 5) 先构建展示列
     summary_df["Savori Whse"] = [_format_quantity_pair(
         r.savori_ctn, r.savori_pkt) for r in summary_df.itertuples()]
     summary_df["Lai Hock Whse"] = [_format_quantity_pair(
@@ -1434,6 +1263,7 @@ def run_stock_page():
         for tags, reason in zip(summary_df["Status Tags"], summary_df["low_stock_reason"])
     ]
 
+   # 6) 视图过滤（Near-Only / Low-Only / 文本）——基于 Status Tags
     view_df = summary_df.copy()
 
     def _has_near(tags):
@@ -1450,14 +1280,15 @@ def run_stock_page():
     elif low_only and not near_only:
         view_df = view_df[low_mask]
     elif near_only and low_only:
+        # 两个开关都开：取“近效期 或 低库存”的并集
         view_df = view_df[near_mask | low_mask]
+    # 两个都关：不过滤
 
     if product_query:
         mask = (
             view_df["Product"].str.contains(
                 product_query, case=False, na=False)
             | view_df["Supplier"].str.contains(product_query, case=False, na=False)
-            | view_df["Brand"].str.contains(product_query, case=False, na=False)
             | view_df["Product Code"].str.contains(product_query, case=False, na=False)
         )
         view_df = view_df[mask]
@@ -1474,12 +1305,15 @@ def run_stock_page():
             "No rows in the main table match the current view. Adjust filters or thresholds.")
         return
 
+    # ===== 必要性修复②③：指标改为“基于当前视图”并用 Tags 口径 =====
+    # Totals（所见即所得）
     total_ctn_all = float(view_df["total_ctn"].sum()
                           ) if not view_df.empty else 0.0
     total_pkt_all = float(view_df["total_pkt"].sum()
                           ) if not view_df.empty else 0.0
     totals_display = _format_quantity_pair(total_ctn_all, total_pkt_all)
 
+    # 计数：都基于 Tags
     near_count = int(view_df["Status Tags"].apply(lambda tags: any(
         t in {"Expired", "Near-Expiry"} for t in (tags or []))).sum())
     low_count = int(view_df["Status Tags"].apply(
@@ -1493,6 +1327,7 @@ def run_stock_page():
         metric_cols[2].metric("Near-Expiry", f"{near_count}")
         metric_cols[3].metric("Low-Stock", f"{low_count}")
 
+        # 在排序前，集中算一次各产品的“最近正库存到期天数”
     nearest_days_map = {}
     for k in view_df["group_key"]:
         key = tuple(k) if not isinstance(k, tuple) else k
@@ -1524,7 +1359,8 @@ def run_stock_page():
         kind="stable",
     ).reset_index(drop=True)
 
-    display_columns = ["Supplier", "Brand", "Product", "Pack Size",
+    # 8) 主表渲染与着色
+    display_columns = ["Supplier", "Product", "Pack Size",
                        "Product Code", "Savori Whse", "Lai Hock Whse", "Total", "Status"]
     view_df_display = view_df[display_columns].copy()
     view_df_display_clean = _strip_html_df(view_df_display)
@@ -1570,8 +1406,9 @@ def run_stock_page():
     styled_view = view_df_display_clean.style.apply(_style_row, axis=1)
     st.dataframe(styled_view, width="stretch", hide_index=True)
 
+    # 9) 导出：Summary + Expiry Breakdown
     export_summary_cols = [
-        "Supplier", "Brand", "Product", "Pack Size", "Product Code",
+        "Supplier", "Product", "Pack Size", "Product Code",
         "Savori Whse", "Lai Hock Whse", "Total", "Status",
         "total_ctn", "total_pkt", "savori_ctn", "savori_pkt", "lai_hock_ctn", "lai_hock_pkt",
         "reorder_point_ctn", "reorder_point_pkt", "low_stock_reason", "status_product",
@@ -1655,6 +1492,7 @@ def run_stock_page():
         expiry_export_clean.to_excel(
             writer, sheet_name="Expiry Breakdown", index=False)
 
+        # ==== 新增：写入 Filters 元数据（可复盘筛选条件） ====
         meta_rows = []
         for k, v in (filter_state or {}).items():
             meta_rows.append({"key": str(k), "value": str(v)})
@@ -1668,6 +1506,7 @@ def run_stock_page():
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
 
+    # 10) 展开明细：批次层高亮与 Info
     for _, row in view_df.iterrows():
         tuple_key = tuple(row["group_key"]) if not isinstance(
             row["group_key"], tuple) else row["group_key"]
@@ -1689,7 +1528,7 @@ def run_stock_page():
                 elif batch_mode == "remark":
                     display_cols2 = [
                         "Remark", "Savori Whse", "Lai Hock Whse", "Subtotal", "status_batch", "Info"]
-                else:
+                else:  # both
                     display_cols2 = ["Expiry", "Remark", "Savori Whse",
                                      "Lai Hock Whse", "Subtotal", "status_batch", "Info"]
 
@@ -1715,6 +1554,7 @@ def run_stock_page():
                     st.dataframe(
                         table_display, width="stretch", hide_index=True)
 
+                # 校验小计与父合计一致（仅数量值）
                 subtotal_ctn_sum = float(expiry_table["subtotal_ctn"].sum())
                 subtotal_pkt_sum = float(expiry_table["subtotal_pkt"].sum())
                 parent_ctn = float(row["total_ctn"])
@@ -1726,890 +1566,10 @@ def run_stock_page():
                 st.caption(f"Total: {row['Total']}")
 
 
-# ----------------------------- Sales helpers -----------------------------
-
-def _read_delivery_details_from_bytes(content: bytes, label: str) -> Tuple[pd.DataFrame, Optional[str]]:
-    sheet_name = _find_sheet_name(io.BytesIO(content), "Delivery details")
-    if not sheet_name:
-        return pd.DataFrame(), f"{label}: 未找到 'Delivery details' 工作表。"
-    try:
-        frame = pd.read_excel(
-            io.BytesIO(content),
-            sheet_name=sheet_name,
-            header=3,
-            dtype=str,
-            engine="openpyxl",
-        ).dropna(axis=0, how="all")
-        return frame, None
-    except Exception as exc:
-        return pd.DataFrame(), f"{label}: 读取 '{sheet_name}' 失败：{exc}"
-
-
-def _normalize_sales_dataframe(df: pd.DataFrame) -> pd.DataFrame:
-    trimmed = df.copy().iloc[:, : len(SALES_COLUMNS)]
-    trimmed.columns = SALES_COLUMNS[:trimmed.shape[1]]
-    for col in SALES_COLUMNS:
-        if col not in trimmed.columns:
-            trimmed[col] = pd.NA
-    trimmed = trimmed[SALES_COLUMNS].replace(r"^\s*$", pd.NA, regex=True)
-    trimmed = _strip_html_df(trimmed)
-    for col in trimmed.select_dtypes(include="object").columns:
-        trimmed[col] = trimmed[col].astype("string").str.strip()
-    for col in SALES_NUMERIC_COLUMNS:
-        trimmed[col] = pd.to_numeric(trimmed[col], errors="coerce")
-    for col in SALES_DATE_COLUMNS:
-        if not pd.api.types.is_datetime64_any_dtype(trimmed[col]):
-            trimmed[col] = pd.to_datetime(trimmed[col], errors="coerce")
-    trimmed["carton_packing_numeric"] = trimmed["Carton Packing"].map(
-        _infer_carton_pack_size)
-    trimmed["pcs_to_ctn"] = trimmed["Qty in Pcs"] / \
-        trimmed["carton_packing_numeric"]
-    valid_pack = trimmed["carton_packing_numeric"].gt(0)
-    trimmed["pcs_to_ctn"] = trimmed["pcs_to_ctn"].where(valid_pack, pd.NA)
-    trimmed["Unit Price (per pcs)"] = _safe_divide_series(
-        trimmed["Total Value"], trimmed["Qty in Pcs"])
-    trimmed["Unit Price (per carton)"] = _safe_divide_series(
-        trimmed["Total Value"], trimmed["Qty in Ctns"])
-    return trimmed
-
-
-@st.cache_data(show_spinner=False)
-def _cached_sales_dataset(inputs: Tuple[Tuple[str, bytes], ...]) -> Tuple[pd.DataFrame, List[str]]:
-    warns: List[str] = []
-    frames: List[pd.DataFrame] = []
-    for name, content in inputs:
-        if not content:
-            warns.append(f"{name}: 文件大小为 0，无法读取。")
-            continue
-        frame, err = _read_delivery_details_from_bytes(content, name)
-        if err:
-            warns.append(err)
-            continue
-        if frame.empty:
-            warns.append(f"{name}: 'Delivery details' 表为空。")
-            continue
-        frames.append(frame)
-    if not frames:
-        return pd.DataFrame(columns=SALES_COLUMNS), warns
-    combined = pd.concat(frames, ignore_index=True, sort=False)
-    return _normalize_sales_dataframe(combined), warns
-
-
-def load_sales_data(files) -> Tuple[pd.DataFrame, List[str]]:
-    inputs: List[Tuple[str, bytes]] = []
-    for uploaded in files or []:
-        if uploaded is None:
-            continue
-        content = uploaded.getvalue()
-        inputs.append((uploaded.name, content))
-    if not inputs:
-        return pd.DataFrame(columns=SALES_COLUMNS), []
-    return _cached_sales_dataset(tuple(inputs))
-
-
-def _ensure_multiselect_key_state(state_key: str, options: List[str], default: List[str]):
-    cur = st.session_state.get(state_key, [])
-    if isinstance(cur, (str, int, float)):
-        cur = [str(cur)]
-    cur = [v for v in cur if v in options]
-    if not cur and default:
-        cur = list(default)
-    st.session_state[state_key] = cur
-
-
-def apply_sales_filters(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, str]]:
-    if df.empty:
-        return df, {}
-
-    ss = st.session_state
-    session_keys = {
-        'Year': 'sales_filter_year',
-        'Month': 'sales_filter_month',
-        'Customer': 'sales_filter_customer',
-        'Outlet': 'sales_filter_outlet',
-        'Product Description': 'sales_filter_product_description',
-        'Supplier': 'sales_filter_supplier',
-        'Brand/Category': 'sales_filter_brand',
-        'Product Code': 'sales_filter_product_code',
-        'Account': 'sales_filter_account',
-    }
-
-    def _series(name: str) -> pd.Series:
-        if name not in df.columns:
-            return pd.Series([''] * len(df), index=df.index)
-        return df[name].astype('string').fillna('').str.strip()
-
-    series_cache = {name: _series(name) for name in session_keys}
-    invoice_series = _series('Invoice #')
-
-    filter_columns = {
-        'Year': 'Year',
-        'Month': 'Month',
-        'Customer': 'Customer',
-        'Outlet': 'Outlet',
-        'Product Description': 'Product Description',
-        'Supplier': 'Supplier',
-        'Brand/Category': 'Brand/Category',
-        'Product Code': 'Product Code',
-        'Account': 'Account',
-    }
-
-    date_series_raw = None
-    default_date_from: Optional[datetime.date] = None
-    default_date_to: Optional[datetime.date] = None
-    if 'Date' in df.columns:
-        date_series_raw = pd.to_datetime(df['Date'], errors='coerce')
-        valid_dates = date_series_raw.dropna()
-        if not valid_dates.empty:
-            default_date_from = valid_dates.min().date()
-            default_date_to = valid_dates.max().date()
-
-    date_from: Optional[datetime.date] = None
-    date_to: Optional[datetime.date] = None
-
-    def _mask(exclude: Optional[str] = None) -> pd.Series:
-        mask = pd.Series(True, index=df.index)
-        for key, column in filter_columns.items():
-            if key == exclude:
-                continue
-            sel = ss.get(session_keys[key], [])
-            if not sel:
-                continue
-            mask &= series_cache[column].isin(sel)
-        if exclude != 'Invoice contains':
-            invoice_query = ss.get('sales_filter_invoice', '')
-            if invoice_query:
-                mask &= invoice_series.str.contains(
-                    invoice_query, case=False, na=False)
-        if date_series_raw is not None:
-            if date_from:
-                mask &= date_series_raw >= pd.Timestamp(date_from)
-            if date_to:
-                mask &= date_series_raw <= pd.Timestamp(date_to)
-        return mask
-
-    def _options_for(key: str) -> List[str]:
-        column = filter_columns[key]
-        mask = _mask(exclude=key)
-        values = sorted(
-            {val for val in series_cache[column][mask] if val},
-            key=_month_sort_key if key == 'Month' else lambda x: x.upper(),
-        )
-        return values
-
-    ss.setdefault(session_keys['Year'], [])
-    ss.setdefault(session_keys['Month'], [])
-
-    with st.form("sales_filters_form"):
-        year_options = _options_for('Year')
-        default_year: List[str] = []
-        if year_options:
-            target_year = '2025'
-            if target_year in year_options:
-                default_year = [target_year]
-            else:
-                default_year = [year_options[-1]]
-
-        month_options = _options_for('Month')
-        default_month: List[str] = []
-
-        _ensure_multiselect_key_state(
-            session_keys['Year'], year_options, default_year)
-        _ensure_multiselect_key_state(
-            session_keys['Month'], month_options, default_month)
-
-        customer_options = _options_for('Customer')
-        _ensure_multiselect_key_state(
-            session_keys['Customer'], customer_options, default=[])
-        outlet_options = _options_for('Outlet')
-        _ensure_multiselect_key_state(
-            session_keys['Outlet'], outlet_options, default=[])
-
-        multi_cols = st.columns(4)
-        with multi_cols[0]:
-            st.multiselect(
-                'Year',
-                year_options,
-                key=session_keys['Year'],
-            )
-        with multi_cols[1]:
-            st.multiselect(
-                'Month',
-                month_options,
-                key=session_keys['Month'],
-            )
-        with multi_cols[2]:
-            st.multiselect(
-                'Customer',
-                customer_options,
-                key=session_keys['Customer'],
-            )
-        with multi_cols[3]:
-            st.multiselect(
-                'Outlet',
-                outlet_options,
-                key=session_keys['Outlet'],
-            )
-
-        product_desc_options = _options_for('Product Description')
-        _ensure_multiselect_key_state(
-            session_keys['Product Description'], product_desc_options, default=[])
-        st.multiselect(
-            'Product Description',
-            product_desc_options,
-            key=session_keys['Product Description'],
-        )
-
-        with st.expander('高级筛选', expanded=False):
-            supplier_options = _options_for('Supplier')
-            _ensure_multiselect_key_state(
-                session_keys['Supplier'], supplier_options, default=[])
-            brand_options = _options_for('Brand/Category')
-            _ensure_multiselect_key_state(
-                session_keys['Brand/Category'], brand_options, default=[])
-            product_code_options = _options_for('Product Code')
-            _ensure_multiselect_key_state(
-                session_keys['Product Code'], product_code_options, default=[])
-            account_options = _options_for('Account')
-            _ensure_multiselect_key_state(
-                session_keys['Account'], account_options, default=[])
-            st.multiselect(
-                'Supplier',
-                supplier_options,
-                key=session_keys['Supplier'],
-            )
-            st.multiselect(
-                'Brand/Category',
-                brand_options,
-                key=session_keys['Brand/Category'],
-            )
-            st.multiselect(
-                'Product Code',
-                product_code_options,
-                key=session_keys['Product Code'],
-            )
-            st.multiselect(
-                'Account',
-                account_options,
-                key=session_keys['Account'],
-            )
-            st.text_input(
-                'Invoice # contains',
-                key='sales_filter_invoice',
-                placeholder='',
-            )
-            date_preset_options = [
-                'Default range',
-                'This week',
-                'Last week',
-                'Next week',
-                'Custom range',
-            ]
-            ss.setdefault('sales_date_preset', date_preset_options[0])
-            preset = st.selectbox(
-                'Date shortcut',
-                date_preset_options,
-                key='sales_date_preset',
-            )
-            today_date = datetime.date.today()
-
-            def _week_bounds(offset: int) -> Tuple[datetime.date, datetime.date]:
-                monday = today_date - \
-                    datetime.timedelta(days=today_date.weekday())
-                start = monday + datetime.timedelta(weeks=offset)
-                end = start + datetime.timedelta(days=6)
-                return start, end
-
-            preset_from = default_date_from or today_date
-            preset_to = default_date_to or today_date
-            if preset == 'This week':
-                preset_from, preset_to = _week_bounds(0)
-            elif preset == 'Last week':
-                preset_from, preset_to = _week_bounds(-1)
-            elif preset == 'Next week':
-                preset_from, preset_to = _week_bounds(1)
-            elif preset == 'Default range':
-                preset_from = default_date_from or today_date
-                preset_to = default_date_to or today_date
-
-            if preset != 'Custom range':
-                st.caption(
-                    f"Quick filter '{preset}': {preset_from} to {preset_to}")
-                date_from = preset_from
-                date_to = preset_to
-                ss['sales_filter_date_from'] = date_from
-                ss['sales_filter_date_to'] = date_to
-            else:
-                custom_from_default = ss.get(
-                    'sales_filter_date_from',
-                    default_date_from or today_date,
-                )
-                custom_to_default = ss.get(
-                    'sales_filter_date_to',
-                    default_date_to or today_date,
-                )
-                date_from = st.date_input(
-                    'Date from',
-                    value=custom_from_default,
-                    key='sales_filter_date_from',
-                )
-                date_to = st.date_input(
-                    'Date to',
-                    value=custom_to_default,
-                    key='sales_filter_date_to',
-                )
-
-        submitted = st.form_submit_button("Apply sales filters")
-
-    filtered_df = df.loc[_mask()].reset_index(drop=True)
-    selection_values = {
-        'Year': ss.get(session_keys['Year'], []),
-        'Month': ss.get(session_keys['Month'], []),
-        'Customer': ss.get(session_keys['Customer'], []),
-        'Outlet': ss.get(session_keys['Outlet'], []),
-        'Product Description': ss.get(session_keys['Product Description'], []),
-        'Supplier': ss.get(session_keys['Supplier'], []),
-        'Brand/Category': ss.get(session_keys['Brand/Category'], []),
-        'Product Code': ss.get(session_keys['Product Code'], []),
-        'Account': ss.get(session_keys['Account'], []),
-    }
-    filter_state: Dict[str, str] = {}
-    for key, vals in selection_values.items():
-        filter_state[key] = ', '.join(vals) if vals else 'All'
-    invoice_query = ss.get('sales_filter_invoice', '')
-    filter_state['Invoice contains'] = invoice_query if invoice_query else 'All'
-    date_from_state = ss.get('sales_filter_date_from')
-    date_to_state = ss.get('sales_filter_date_to')
-    filter_state['Date from'] = (
-        date_from_state.isoformat() if date_from_state else 'All'
-    )
-    filter_state['Date to'] = (
-        date_to_state.isoformat() if date_to_state else 'All'
-    )
-
-    return filtered_df, filter_state
-
-
-def build_sales_summary(
-    filtered_df: pd.DataFrame,
-    group_by_outlet: bool,
-    include_date: bool,
-    group_by_week: bool,
-) -> pd.DataFrame:
-    include_date = include_date and group_by_outlet and 'Date' in filtered_df.columns
-    has_outlet = group_by_outlet and 'Outlet' in filtered_df.columns
-    week_enabled = group_by_week and 'Date' in filtered_df.columns
-
-    if filtered_df.empty:
-        cols = ['Customer', 'Total Value', 'Total Qty']
-        if week_enabled:
-            cols.insert(0, 'Week')
-        if not has_outlet:
-            cols.append('Selling Price (per pkt)')
-        return pd.DataFrame(columns=cols)
-
-    working_df = filtered_df.copy()
-    week_label_key = '_week_label'
-
-    def _format_week_label(value: pd.Timestamp) -> str:
-        if pd.isna(value):
-            return ""
-        dt = value.date()
-        month_start = dt.replace(day=1)
-        _, last_day = calendar.monthrange(dt.year, dt.month)
-        month_end = dt.replace(day=last_day)
-        week_start = dt - datetime.timedelta(days=dt.weekday())
-        if week_start < month_start:
-            week_start = month_start
-        week_end = week_start + datetime.timedelta(days=4)
-        if week_end > month_end:
-            week_end = month_end
-        return f"{week_start.strftime('%d/%m/%Y')} - {week_end.strftime('%d/%m/%Y')}"
-
-    if week_enabled:
-        date_series = pd.to_datetime(working_df['Date'], errors='coerce')
-        working_df[week_label_key] = date_series.apply(_format_week_label)
-    else:
-        working_df[week_label_key] = pd.NA
-
-    group_cols: List[str] = []
-    if week_enabled:
-        group_cols.append(week_label_key)
-    group_cols.append('Customer')
-    if include_date:
-        group_cols.append('Date')
-    if has_outlet:
-        group_cols.append('Outlet')
-
-    agg_map = {
-        'Qty in Pcs': 'sum',
-        'Qty in Ctns': 'sum',
-        'Total Value': 'sum',
-        'carton_packing_numeric': 'first',
-    }
-    summary = (
-        working_df
-        .groupby(group_cols, dropna=False, as_index=False)
-        .agg(agg_map)
-    )
-
-    summary['Qty in Pcs'] = summary['Qty in Pcs'].fillna(0)
-    summary['Qty in Ctns'] = summary['Qty in Ctns'].fillna(0)
-    summary['Total Value'] = summary['Total Value'].fillna(0)
-
-    summary['Total Qty'] = summary.apply(
-        lambda row: _format_summary_total_qty(
-            row.get('Qty in Ctns'),
-            row.get('Qty in Pcs'),
-            row.get('carton_packing_numeric'),
-        ),
-        axis=1,
-    )
-
-    if not has_outlet:
-        pack_size = pd.to_numeric(
-            summary['carton_packing_numeric'], errors='coerce')
-        pack_size = pack_size.fillna(0)
-        total_packets = summary['Qty in Ctns'] * \
-            pack_size + summary['Qty in Pcs']
-        summary['Selling Price (per pkt)'] = _safe_divide_series(
-            summary['Total Value'], total_packets)
-
-    if include_date and 'Date' in summary.columns:
-        date_sort = pd.to_datetime(summary['Date'], errors='coerce')
-        summary['_date_sort'] = date_sort
-        summary['Date'] = date_sort.dt.strftime('%d/%m/%Y').fillna('')
-
-    sort_keys = []
-    if week_enabled:
-        sort_keys.append(week_label_key)
-    sort_keys.append('Customer')
-    if include_date:
-        sort_keys.append('_date_sort')
-    if has_outlet:
-        sort_keys.append('Outlet')
-    summary = summary.sort_values(sort_keys, kind='stable')
-
-    if week_label_key in summary.columns:
-        summary['Week'] = summary[week_label_key]
-    summary = summary.drop(
-        columns=[col for col in sort_keys if col.startswith('_')], errors='ignore')
-    summary = summary.reset_index(drop=True)
-    summary = summary.drop(
-        columns=['carton_packing_numeric', week_label_key], errors='ignore')
-    return summary
-
-
-def _customer_purchase_breakdown(df: pd.DataFrame) -> pd.DataFrame:
-    if df.empty:
-        return pd.DataFrame()
-    group_cols = [
-        col for col in [
-            "Customer",
-            "Month",
-            "Brand/Category",
-            "Supplier",
-            "Product Description",
-            "Product Code",
-        ]
-        if col in df.columns
-    ]
-    agg_map = {
-        col: "sum"
-        for col in ["Qty in Ctns", "Qty in Pcs", "Total Value"]
-        if col in df.columns
-    }
-    if "carton_packing_numeric" in df.columns:
-        agg_map["carton_packing_numeric"] = "first"
-    if not group_cols or not agg_map:
-        return pd.DataFrame()
-    summary = (
-        df.groupby(group_cols, dropna=False, sort=False)
-        .agg(agg_map)
-        .reset_index()
-    )
-    for qty_col in ["Qty in Ctns", "Qty in Pcs"]:
-        if qty_col in summary:
-            summary[qty_col] = summary[qty_col].fillna(0)
-    if "Total Value" in summary:
-        summary["Total Value"] = summary["Total Value"].fillna(0)
-
-    def _row_total_qty(row):
-        return _format_summary_total_qty(
-            row.get("Qty in Ctns"),
-            row.get("Qty in Pcs"),
-            row.get("carton_packing_numeric"),
-        )
-
-    summary["Total Qty"] = summary.apply(_row_total_qty, axis=1)
-
-    pack_size_series = pd.to_numeric(
-        summary.get(
-            "carton_packing_numeric",
-            pd.Series(0.0, index=summary.index),
-        ),
-        errors="coerce",
-    ).fillna(0.0)
-    total_ctns = pd.to_numeric(
-        summary.get("Qty in Ctns", pd.Series(0.0, index=summary.index)),
-        errors="coerce",
-    ).fillna(0.0)
-    total_pkts = pd.to_numeric(
-        summary.get("Qty in Pcs", pd.Series(0.0, index=summary.index)),
-        errors="coerce",
-    ).fillna(0.0)
-    total_packets = total_ctns * pack_size_series + total_pkts
-    if "Total Value" in summary:
-        summary["Selling Price (per pkt)"] = _safe_divide_series(
-            summary["Total Value"],
-            total_packets,
-        )
-    if "Selling Price (per pkt)" in summary:
-        summary["Selling Price (per pkt)"] = summary[
-            "Selling Price (per pkt)"].apply(_format_price_display)
-
-    summary_cols = group_cols + ["Total Qty"]
-    if "Selling Price (per pkt)" in summary:
-        summary_cols.append("Selling Price (per pkt)")
-    return summary[summary_cols]
-
-
-# ----------------------------- Sales 页 -----------------------------
-
-def run_sales_page():
-    st.title("Sales Dashboard")
-    st.caption(
-        "Upload one or more workbooks containing a 'Delivery details' sheet (headers on row 4, columns A~U).")
-
-    uploaded = st.file_uploader(
-        "Upload Sales Excel (.xlsx)",
-        type=["xlsx"],
-        accept_multiple_files=True,
-        key="sales_uploader",
-    )
-    if not uploaded:
-        st.info("Upload at least one Delivery details workbook to continue.")
-        return
-
-    try:
-        sales_df, warns = load_sales_data(uploaded)
-    except Exception as exc:
-        st.error(f"Failed to read Sales workbooks: {exc}")
-        return
-
-    for warn in warns:
-        st.warning(warn)
-
-    if sales_df.empty:
-        st.warning("无法从上传的工作簿读取任何 Sales 数据。")
-        return
-
-    filtered_df, filter_state = apply_sales_filters(sales_df)
-    filter_order = [
-        "Year", "Month", "Customer", "Outlet", "Product Description",
-        "Supplier", "Brand/Category", "Product Code", "Account", "Invoice contains",
-        "Date from", "Date to",
-    ]
-    filter_summary_items = [
-        f"{key} = {filter_state.get(key)}"
-        for key in filter_order
-        if filter_state.get(key) and filter_state.get(key) != "All"
-    ]
-    st.caption(
-        "当前筛选：" + "；".join(filter_summary_items)
-        if filter_summary_items else "当前筛选：全部数据"
-    )
-
-    selected_customers = st.session_state.get("sales_filter_customer") or []
-    show_customer_brought = False
-    if selected_customers:
-        show_customer_brought = st.checkbox(
-            "What they brought",
-            key="sales_show_customer_purchases",
-            help="Show the aggregated products and quantities for the filtered customer(s).",
-        )
-    else:
-        st.session_state.pop("sales_show_customer_purchases", None)
-    if show_customer_brought:
-        customer_breakdown = _customer_purchase_breakdown(filtered_df)
-        if customer_breakdown.empty:
-            st.info("No purchase records remain after the current filters.")
-        else:
-            st.caption("What they brought")
-            st.dataframe(
-                customer_breakdown,
-                width="stretch",
-            )
-
-    view_cols = st.columns([1, 1, 1])
-    group_by_outlet = view_cols[0].checkbox(
-        "Group by Outlet",
-        key="sales_group_by_outlet",
-    )
-    include_date = view_cols[1].checkbox(
-        "Include Date per Outlet",
-        key="sales_include_date",
-        disabled=not group_by_outlet,
-    )
-    include_date = include_date and group_by_outlet
-    show_by_weeks = view_cols[2].checkbox(
-        "Show by weeks",
-        key="sales_show_by_weeks",
-        disabled="Date" not in filtered_df.columns,
-    )
-
-    summary_df = build_sales_summary(
-        filtered_df,
-        group_by_outlet=group_by_outlet,
-        include_date=include_date,
-        group_by_week=show_by_weeks,
-    )
-
-    summary_display = summary_df.copy()
-    if "Total Value" in summary_display.columns:
-        summary_display["Total Value"] = summary_display["Total Value"].apply(
-            _format_price_display
-        )
-    if "Selling Price (per pkt)" in summary_display.columns:
-        summary_display["Selling Price (per pkt)"] = summary_display[
-            "Selling Price (per pkt)"].apply(_format_price_display)
-
-    def _int_total(series: Optional[pd.Series]) -> int:
-        if series is None:
-            return 0
-        total = series.sum(min_count=1)
-        if pd.isna(total):
-            return 0
-        try:
-            return int(round(float(total)))
-        except (TypeError, ValueError):
-            return 0
-
-    def _total_qty_text_with_pack(df: pd.DataFrame) -> str:
-        if df is None or df.empty:
-            return "0"
-
-        total_ctns = _int_total(df.get("Qty in Ctns"))
-        total_pkts = _int_total(df.get("Qty in Pcs"))
-
-        pack_col = pd.to_numeric(
-            df.get("carton_packing_numeric"), errors="coerce")
-        valid = pack_col[pack_col > 0]
-        unique_packs = sorted(valid.unique())
-
-        if len(unique_packs) == 1:
-            pack_size = int(round(unique_packs[0]))
-            total_packets = total_ctns * pack_size + total_pkts
-            return _format_total_qty_text(total_packets, pack_size)
-
-        return f"{total_ctns} ctns {total_pkts} pkts"
-
-    total_qty_text = _total_qty_text_with_pack(filtered_df)
-
-    single_sku_mode = False
-    single_sku_pack_size: Optional[int] = None
-    if "Product Code" in filtered_df.columns:
-        non_empty_codes = (
-            filtered_df["Product Code"]
-            .astype("string")
-            .str.strip()
-            .replace("", pd.NA)
-            .dropna()
-        )
-        if not non_empty_codes.empty and non_empty_codes.nunique() == 1:
-            pack_col = pd.to_numeric(
-                filtered_df.get("carton_packing_numeric"), errors="coerce"
-            )
-            valid_packs = pack_col[pack_col > 0].unique()
-            if len(valid_packs) == 1:
-                single_sku_mode = True
-                single_sku_pack_size = int(round(valid_packs[0]))
-
-    selected_months = st.session_state.get("sales_filter_month") or []
-    month_totals_df: Optional[pd.DataFrame] = None
-    if "Month" in filtered_df.columns and not filtered_df.empty:
-        month_totals_source = filtered_df.copy()
-        for qty_col in ["Qty in Ctns", "Qty in Pcs"]:
-            if qty_col not in month_totals_source.columns:
-                month_totals_source[qty_col] = 0.0
-        month_totals = (
-            month_totals_source
-            .groupby("Month", sort=False, dropna=False)[["Qty in Ctns", "Qty in Pcs"]]
-            .sum()
-            .reset_index()
-        )
-        month_totals["Qty in Ctns"] = month_totals["Qty in Ctns"].fillna(0)
-        month_totals["Qty in Pcs"] = month_totals["Qty in Pcs"].fillna(0)
-
-        if single_sku_mode and single_sku_pack_size:
-            def _month_total_qty(row):
-                try:
-                    c = int(round(float(row["Qty in Ctns"])))
-                except (TypeError, ValueError):
-                    c = 0
-                try:
-                    p = int(round(float(row["Qty in Pcs"])))
-                except (TypeError, ValueError):
-                    p = 0
-                total_packets = c * single_sku_pack_size + p
-                return _format_total_qty_text(total_packets, single_sku_pack_size)
-
-            month_totals["Total Qty"] = month_totals.apply(
-                _month_total_qty, axis=1)
-        else:
-            month_totals["Total Qty"] = month_totals.apply(
-                lambda row: _format_quantity_pair(
-                    row["Qty in Ctns"], row["Qty in Pcs"]),
-                axis=1,
-            )
-
-        month_totals_df = month_totals[["Month", "Total Qty"]].copy()
-        if selected_months:
-            order_map = {value: idx for idx,
-                         value in enumerate(selected_months)}
-            month_totals_df["__order"] = month_totals_df["Month"].map(
-                lambda value: order_map.get(value, len(order_map)))
-            month_totals_df = (
-                month_totals_df.sort_values("__order").drop(
-                    columns="__order").reset_index(drop=True)
-            )
-
-    display_cols = []
-    if show_by_weeks and "Week" in summary_display.columns:
-        display_cols.append("Week")
-    display_cols.append("Customer")
-    if include_date and "Date" in summary_display.columns:
-        display_cols.append("Date")
-    if group_by_outlet and "Outlet" in summary_display.columns:
-        display_cols.append("Outlet")
-    display_cols.append("Total Qty")
-    if not group_by_outlet and "Selling Price (per pkt)" in summary_display.columns:
-        display_cols.append("Selling Price (per pkt)")
-    if "Total Value" in summary_display.columns:
-        display_cols.append("Total Value")
-    display_cols = list(dict.fromkeys(display_cols))
-
-    detail_display = filtered_df.copy()
-    if "Date" in detail_display.columns:
-        if pd.api.types.is_datetime64_any_dtype(detail_display["Date"]):
-            detail_display["Date"] = detail_display["Date"].dt.strftime(
-                "%d/%m/%Y").fillna("")
-        else:
-            detail_display["Date"] = detail_display["Date"].astype(
-                "string").str.strip()
-    for qty_col in ["Qty in Pcs", "Qty in Ctns"]:
-        if qty_col in detail_display.columns:
-            detail_display[qty_col] = detail_display[qty_col].apply(
-                _format_qty_display)
-    for price_col in ["Total Value", "Unit Price (per pcs)", "Unit Price (per carton)"]:
-        if price_col in detail_display.columns:
-            detail_display[price_col] = detail_display[price_col].apply(
-                _format_price_display)
-    if "Month" in detail_display.columns:
-        detail_display["Month"] = detail_display["Month"].apply(
-            _format_month_label)
-
-    summary_tab, raw_tab = st.tabs(["Summary", "Raw Records"])
-    with summary_tab:
-        view_label = "Customer"
-        if show_by_weeks:
-            view_label = "Week + " + view_label
-        if group_by_outlet:
-            view_label += " + Outlet"
-        if include_date:
-            view_label += " + Date"
-        st.metric("TOTAL", total_qty_text)
-        if month_totals_df is not None and len(selected_months) > 1 and not month_totals_df.empty:
-            st.caption("Monthly totals for selected months")
-            if single_sku_mode and single_sku_pack_size:
-                st.caption(
-                    f"(Single SKU mode, pack size = {single_sku_pack_size} per carton)")
-            else:
-                st.caption("Total Qty = ctns + pkts across mixed SKUs")
-            st.table(month_totals_df)
-        st.caption(
-            f"View: {view_label}. Total Qty shows cartons + packets, selling price = Total Value / pack size.")
-        st.caption(f"Total Qty (filtered): {total_qty_text}")
-        if summary_display.empty:
-            st.info("当前筛选未产出任何汇总")
-        else:
-            st.dataframe(
-                summary_display[display_cols],
-                width="stretch",
-            )
-    with raw_tab:
-        st.caption(
-            f"Detailed records ({len(detail_display):,} rows) —— 当前筛选共享 Summary。")
-        if detail_display.empty:
-            st.info("当前没有满足筛选的明细。")
-        else:
-            try:
-                styled_detail = detail_display.style.map(
-                    _highlight_missing_cell)
-                st.dataframe(
-                    styled_detail,
-                    width="stretch",
-                )
-            except Exception:
-                st.dataframe(
-                    detail_display,
-                    width="stretch",
-                )
-        download_cols = st.columns([1, 1])
-        detail_export = _strip_html_df(filtered_df)
-        csv_buffer = io.StringIO()
-        detail_export.to_csv(csv_buffer, index=False)
-        download_cols[0].download_button(
-            "Export Detail CSV",
-            data=csv_buffer.getvalue(),
-            file_name="sales_detail.csv",
-            mime="text/csv",
-        )
-        excel_buffer = io.BytesIO()
-        with pd.ExcelWriter(excel_buffer, engine="openpyxl") as writer:
-            detail_export.to_excel(
-                writer, sheet_name="Sales Detail", index=False)
-            summary_export = _strip_html_df(summary_df)
-            summary_export.to_excel(
-                writer, sheet_name="Customer-Month Summary", index=False)
-            meta_rows = [
-                {"key": k, "value": str(v)} for k, v in filter_state.items()
-            ]
-            pd.DataFrame(meta_rows, columns=["key", "value"]).to_excel(
-                writer, sheet_name="Filters", index=False)
-        excel_buffer.seek(0)
-        download_cols[1].download_button(
-            "Export Excel",
-            data=excel_buffer.getvalue(),
-            file_name="sales_summary.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        )
-
-def main():
-    st.sidebar.title("导航")
-    page = st.sidebar.radio(
-        "选择页面",
-        [
-            "Sales",
-            "Stock",
-            # "Incoming",
-            # "Invoices",
-        ],
-        key="main_nav_page",
-    )
-
-    if page == "Sales":
-        run_sales_page()
-    elif page == "Stock":
-        run_stock_page()
-    # elif page == "Incoming":
-    #     run_incoming_page()
-    # elif page == "Invoices":
-    #     run_invoice_page()
-
-    st.sidebar.markdown("---")
-    st.sidebar.caption("Powered by Streamlit")
-
-
-if __name__ == "__main__":
-    main()
+if __name__ == "__main__" and os.environ.get("ST_REDIRECTED", "0") != "1" and (get_script_run_ctx() is None):
+    # 直接 python 执行时，上面已重定向为 streamlit 运行，这里不再重复调用 main()
+    pass
+else:
+    # 被 streamlit 执行时进入
+    if __name__ == "__main__":
+        main()
