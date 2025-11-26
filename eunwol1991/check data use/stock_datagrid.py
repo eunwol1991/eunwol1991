@@ -1,4 +1,5 @@
-﻿from typing import Any, Optional, Tuple, List, Dict
+﻿import streamlit as st
+from typing import Any, Optional, Tuple, List, Dict
 import datetime
 import math
 import pandas as pd
@@ -7,47 +8,64 @@ import os
 import sys
 import io
 import calendar
-import streamlit as st
+import os
+import sys
+from pathlib import Path
 
-st.set_page_config(page_title='Warehouse Suite', layout='wide')
-
-# 如果直接 python stock_datagrid.py 启动，则切换到 streamlit 运行（兼容 Windows 路径空格）
+# 尝试检测当前是否已经在 streamlit 运行环境中
 try:
     from streamlit.runtime.scriptrunner import get_script_run_ctx  # type: ignore
-except Exception:  # Fallback when Streamlit internal API is unavailable
+except Exception:
     def get_script_run_ctx():
         return None
 
+
+def _short_path(p: str) -> str:
+    """在 Windows 下把带空格的长路径转换成短路径，避免 cmd 解析问题。"""
+    if os.name != "nt" or " " not in p:
+        return p
+    try:
+        import ctypes
+        from ctypes import wintypes
+        GetShortPathNameW = ctypes.windll.kernel32.GetShortPathNameW
+        GetShortPathNameW.argtypes = [
+            wintypes.LPCWSTR, wintypes.LPWSTR, wintypes.DWORD
+        ]
+        GetShortPathNameW.restype = wintypes.DWORD
+        buf = ctypes.create_unicode_buffer(260)
+        res = GetShortPathNameW(p, buf, 260)
+        return buf.value if res else p
+    except Exception:
+        return p
+
+
+# 如果是直接 python xxx.py 启动，并且当前不在 streamlit 环境里，就自动帮你转成 streamlit run
 if __name__ == "__main__" and os.environ.get("ST_REDIRECTED", "0") != "1" and (get_script_run_ctx() is None):
     import subprocess
-    from pathlib import Path
-
-    def _short_path(p: str) -> str:
-        if os.name != "nt" or " " not in p:
-            return p
-        try:
-            import ctypes
-            from ctypes import wintypes
-            GetShortPathNameW = ctypes.windll.kernel32.GetShortPathNameW
-            GetShortPathNameW.argtypes = [
-                wintypes.LPCWSTR, wintypes.LPWSTR, wintypes.DWORD]
-            GetShortPathNameW.restype = wintypes.DWORD
-            buf = ctypes.create_unicode_buffer(260)
-            res = GetShortPathNameW(p, buf, 260)
-            return buf.value if res else p
-        except Exception:
-            return p
 
     os.environ["ST_REDIRECTED"] = "1"
+
     script_path = str(Path(__file__).resolve())
+    script_path = _short_path(script_path)
+
+    # 把扩展名统一改成小写 .py，避免 Streamlit 讨厌 .PY
+    if script_path.lower().endswith(".py"):
+        script_path = script_path[:-3] + ".py"
+
     cmd = [sys.executable, "-m", "streamlit", "run", script_path]
+
+    # 把原本 python xxx.py 后面的参数透传给 streamlit
     if len(sys.argv) > 1:
         cmd += ["--"] + sys.argv[1:]
+
     if os.environ.get("ST_DEBUG_REDIRECT") == "1":
         print("[streamlit-redirect] ", cmd)
+
     subprocess.run(cmd, check=False)
     sys.exit(0)
 
+
+st.set_page_config(page_title='Warehouse Suite', layout='wide')
 
 PRIMARY_WAREHOUSES = ["Savori Whse", "Lai Hock Whse"]
 
@@ -1125,11 +1143,6 @@ def load_and_normalize(file) -> Tuple[pd.DataFrame, list]:
 
 # ----------------------------- UI 状态回调 -----------------------------
 
-def _touch_summary_refresh_token() -> None:
-    st.session_state["__summary_refresh_token"] = st.session_state.get(
-        "__summary_refresh_token", 0) + 1
-
-
 def on_change_expiry_days() -> None:
     value = st.session_state.get("summary_expiry_days", 30)
     try:
@@ -1139,7 +1152,6 @@ def on_change_expiry_days() -> None:
     if value_int < 1:
         value_int = 1
     st.session_state["summary_expiry_days"] = value_int
-    _touch_summary_refresh_token()
 
 
 def on_change_global_low_stock() -> None:
@@ -1152,42 +1164,43 @@ def on_change_global_low_stock() -> None:
         if value_int < 0:
             value_int = 0
         st.session_state[key] = value_int
-    _touch_summary_refresh_token()
 
 
 def on_toggle_near_expiry() -> None:
     st.session_state["toggle_only_near"] = bool(
         st.session_state.get("toggle_only_near", False))
-    _touch_summary_refresh_token()
 
 
 def on_toggle_low_stock() -> None:
     st.session_state["toggle_only_low"] = bool(
         st.session_state.get("toggle_only_low", False))
-    _touch_summary_refresh_token()
 
 
 # ----------------------------- 主程序：Stock 页 -----------------------------
 
 def run_stock_page():
-
-    if st.sidebar.button("退出程序"):
-        st.session_state["__want_exit"] = True
-    if st.session_state.get("__want_exit"):
-        st.warning("程序已退出")
-        st.stop()
-
     st.title("Stock Dashboard (Stocks DataGrid)")
     st.caption(
         "Upload an Excel file containing the 'Stocks report' and 'Lai Hock Whse' sheets (data starts on row 3).")
 
-    uploaded = st.file_uploader("Upload Excel (.xlsx)", type=["xlsx"])
-    if not uploaded:
+    # 朴实无华的文件上传 + 缓存
+    uploaded = st.file_uploader(
+        "Upload Excel (.xlsx)", type=["xlsx"], key="stock_uploader"
+    )
+    if uploaded is not None:
+        # 把最近一次上传的文件对象存进 session_state，方便页面切换后复用
+        st.session_state["stock_file"] = uploaded
+
+    stock_file = st.session_state.get("stock_file")
+
+    if not stock_file:
         st.info("Upload a source workbook to begin.")
         return
 
+    st.caption(f"Using file: {getattr(stock_file, 'name', 'cached workbook')}")
+
     try:
-        df, warns = load_and_normalize(uploaded)
+        df, warns = load_and_normalize(stock_file)
     except Exception as e:
         st.error(f"Failed to read Excel: {e}")
         return
@@ -1205,6 +1218,41 @@ def run_stock_page():
     filtered, selected_descs, _placeholder_due_days, filter_state = apply_filters_v2(
         df_display)
     total_rows = len(filtered)
+    filter_summary_parts = []
+    label_map = {
+        "warehouse": "Warehouse",
+        "supplier": "Supplier",
+        "brand": "Brand",
+        "description": "Description",
+        "product_code": "Product Code",
+        "remark": "Remark",
+    }
+    for key, label in label_map.items():
+        vals = filter_state.get(key, [])
+        if vals:
+            formatted = ", ".join(str(v) for v in vals if v)
+            if formatted:
+                filter_summary_parts.append(f"{label}: {formatted}")
+
+    def _fmt_range(value):
+        if not value or not isinstance(value, (list, tuple)) or len(value) != 2:
+            return ""
+        start, end = value
+        if start and end:
+            return f"{start} ~ {end}"
+        return ""
+
+    if filter_state.get("use_date_filters"):
+        exp_range = _fmt_range(filter_state.get("expiry_range"))
+        relabel_range = _fmt_range(filter_state.get("relabel_range"))
+        if exp_range:
+            filter_summary_parts.append(f"Expiry: {exp_range}")
+        if relabel_range:
+            filter_summary_parts.append(f"Relabel: {relabel_range}")
+
+    filter_summary_text = "; ".join(
+        filter_summary_parts) if filter_summary_parts else "None (showing all rows)"
+    st.caption(f"Active filters: {filter_summary_text}")
 
     summary_df, detail_map = aggregate_summary(filtered)
     summary_df = summary_df.copy()
@@ -1229,6 +1277,7 @@ def run_stock_page():
         metric_holder = st.container()
         controls_holder = st.container()
 
+    status_options = ["Expired", "Near-Expiry", "Low-Stock", "Depleted", "OK"]
     with controls_holder:
         toggle_cols = st.columns([1, 1, 1, 2])
         toggle_cols[0].toggle(
@@ -1273,6 +1322,13 @@ def run_stock_page():
             placeholder="Filter by supplier / brand / product / code",
             help="Client-side filter that applies to Supplier, Brand, Product, and Product Code.",
         )
+        status_selected = st.multiselect(
+            "Status filter",
+            options=status_options,
+            default=status_options,
+            key="status_filter_options",
+            help="Limit the main table by status tags. Clear selection to show all statuses.",
+        )
 
     expiry_days = int(st.session_state.get("summary_expiry_days", 30))
     global_low_ctn = int(st.session_state.get("summary_global_low_ctn", 0))
@@ -1281,6 +1337,7 @@ def run_stock_page():
     low_only = bool(st.session_state.get("toggle_only_low", False))
     show_depleted = bool(st.session_state.get("toggle_show_depleted", True))
     product_query = (product_query_raw or "").strip()
+    status_selected = status_selected or status_options
 
     if summary_df.empty:
         with metric_holder:
@@ -1294,37 +1351,23 @@ def run_stock_page():
         return
 
     from functools import lru_cache
-
-    _tmp = filtered.copy()
-    _tmp["norm_desc"] = build_norm_desc(_tmp)
-    sup = _tmp.get("supplier", pd.Series(dtype="string")
-                   ).astype("string").fillna("").str.strip()
-    sup = sup.mask(sup.eq(""), "Unknown supplier")
-    prod = _tmp["norm_desc"].astype("string").fillna(
-        "").str.strip().replace("", "Unnamed product")
-    if "pack_size" in _tmp.columns:
-        pack_norm_series = _tmp["pack_size"].map(_normalize_pack_size_value)
-    else:
-        pack_norm_series = pd.Series([""] * len(_tmp), index=_tmp.index)
-    _tmp["_pack_size_norm"] = pack_norm_series
-    pack_values = pack_norm_series.tolist()
-    brand_series = _tmp.get("brand", pd.Series(dtype="string")).astype(
-        "string").fillna("").str.strip()
-    brand_labels = brand_series.where(brand_series != "", "Unknown brand")
-    _tmp["__group_key"] = list(zip(sup, brand_labels, prod, pack_values))
-    group_indices = {k: tuple(g.index)
-                     for k, g in _tmp.groupby("__group_key", dropna=False)}
+    normalized_detail_map = {
+        tuple(k) if not isinstance(k, tuple) else tuple(k): v
+        for k, v in (detail_map or {}).items()
+        if v is not None
+    }
 
     @lru_cache(maxsize=2048)
-    def _cached_split(indices_tuple, expiry_days, show_depleted, batch_mode):
-        sub = filtered.loc[list(indices_tuple)]
-        return split_by_expiry(sub, expiry_days=expiry_days, show_depleted=show_depleted, batch_mode=batch_mode)
+    def _cached_split(group_key_tuple, expiry_days, show_depleted, batch_mode):
+        key = tuple(group_key_tuple) if not isinstance(
+            group_key_tuple, tuple) else group_key_tuple
+        frame = normalized_detail_map.get(key)
+        if frame is None or frame.empty:
+            return pd.DataFrame()
+        return split_by_expiry(frame, expiry_days=expiry_days, show_depleted=show_depleted, batch_mode=batch_mode)
 
     def _get_expiry_table(group_key_tuple):
-        idx = group_indices.get(group_key_tuple)
-        if not idx:
-            return pd.DataFrame()
-        return _cached_split(idx, expiry_days, show_depleted, batch_mode)
+        return _cached_split(tuple(group_key_tuple) if not isinstance(group_key_tuple, tuple) else group_key_tuple, expiry_days, show_depleted, batch_mode)
 
     def _opt_float(val):
         try:
@@ -1461,6 +1504,8 @@ def run_stock_page():
             | view_df["Product Code"].str.contains(product_query, case=False, na=False)
         )
         view_df = view_df[mask]
+    if status_selected and set(status_selected) != set(status_options):
+        view_df = view_df[view_df["status_product"].isin(status_selected)]
     view_df = view_df.reset_index(drop=True)
 
     if view_df.empty:
@@ -1636,7 +1681,31 @@ def run_stock_page():
     else:
         expiry_export_df = pd.DataFrame(columns=expected_cols)
 
-    download_cols = st.columns([1, 1])
+    detail_frames = []
+    if detail_map and not view_df.empty:
+        key_order = [
+            tuple(k) if not isinstance(k, tuple) else tuple(k)
+            for k in view_df["group_key"]
+        ]
+        for key in dict.fromkeys(key_order):
+            frame = detail_map.get(key)
+            if frame is not None and not frame.empty:
+                detail_frames.append(frame.copy())
+    if detail_frames:
+        detail_export_df = pd.concat(
+            detail_frames, ignore_index=True, sort=False)
+        helper_cols = [
+            c for c in detail_export_df.columns if str(c).startswith("_")]
+        detail_export_df = detail_export_df.drop(
+            columns=helper_cols, errors="ignore")
+        for col in ["expiry_date", "relabel_to_date"]:
+            if col in detail_export_df.columns:
+                detail_export_df[col] = pd.to_datetime(
+                    detail_export_df[col], errors="coerce").dt.strftime("%Y-%m-%d")
+    else:
+        detail_export_df = pd.DataFrame()
+
+    download_cols = st.columns([1, 1, 1])
     csv_buffer = io.StringIO()
     export_summary_clean = _strip_html_df(export_summary)
     export_summary_clean.to_csv(csv_buffer, index=False)
@@ -1666,6 +1735,17 @@ def run_stock_page():
         "Export Excel", data=excel_buffer.getvalue(),
         file_name="stock_summary.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    detail_csv_buffer = io.StringIO()
+    detail_export_clean = _strip_html_df(
+        detail_export_df) if not detail_export_df.empty else detail_export_df
+    detail_export_clean.to_csv(detail_csv_buffer, index=False)
+    download_cols[2].download_button(
+        "Export Filtered Detail CSV",
+        data=detail_csv_buffer.getvalue(),
+        file_name="stock_filtered_detail.csv",
+        mime="text/csv",
+        help="Download the raw rows that back the current table after all filters, quick search, and status filters.",
     )
 
     for _, row in view_df.iterrows():
@@ -1808,12 +1888,18 @@ def load_sales_data(files) -> Tuple[pd.DataFrame, List[str]]:
 
 
 def _ensure_multiselect_key_state(state_key: str, options: List[str], default: List[str]):
+    # 第一次出现这个 key，用 default 初始化（注意要跟 options 交集一下）
+    if state_key not in st.session_state:
+        base = [v for v in default if v in options]
+        st.session_state[state_key] = base
+        return
+
+    # 之后就只做「清理无效选项」，不再强制塞默认值
     cur = st.session_state.get(state_key, [])
     if isinstance(cur, (str, int, float)):
         cur = [str(cur)]
+    # 只保留还在 options 里的选项
     cur = [v for v in cur if v in options]
-    if not cur and default:
-        cur = list(default)
     st.session_state[state_key] = cur
 
 
@@ -2287,12 +2373,19 @@ def run_sales_page():
         accept_multiple_files=True,
         key="sales_uploader",
     )
-    if not uploaded:
+
+    # 朴实无华缓存：有新上传就覆盖缓存，没上传就用已有缓存
+    if uploaded:
+        st.session_state["sales_files"] = uploaded
+
+    sales_files = st.session_state.get("sales_files", [])
+
+    if not sales_files:
         st.info("Upload at least one Delivery details workbook to continue.")
         return
 
     try:
-        sales_df, warns = load_sales_data(uploaded)
+        sales_df, warns = load_sales_data(sales_files)
     except Exception as exc:
         st.error(f"Failed to read Sales workbooks: {exc}")
         return
@@ -2585,27 +2678,21 @@ def run_sales_page():
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
 
+
+# ----------------------------- 主入口：使用 tabs 让两个界面独立运行 -----------------------------
+
 def main():
     st.sidebar.title("导航")
-    page = st.sidebar.radio(
-        "选择页面",
-        [
-            "Sales",
-            "Stock",
-            # "Incoming",
-            # "Invoices",
-        ],
-        key="main_nav_page",
-    )
+    st.sidebar.write("选择上方标签切换 Sales 与 Stock 界面。")
 
-    if page == "Sales":
+    # 使用 tabs 同时渲染两个界面，互相不重置状态
+    sales_tab, stock_tab = st.tabs(["Sales", "Stock"])
+
+    with sales_tab:
         run_sales_page()
-    elif page == "Stock":
+
+    with stock_tab:
         run_stock_page()
-    # elif page == "Incoming":
-    #     run_incoming_page()
-    # elif page == "Invoices":
-    #     run_invoice_page()
 
     st.sidebar.markdown("---")
     st.sidebar.caption("Powered by Streamlit")
