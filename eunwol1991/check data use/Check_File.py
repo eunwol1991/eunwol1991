@@ -12,7 +12,7 @@ valid_tags = {"INV", "DO & INV"}
 pattern = re.compile(
     r"^(.+?)\s*(\d{4})\s*-\s*(\d{3})\s*-\s*([A-Z &]+)", re.IGNORECASE
 )
-target_month = "1125"  # 可编辑：筛选包含该字符串的月份标识（如 0825/0925）
+target_month = "1225"  # 可编辑：筛选包含该字符串的月份标识（如 0825/0925）
 
 
 def is_cancelled(fname):

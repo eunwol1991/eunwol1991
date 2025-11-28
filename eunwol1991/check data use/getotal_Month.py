@@ -131,7 +131,7 @@ class InvoiceExtractorApp:
         tree_frame.grid_columnconfigure(0, weight=1)
 
         self.total_label = ttk.Label(
-            self.root, text="Total: 0.00", font=("Helvetica", 12))
+            self.root, text="Total: 0.00", font=("Helvetica", 18))
         self.total_label.grid(row=7, column=0, padx=20, pady=10, sticky=tk.W)
 
         ttk.Label(frame, text="按账户过滤:").grid(

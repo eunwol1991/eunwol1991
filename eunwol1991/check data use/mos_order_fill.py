@@ -71,7 +71,7 @@ STORE_ALIAS = {
 ITEM_ALIAS = {
     "ikeda japanese chicken cutlet":                "Ikeda Japanese Chicken Cutlet (6 x 1.1kg)",
     "japanese chicken katsu 70g":                   "CS TAY Japanese Chicken Katsu 70G (6 x 1kg)",
-    "crispy fried 3 joint wing":                    "CS Tay Crispy Fried Chicken Wings 3 Joints (1132) (6 x 1.1kg)",
+    "tays golden crispy chicken Wing":              "Golden Crispy Chicken Wing (5 pkts x 10 pcs x 1.15kg)",
     "cs tay crispy chicken patty":                  "CS Tay Crispy Chicken Patty (4 x 2.5kg)",
     "eb kranch alaska pollock fingers":             "Kranch Alaska Pollock Finger (5 x 900g)",
     "battered natural onion rings":                 "Salud Battered Natural Onion Ring (6 x 1kg)",
