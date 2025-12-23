@@ -1,5 +1,5 @@
 """
-MOS Order → Excel 自动填表脚本（Savori三行版 + 关键字门店匹配 + 日期PO排除修正版）
+MOS / LTO Order → Excel 自动填表脚本（支持三行版 + 单行表格版）
 依赖：pip install pymupdf openpyxl regex
 """
 
@@ -17,18 +17,18 @@ EXCEL_PATH = Path(
     r"C:\Users\jhunj\Dropbox\for jj\mos order\Order Summary For MOS - JJ.xlsx")
 SHEET_NAME = "MOS Format"
 PDF_DIR = Path(r"C:\Users\jhunj\Dropbox\for jj\mos_pdfs")  # 待处理 PDF 文件夹
-PO_COL = "AK"
+PO_COL = "AI"
 ROW_START = 39
 ROW_END = 73
 COL_START = "C"
-COL_END = "AF"
+COL_END = "AD"
 HIGHLIGHT = PatternFill(fill_type="solid", fgColor="00FFFCD7")
 ARCHIVE_DIR = Path(r"C:\Users\jhunj\Dropbox\for jj\mos order")
+
 # —— PO 号下限（含）——
 PO_MIN = 600000
 
-
-# ======== 门店别名（键已全部小写） =======================================
+# ======== 门店别名（键已全部小写） ======================================= #
 STORE_ALIAS = {
     "mos burger 100 am (38)":                 "MOS - 100AM",
     "mos burger 18 tai seng (67)":            "MOS - 18 Tai Seng",
@@ -38,8 +38,8 @@ STORE_ALIAS = {
     "mos burger causeway point (33)":         "MOS - Causeway Point",
     "mos burger changi city point (80)":      "MOS - Changi City Point",
     "mos burger city square mall (69)":       "MOS - City Square Mall",
-    "mos burger compass one (49)":            "MOS - Compass One",
-    "mos burger eastpoint (64)":              "MOS - Eastpoint Mall",
+    "mos burger compass one (49)":           "MOS - Compass One",
+    "mos burger eastpoint (64)":             "MOS - Eastpoint Mall",
     "mos burger bukit gombak mrt (71)":       "MOS - Express Bukit Gombak MRT",
     "mos burger holland village mrt (70)":    "MOS - Express Holland Village MRT",
     "mos burger fusionopolis one (55)":       "MOS - Fusionopolis One",
@@ -67,26 +67,22 @@ STORE_ALIAS = {
     "mos burger white sands (47)":            "MOS - White Sands",
 }
 
-# ======== 物品别名（键已全部小写） =======================================
+# ======== 物品别名（键已全部小写） ======================================= #
 ITEM_ALIAS = {
     "ikeda japanese chicken cutlet":                "Ikeda Japanese Chicken Cutlet (6 x 1.1kg)",
     "japanese chicken katsu 70g":                   "CS TAY Japanese Chicken Katsu 70G (6 x 1kg)",
-    "tays golden crispy chicken Wing":              "Golden Crispy Chicken Wing (5 pkts x 10 pcs x 1.15kg)",
+    "tays golden crispy chicken wing":              "Golden Crispy Chicken Wing (5 pkts x 10 pcs x 1.15kg)",
     "cs tay crispy chicken patty":                  "CS Tay Crispy Chicken Patty (4 x 2.5kg)",
     "eb kranch alaska pollock fingers":             "Kranch Alaska Pollock Finger (5 x 900g)",
     "battered natural onion rings":                 "Salud Battered Natural Onion Ring (6 x 1kg)",
     "rosti hashbrown":                              "Rosti Hashbrown (10 x 1kg)",
-    "prawn noodle soup":                            "Prawn Noodle Soup (10 x 1kg)",
-    "prawn noodle sauce":                           "Prawn Noodle Sauce (10 x 1kg)",
     "tomato capsicum soup":                         "Tomato Capsicum Soup (10 x 1kg)",
     "par cooked beef patty 120g":                   "Cooked Hamburg Beef Patty 120G (10 x 720g)",
     "demi glace sauce":                             "Demi Glace Sauce (10 x 1kg)",
-    "hoisin sauce":                                 "Hoisin Sauce (10 x 1kg)",
-    "seaweed egg drop soup":                        "Seaweed Egg Drop Soup (10 x 1kg)",
     "chilli crab sauce":                            "Chilli Crab Sauce (10 x 1kg)",
-    "coconut sauce":                                "Coconut Sauce (12 x 500g)",
-    "coleslaw":                                     "Coleslaw (5 x 2kg)",
     "anchor minidish unsalted butter 7g":           "Anchor Minidish Unsalted Butter (1 x 144 x 7g)",
+    "fried chicken tulip":                          "Fried Chicken Tulip (10 x 1kg)",
+    "tsukune japanese minced chicken with potato":  "Tsukune Japanese Minced Chicken with Potato (20 x 480g)",
     "mini mantou, plain":                           "Mini Mantou Plain (24 x 180g)",
     "bobo sliced fish cake 1kg":                    "BoBo Sliced Fish Cake (1kg)",
     "chicken honey baked ham sliced":               "Chicken Honey Baked Ham Sliced (12 x 1kg)",
@@ -97,14 +93,24 @@ ITEM_ALIAS = {
     "jalapenos nachos sliced":                      "Jalapeno Pepper Sliced (6 x 2.95kg)",
     "parsley flakes":                               "Parsley Leaves (6 x 5gm)",
     "toasted coconut flakes":                       "Toasted Coconut Flakes (36 x 200g)",
-    "red wine sauce":                                    "Red Sauce (10 x 1kg)",
-    "j-lek sriracha sauce":                                "J-Lek Sriracha Hot Chilli Sauce (12 x 455ml)",
+    "red sauce":                               "Red Sauce (10 x 1kg)",
+    "j-lek sriracha sauce":                         "J-Lek Sriracha Hot Chilli Sauce (12 x 455ml)",
+    "uht coconut water 1l":                         "UHT Coconut Water 1L (12 x 1L)",
 }
+
 
 # ========================================================================== #
 UNIT_RE = r"(?:ctn|ctns|pkt|pkts|tin|tins|can|cans|box|boxes|btl|btls|pc|pcs)"
-_PLURAL_MAP = {"ctn": "ctns", "pkt": "pkts", "tin": "tins",
-               "can": "cans", "box": "boxes", "btl": "btls", "pc": "pcs"}
+
+_PLURAL_MAP = {
+    "ctn": "ctns",
+    "pkt": "pkts",
+    "tin": "tins",
+    "can": "cans",
+    "box": "boxes",
+    "btl": "btls",
+    "pc": "pcs",
+}
 _SINGULAR_MAP = {v: k for k, v in _PLURAL_MAP.items()}
 
 
@@ -117,7 +123,7 @@ def _normalize_uom(uom: str) -> str:
 
 def _format_qty_uom(qty: int, uom: str) -> str:
     base = _normalize_uom(uom)
-    if qty and qty > 1:
+    if qty > 1:
         plural = _PLURAL_MAP.get(base, base + "s")
         return f"{qty} {plural}"
     return f"{qty} {base}"
@@ -128,20 +134,18 @@ def _norm_spaces(s: str) -> str:
 
 
 def _looks_like_date_fragment(s: str) -> bool:
-    """粗判是否像日期：含 '/' 或出现 20xx 年份痕迹"""
     if not s:
         return False
     return ("/" in s) or bool(re.search(r"20\d{2}", s))
 
-# ---------- Item / Store normalization ---------- #
 
+# ---------- Item / Store normalization ---------- #
 
 def _norm_item_key(desc: str) -> str:
     s = desc.lower()
     s = re.sub(r"\(.*?\)", "", s)
     s = re.sub(r"[^a-z0-9\s,.-]+", " ", s)
-    s = _norm_spaces(s)
-    return s
+    return _norm_spaces(s)
 
 
 def _map_item(desc: str) -> str:
@@ -170,17 +174,19 @@ def resolve_store(pdf_store_line: str, store_row_keys: list[str]) -> str | None:
     alias_hit = STORE_ALIAS.get(pdf_store_line.lower())
     if alias_hit:
         return alias_hit
+
     pdf_norm = _norm_store_text(pdf_store_line)
     excel_norm_map = {_norm_store_text(k): k for k in store_row_keys}
-    candidates = [(len(e), orig) for e, orig in excel_norm_map.items()
-                  if pdf_norm in e or e in pdf_norm]
-    if candidates:
-        candidates.sort(reverse=True)
-        return candidates[0][1]
+
+    for e, orig in excel_norm_map.items():
+        if pdf_norm in e or e in pdf_norm:
+            return orig
+
     words = [w for w in pdf_norm.split() if len(w) >= 3]
     for e, orig in excel_norm_map.items():
         if all(w in e for w in words):
             return orig
+
     return None
 
 
@@ -204,113 +210,33 @@ def _safe_move_file(src: Path, dest_dir: Path):
     except Exception as e:
         print(f"[!] 无法移动文件 {src} -> {dest_dir}: {e}", file=sys.stderr)
 
-# ---------- 模糊列匹配（补齐缺失函数） ---------- #
+
+# ---------- LTO 单行结构解析（新增） ---------- #
+
+LINE_ITEM_RE = re.compile(
+    rf"^\s*\d+\s+(.+?)\s+(\d+)\s+({UNIT_RE})\b", re.I
+)
 
 
-def _tokenize_item(s: str) -> set[str]:
-    """Tokenize item text for fuzzy matching: lowercased words, length>=3."""
-    norm = _norm_item_key(s)
-    toks = [w for w in norm.split() if len(w) >= 3]
-    return set(toks)
+def parse_single_line_items(lines: list[str]) -> list:
+    items = []
+    for ln in lines:
+        m = LINE_ITEM_RE.match(ln)
+        if not m:
+            continue
+
+        desc = _norm_spaces(m.group(1))
+        qty = int(m.group(2))
+        uom = m.group(3).lower()
+
+        items.append({"desc": desc, "qty": qty, "uom": uom})
+
+    return items
 
 
-def find_best_item_col(desc: str, item_col: dict[str, int]) -> tuple[int | None, str | None]:
-    """
-    Fuzzy match: choose Excel header with maximum token overlap.
-    - Accept if unique max overlap >= 1.
-    - If tie with max==1 -> ambiguous -> None.
-    - If tie with max>=2, break tie by overlap char length; still tie -> None.
-    """
-    pdf_tokens = _tokenize_item(desc)
-    if not pdf_tokens:
-        return None, None
+# ---------- PDF basic parsing ---------- #
 
-    # (score, overlap_chars, header, col)
-    scored: list[tuple[int, int, str, int]] = []
-    for header, col in item_col.items():
-        header_tokens = _tokenize_item(header)
-        overlap = pdf_tokens & header_tokens
-        score = len(overlap)
-        if score > 0:
-            overlap_chars = sum(len(t) for t in overlap)
-            scored.append((score, overlap_chars, header, col))
-
-    if not scored:
-        return None, None
-
-    scored.sort(key=lambda x: (x[0], x[1]), reverse=True)
-    top_score = scored[0][0]
-    top = [s for s in scored if s[0] == top_score]
-
-    if len(top) == 1 and top_score >= 1:
-        return top[0][3], top[0][2]
-
-    if top_score >= 2:
-        top.sort(key=lambda x: x[1], reverse=True)
-        if len(top) == 1 or top[0][1] > top[1][1]:
-            return top[0][3], top[0][2]
-        return None, None
-
-    return None, None
-
-
-def _extract_po_from_lines(lines: list[str]) -> str:
-    joined = " \n ".join(lines)
-
-    # 1) 'Approved by' 附近
-    m = re.search(
-        r"(?is)approved\s*by\s*[:\-]?[^\d]{0,80}?(\d\D?\d\D?\d\D?\d\D?\d\D?\d)", joined)
-    if m:
-        raw = m.group(1)
-        if not _looks_like_date_fragment(raw):
-            digits = re.sub(r"\D", "", raw)
-            if len(digits) == 6 and re.fullmatch(r"\d{6}", digits) and int(digits) >= PO_MIN:
-                return digits
-
-    # 2) 逐行窗口
-    for i, ln in enumerate(lines):
-        if re.search(r"(?i)approved\s*by", ln):
-            window = " ".join(lines[i:i+4])
-            m2 = re.search(r"(?is)\b(\d\D?\d\D?\d\D?\d\D?\d\D?\d)\b", window)
-            if m2:
-                raw2 = m2.group(1)
-                if not _looks_like_date_fragment(raw2):
-                    digits2 = re.sub(r"\D", "", raw2)
-                    if len(digits2) == 6 and re.fullmatch(r"\d{6}", digits2) and int(digits2) >= PO_MIN:
-                        return digits2
-
-    # 3) 'To' 规则（后一两行恰好6位）
-    for i in range(len(lines) - 1):
-        if lines[i].strip().lower() == "to":
-            nxt = " ".join(lines[i+1:i+3])
-            m3 = re.search(r"\b(\d{6})\b", nxt)
-            if m3:
-                cand = m3.group(1)
-                if int(cand) >= PO_MIN:
-                    return cand
-
-    # 4) 全文兜底：距离 'Approved by' 最近的独立6位数字，且 >= PO_MIN
-    approved_pos = re.search(r"(?i)approved\s*by", joined)
-    pos = approved_pos.start() if approved_pos else 0
-    candidates = [(m.start(), m.group(0))
-                  for m in re.finditer(r"\b\d{6}\b", joined)]
-    candidates = [c for c in candidates if int(c[1]) >= PO_MIN]
-    if candidates:
-        candidates.sort(key=lambda t: abs(t[0] - pos))
-        return candidates[0][1]
-
-    return ""
-
-
-# ---------- PDF解析 ---------- #
 def parse_pdf(pdf_path: Path):
-    """
-    适配 Savori 的“3行配对”版式：
-      行1：纯数字货号
-      行2：描述
-      行3：数量+单位（如 '2 ctn' / '1 pkt' / '1 can'）
-    门店：独立一行 'MOS Burger ... (nn)'（也支持关键字匹配）
-    """
     pages = []
     with fitz.open(pdf_path) as doc:
         for page in doc:
@@ -318,81 +244,70 @@ def parse_pdf(pdf_path: Path):
             pages.append([ln.strip() for ln in raw.splitlines() if ln.strip()])
     return pages
 
-# ---------- 单页信息抽取 ---------- #
 
+# ---------- 解析 PO（保留你的 PO_MIN 逻辑） ---------- #
+
+def _extract_po_from_lines(lines: list[str]) -> str:
+    joined = " \n ".join(lines)
+
+    m = re.search(r"(?is)approved\s*by[^\d]{0,80}?(\d{6})", joined)
+    if m and int(m.group(1)) >= PO_MIN:
+        return m.group(1)
+
+    for m in re.finditer(r"\b\d{6}\b", joined):
+        if int(m.group(0)) >= PO_MIN:
+            return m.group(0)
+
+    return ""
+
+
+# ---------- 主解析：同时支持三行结构 + 单行结构 ---------- #
 
 def extract_orders_from_lines(lines: list[str]) -> dict:
-    """从单页 lines 中抽取: store_line, po, items(list[{desc, qty, uom}])"""
-    # 门店行（原样）
     store_line = None
     for ln in lines:
         if re.fullmatch(r"(?i)mos burger.+\(\d+\)", ln):
             store_line = ln
             break
 
-    po = ""
-    for i, ln in enumerate(lines):
-        if "approved by:" in ln.lower():
-            m = re.search(r"\b(\d{6})\b", ln)
-            if m and int(m.group(1)) >= PO_MIN:
-                po = m.group(1)
-                break
-            if i + 1 < len(lines) and re.fullmatch(r"\d{6}", lines[i + 1].strip()):
-                if int(lines[i + 1].strip()) >= PO_MIN:
-                    po = lines[i + 1].strip()
-                    break
+    po = _extract_po_from_lines(lines)
 
-    if not po:
-        for i in range(len(lines) - 1):
-            if lines[i].strip().lower() == "to" and re.fullmatch(r"\d{6}", lines[i + 1].strip()):
-                if int(lines[i + 1].strip()) >= PO_MIN:
-                    po = lines[i + 1].strip()
-                    break
+    # 先试 LTO 单行结构
+    items = parse_single_line_items(lines)
 
-    # 兜底（会再次套用 PO_MIN & 日期过滤）
-    po2 = _extract_po_from_lines(lines)
-    if po2:
-        po = po2
-
-    # 明细：三行配对
-    items = []
-    qty_re = re.compile(rf"^(\d+)\s+({UNIT_RE})$", re.I)
-    i = 0
-    while i < len(lines) - 2:
-        if re.fullmatch(r"\d{5,}", lines[i]):   # 货号（5位以上纯数字）
-            desc = lines[i + 1]
-            m_qty = qty_re.fullmatch(lines[i + 2])
+    # 若单行结构抓不到，再尝试三行结构（旧格式兼容）
+    if not items:
+        items = []
+        qty_re = re.compile(rf"^(\d+)\s+({UNIT_RE})$", re.I)
+        i = 0
+        while i < len(lines) - 2:
+            desc = lines[i]
+            m_qty = qty_re.fullmatch(lines[i + 1])
             if m_qty:
                 items.append({
                     "desc": desc,
                     "qty": int(m_qty.group(1)),
-                    "uom": m_qty.group(2).lower(),
+                    "uom": m_qty.group(2).lower()
                 })
-                i += 3
+                i += 2
                 continue
-        i += 1
+            i += 1
 
     return {"store_line": store_line, "po": po, "items": items}
 
-# ---------- Excel表头映射 ---------- #
 
+# ---------- Excel 表头映射 ---------- #
 
 def build_mappings(ws):
-    """生成 {店名: 行号}, {物品名: 列号}"""
-    def _norm_store_for_excel(s: str) -> str:
-        s = _norm_spaces(str(s))
-        s = re.sub(r"\*+$", "", s).strip()
-        return s
-
     store_row = {}
     for r in range(ROW_START, ROW_END + 1):
         v = ws[f"B{r}"].value
-        if v is None:
-            continue
-        store_row[_norm_store_for_excel(v)] = r
+        if v:
+            store_row[_norm_spaces(str(v))] = r
 
     c1 = column_index_from_string(COL_START)
     c2 = column_index_from_string(COL_END)
+
     item_col = {}
     for c in range(c1, c2 + 1):
         v = ws.cell(38, c).value
@@ -403,134 +318,120 @@ def build_mappings(ws):
 
 
 def clear_target_cells(ws):
-    # 清空目标范围内的历史值与高亮
     c1 = column_index_from_string(COL_START)
     c2 = column_index_from_string(COL_END)
+
     for r in range(ROW_START, ROW_END + 1):
         for c in range(c1, c2 + 1):
-            cell = ws.cell(r, c)
-            cell.value = None
-            cell.fill = PatternFill()
-        # 清空 PO 列
+            ws.cell(r, c).value = None
+            ws.cell(r, c).fill = PatternFill()
         ws[f"{PO_COL}{r}"].value = None
 
-# ---------- 主流程 ---------- #
 
+# ---------- 主流程 ---------- #
 
 def main():
     wb = xl.load_workbook(EXCEL_PATH)
     ws = wb[SHEET_NAME]
     clear_target_cells(ws)
+
     store_row, item_col = build_mappings(ws)
-    not_found_store, not_found_item, updated = [], [], []
+
+    not_found_store = []
+    # 记录找不到物品的详细信息：每一笔是一个 dict
+    # [{"pdf": xxx, "store": xxx, "po": xxx, "desc": xxx, "qty": n, "uom": "ctn"}, ...]
+    not_found_item = []
+    updated = []
 
     pdf_list = sorted(PDF_DIR.glob("*.pdf"))
+
     for pdf_file in pdf_list:
         pdf_had_update = False
+
         try:
             pages = parse_pdf(pdf_file)
             for lines in pages:
-                page_info = extract_orders_from_lines(lines)
-                # 检测是否为 amend 页（包含 amend/amended/amendment 等关键字）
-                page_has_amend = any(
-                    re.search(r"\bamend", ln, flags=re.I) for ln in lines)
-                if not page_info["items"]:
-                    continue  # 该页无明细
+                info = extract_orders_from_lines(lines)
+                if not info["items"]:
+                    continue
 
-                # 门店解析：优先使用 store_line；支持关键字/部分匹配
-                resolved_store_name = None
-                if page_info["store_line"]:
-                    resolved_store_name = resolve_store(
-                        page_info["store_line"], list(store_row.keys()))
+                resolved_store = None
+                if info["store_line"]:
+                    resolved_store = resolve_store(
+                        info["store_line"], list(store_row.keys()))
                 else:
-                    # 如果 PDF 没有清晰门店行，也尝试任何包含 MOS 的行
                     for ln in lines:
                         if "mos" in ln.lower():
-                            resolved_store_name = resolve_store(
+                            resolved_store = resolve_store(
                                 ln, list(store_row.keys()))
-                            if resolved_store_name:
+                            if resolved_store:
                                 break
 
-                if not resolved_store_name:
-                    not_found_store.append(
-                        {"store": page_info["store_line"] or "(missing)", "po": page_info["po"]})
+                if not resolved_store:
+                    not_found_store.append(info["store_line"])
                     continue
 
-                r = store_row.get(resolved_store_name)
-                if r is None:
-                    not_found_store.append(
-                        {"store": page_info["store_line"], "po": page_info["po"]})
+                r = store_row.get(resolved_store)
+                if not r:
+                    not_found_store.append(info["store_line"])
                     continue
 
-                # 写入每个明细
-                for it in page_info["items"]:
+                for it in info["items"]:
                     item_std = _map_item(it["desc"])
                     c = item_col.get(item_std)
-                    matched_header = item_std
-                    if c is None:
-                        # Fuzzy fallback by token overlap
-                        c, matched_header = find_best_item_col(
-                            it["desc"], item_col)
-                    if c is None:
+
+                    if not c:
+                        # 记录：是哪一个 PDF、门店、PO、原始品名、数量、单位
                         not_found_item.append({
-                            "store": resolved_store_name,
-                            "item": matched_header or item_std,
+                            "pdf": pdf_file.name,
+                            "store": resolved_store,
+                            "po": info["po"],
+                            "desc": it["desc"],
                             "qty": it.get("qty"),
-                            "uom": it.get("uom", ""),
-                            "po": page_info["po"]
+                            "uom": it.get("uom"),
                         })
                         continue
 
-                    # 写入“数字 + UOM”，并根据数量进行单复数调整
-                    if page_has_amend and int(it.get("qty", 0)) == 0:
-                        cell = ws.cell(r, c)
-                        cell.value = None
-                        cell.fill = PatternFill()
-                    else:
-                        ws.cell(r, c).value = _format_qty_uom(
-                            it["qty"], it.get("uom", ""))
-                        ws.cell(r, c).fill = HIGHLIGHT
+                    ws.cell(r, c).value = _format_qty_uom(
+                        it["qty"], it["uom"])
+                    ws.cell(r, c).fill = HIGHLIGHT
                     pdf_had_update = True
 
-                # 写入 PO（保留原先的数字/文本写入策略）
-                po_cell = ws[f"{PO_COL}{r}"]
-                po_val = (page_info["po"] or "").strip()
-                if re.fullmatch(r"\d{1,}\Z", po_val):
-                    try:
-                        po_cell.value = int(po_val)
-                    except Exception:
-                        po_cell.value = po_val
-                else:
-                    po_cell.value = po_val
-                if po_val:
+                # 写入 PO
+                if info["po"]:
+                    po_cell = ws[f"{PO_COL}{r}"]
+                    po_cell.value = int(info["po"])
                     pdf_had_update = True
 
-                updated.append((resolved_store_name, page_info["po"]))
+                updated.append((resolved_store, info["po"]))
+
         except Exception as e:
-            print(f"[!] 解析 {pdf_file.name} 出错：{e}", file=sys.stderr)
+            print(f"[!] 解析出错 {pdf_file.name}: {e}")
 
-        # 已写入则移动 PDF 到归档目录
         if pdf_had_update:
             _safe_move_file(pdf_file, ARCHIVE_DIR)
 
-    # 覆盖保存（只保存一次）
     wb.save(EXCEL_PATH)
     wb.close()
 
-    print(f"✅ 已更新 {len(updated)} 条记录，处理 {len(pdf_list)} 份 PDF → {EXCEL_PATH}")
-    if not_found_store or not_found_item:
-        print("\n⚠️ 未匹配成功：")
-        if not_found_store:
-            print("  [门店未匹配]")
-            for od in not_found_store:
-                print(f"   - store={od.get('store')} / PO {od.get('po')}")
-        if not_found_item:
-            print("  [物品未匹配]")
-            for od in not_found_item:
-                qty_uom = _format_qty_uom(od.get('qty') or 0, od.get(
-                    'uom', '')) if od.get('qty') is not None else ''
-                print(
-                    f"   - {od['store']} / {od['item']} / {qty_uom} / PO {od['po']}")
+    print(f"已更新 {len(updated)} 条记录, 处理 {len(pdf_list)} 份 PDF → {EXCEL_PATH}")
+
+    # 若有 PO 里的 items 没有在 Excel 找到对应列，提醒用户
+    if not_found_item:
+        print("\n[警告] 以下物品在 Excel 中找不到对应的列，请检查 ITEM_ALIAS 或表头：\n")
+        seen = set()
+        for rec in not_found_item:
+            key = (rec["pdf"], rec["store"], rec["po"], rec["desc"])
+            if key in seen:
+                continue
+            seen.add(key)
+            print(
+                f"- PDF: {rec['pdf']}, 门店: {rec['store']}, PO: {rec['po']}, "
+                f"品名: {rec['desc']}, 数量: {rec['qty']} {rec['uom']}"
+            )
+        print("\n请根据以上资讯，\n1) 确认该物品是否应加入 ITEM_ALIAS；\n2) 或确认 Excel 第 38 行的品名是否与标准描述一致。")
+    else:
+        print("\n所有物品均已成功匹配到 Excel 列，没有遗漏的品项。")
 
 
 if __name__ == "__main__":

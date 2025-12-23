@@ -89,7 +89,7 @@ def update_excel_files(
                             if sheet_name == "DO":
                                 sheet[f"B{row_number}"].value = product_code
                                 sheet[f"C{row_number}"].value = product_description
-                                sheet[f"G{row_number}"].value = pack_size
+                                sheet[f"H{row_number}"].value = pack_size
                                 # sheet[f"H{row_number}"].value = None
                                 sheet[f"I{row_number}"].value = qty
                                 sheet[f"K{row_number}"].value = uom

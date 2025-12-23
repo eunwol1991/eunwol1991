@@ -133,7 +133,7 @@ def main():
     # ====== 发票起始编号输入 ======
     entry_frame = ttk.Frame(app)
     entry_frame.pack(pady=10)
-    ttk.Label(entry_frame, text="请输入发票起始编号 (例如: 1125 - 001)",
+    ttk.Label(entry_frame, text="请输入发票起始编号 (例如: 1225 - 001)",
               font=("Arial", 12)).pack()
     invoice_entry = ttk.Entry(entry_frame, font=("Arial", 12), width=30)
     invoice_entry.pack(pady=5)
