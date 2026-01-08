@@ -7,6 +7,7 @@ from pathlib import Path
 import re
 import sys
 import shutil
+from difflib import get_close_matches, SequenceMatcher
 import fitz                     # PyMuPDF
 import openpyxl as xl
 from openpyxl.styles import PatternFill
@@ -27,6 +28,10 @@ ARCHIVE_DIR = Path(r"C:\Users\jhunj\Dropbox\for jj\mos order")
 
 # —— PO 号下限（含）——
 PO_MIN = 600000
+ENABLE_ITEM_FUZZY = True
+ITEM_FUZZY_MIN = 0.88
+ITEM_FUZZY_GAP = 0.05
+INTERACTIVE_ITEM_SELECT = True
 
 # ======== 门店别名（键已全部小写） ======================================= #
 STORE_ALIAS = {
@@ -144,6 +149,11 @@ def _looks_like_date_fragment(s: str) -> bool:
 def _norm_item_key(desc: str) -> str:
     s = desc.lower()
     s = re.sub(r"\(.*?\)", "", s)
+    s = re.sub(r"(?<=\d)\s*[xX]\s*(?=\d)", " ", s)
+    s = re.sub(r"(?<=\d)\s*[xX]\s*(?=[a-z])", " ", s)
+    s = re.sub(r"(?<=[a-z])\s*[xX]\s*(?=\d)", " ", s)
+    s = re.sub(r"([a-z])(\d)", r"\1 \2", s)
+    s = re.sub(r"(\d)([a-z])", r"\1 \2", s)
     s = re.sub(r"[^a-z0-9\s,.-]+", " ", s)
     return _norm_spaces(s)
 
@@ -159,6 +169,89 @@ def _map_item(desc: str) -> str:
         if k in key or key in k:
             return ITEM_ALIAS[k]
     return desc
+
+
+def _suggest_store_candidates(pdf_store_line: str, store_row_keys: list[str], limit: int = 3) -> list[str]:
+    if not pdf_store_line:
+        return []
+    norm_line = _norm_store_text(pdf_store_line)
+    norm_map = {}
+    for k in store_row_keys:
+        nk = _norm_store_text(k)
+        if nk not in norm_map:
+            norm_map[nk] = k
+    matches = get_close_matches(norm_line, list(norm_map.keys()), n=limit, cutoff=0.4)
+    return [norm_map[m] for m in matches]
+
+
+def _suggest_item_candidates(item_desc: str, item_col_keys: list[str], limit: int = 3) -> list[str]:
+    if not item_desc:
+        return []
+    norm_desc = _norm_item_key(item_desc)
+    norm_map = {}
+    for k in item_col_keys:
+        nk = _norm_item_key(k)
+        if nk not in norm_map:
+            norm_map[nk] = k
+    matches = get_close_matches(norm_desc, list(norm_map.keys()), n=limit, cutoff=0.5)
+    return [norm_map[m] for m in matches]
+
+
+def _build_item_norm_map(item_col_keys: list[str]) -> dict[str, str]:
+    norm_map = {}
+    for k in item_col_keys:
+        nk = _norm_item_key(k)
+        if nk and nk not in norm_map:
+            norm_map[nk] = k
+    return norm_map
+
+
+def _fuzzy_match_item(item_desc: str, item_norm_map: dict[str, str]) -> dict | None:
+    if not item_desc:
+        return None
+    norm_desc = _norm_item_key(item_desc)
+    if not norm_desc:
+        return None
+
+    best_score = 0.0
+    best_key = None
+    second_score = 0.0
+    for nk, orig in item_norm_map.items():
+        score = SequenceMatcher(None, norm_desc, nk).ratio()
+        if score > best_score:
+            second_score = best_score
+            best_score = score
+            best_key = orig
+        elif score > second_score:
+            second_score = score
+
+    if best_key and best_score >= ITEM_FUZZY_MIN and (best_score - second_score) >= ITEM_FUZZY_GAP:
+        return {"item": best_key, "score": round(best_score, 3)}
+    return None
+
+
+def _prompt_use_item_suggestion(pdf_name: str, store: str | None, po: str | None, desc: str,
+                                suggestions: list[str]) -> bool:
+    print("\n[匹配建议] 发现可能的 Excel 列名，请确认是否自动匹配：")
+    print(f"- PDF: {pdf_name}, 门店: {store}, PO: {po}, 品名: {desc}")
+    print(f"  可能列名: {', '.join(suggestions)}")
+    while True:
+        ans = input("  是否使用第 1 个候选列并临时加入别名? (y/n): ").strip().lower()
+        if ans in {"y", "yes"}:
+            return True
+        if ans in {"n", "no"}:
+            return False
+        print("  请输入 y 或 n。")
+
+
+def _collect_item_hint_lines(lines: list[str], limit: int = 5) -> list[str]:
+    hints = []
+    for ln in lines:
+        if UNIT_WORD_RE.search(ln):
+            hints.append(ln)
+            if len(hints) >= limit:
+                break
+    return hints
 
 
 def _norm_store_text(s: str) -> str:
@@ -216,6 +309,7 @@ def _safe_move_file(src: Path, dest_dir: Path):
 LINE_ITEM_RE = re.compile(
     rf"^\s*\d+\s+(.+?)\s+(\d+)\s+({UNIT_RE})\b", re.I
 )
+UNIT_WORD_RE = re.compile(rf"\b{UNIT_RE}\b", re.I)
 
 
 def parse_single_line_items(lines: list[str]) -> list:
@@ -338,47 +432,117 @@ def main():
     store_row, item_col = build_mappings(ws)
 
     not_found_store = []
+    not_found_store_seen = set()
     # 记录找不到物品的详细信息：每一笔是一个 dict
     # [{"pdf": xxx, "store": xxx, "po": xxx, "desc": xxx, "qty": n, "uom": "ctn"}, ...]
     not_found_item = []
+    no_item_pdf = []
+    missing_po = []
+    missing_po_seen = set()
+    fuzzy_item_matches = []
+    user_added_aliases = []
+    archive_skipped = []
+    declined_item_keys = set()
     updated = []
 
     pdf_list = sorted(PDF_DIR.glob("*.pdf"))
+    store_row_keys = list(store_row.keys())
+    item_col_keys = list(item_col.keys())
+    item_norm_map = _build_item_norm_map(item_col_keys)
 
     for pdf_file in pdf_list:
         pdf_had_update = False
+        pdf_found_items = False
+        pdf_hint_lines = []
+        parse_ok = True
+        pdf_block_archive = False
 
         try:
             pages = parse_pdf(pdf_file)
             for lines in pages:
                 info = extract_orders_from_lines(lines)
                 if not info["items"]:
+                    if len(pdf_hint_lines) < 5:
+                        pdf_hint_lines.extend(
+                            _collect_item_hint_lines(lines, 5 - len(pdf_hint_lines))
+                        )
                     continue
+                pdf_found_items = True
 
                 resolved_store = None
-                if info["store_line"]:
-                    resolved_store = resolve_store(
-                        info["store_line"], list(store_row.keys()))
+                store_line = info["store_line"]
+                if store_line:
+                    resolved_store = resolve_store(store_line, store_row_keys)
                 else:
                     for ln in lines:
                         if "mos" in ln.lower():
-                            resolved_store = resolve_store(
-                                ln, list(store_row.keys()))
+                            store_line = ln
+                            resolved_store = resolve_store(ln, store_row_keys)
                             if resolved_store:
                                 break
 
                 if not resolved_store:
-                    not_found_store.append(info["store_line"])
+                    reason = "门店行未找到或无法匹配到 Excel 门店行"
+                    store_key = (pdf_file.name, store_line, reason)
+                    if store_key not in not_found_store_seen:
+                        not_found_store_seen.add(store_key)
+                        not_found_store.append({
+                            "pdf": pdf_file.name,
+                            "store_line": store_line,
+                            "store_line_norm": _norm_store_text(store_line or ""),
+                            "reason": reason,
+                            "candidates": _suggest_store_candidates(store_line, store_row_keys),
+                            "mos_lines": [ln for ln in lines if "mos" in ln.lower()][:3],
+                        })
                     continue
 
                 r = store_row.get(resolved_store)
                 if not r:
-                    not_found_store.append(info["store_line"])
+                    reason = "门店已解析但在 Excel 中找不到对应行"
+                    store_key = (pdf_file.name, resolved_store, reason)
+                    if store_key not in not_found_store_seen:
+                        not_found_store_seen.add(store_key)
+                        not_found_store.append({
+                            "pdf": pdf_file.name,
+                            "store_line": resolved_store,
+                            "store_line_norm": _norm_store_text(resolved_store),
+                            "reason": reason,
+                            "candidates": _suggest_store_candidates(resolved_store, store_row_keys),
+                            "mos_lines": [ln for ln in lines if "mos" in ln.lower()][:3],
+                        })
                     continue
 
                 for it in info["items"]:
                     item_std = _map_item(it["desc"])
                     c = item_col.get(item_std)
+                    fuzzy_used = None
+                    if not c and ENABLE_ITEM_FUZZY:
+                        fuzzy_used = _fuzzy_match_item(item_std, item_norm_map)
+                        if fuzzy_used:
+                            item_std = fuzzy_used["item"]
+                            c = item_col.get(item_std)
+
+                    if not c:
+                        suggestions = _suggest_item_candidates(item_std, item_col_keys)
+                        norm_desc = _norm_item_key(it["desc"])
+                        if suggestions and INTERACTIVE_ITEM_SELECT and norm_desc not in declined_item_keys:
+                            use_suggest = _prompt_use_item_suggestion(
+                                pdf_file.name, resolved_store, info["po"], it["desc"], suggestions)
+                            if use_suggest:
+                                item_std = suggestions[0]
+                                c = item_col.get(item_std)
+                                if c:
+                                    if norm_desc and norm_desc not in ITEM_ALIAS:
+                                        ITEM_ALIAS[norm_desc] = item_std
+                                        user_added_aliases.append({
+                                            "alias": it["desc"],
+                                            "mapped": item_std,
+                                        })
+                                else:
+                                    c = None
+                            else:
+                                declined_item_keys.add(norm_desc)
+                                pdf_block_archive = True
 
                     if not c:
                         # 记录：是哪一个 PDF、门店、PO、原始品名、数量、单位
@@ -387,8 +551,11 @@ def main():
                             "store": resolved_store,
                             "po": info["po"],
                             "desc": it["desc"],
+                            "mapped": item_std,
                             "qty": it.get("qty"),
                             "uom": it.get("uom"),
+                            "reason": "Excel 表头没有对应的品名列",
+                            "suggestions": _suggest_item_candidates(item_std, item_col_keys),
                         })
                         continue
 
@@ -396,25 +563,98 @@ def main():
                         it["qty"], it["uom"])
                     ws.cell(r, c).fill = HIGHLIGHT
                     pdf_had_update = True
+                    if fuzzy_used:
+                        fuzzy_item_matches.append({
+                            "pdf": pdf_file.name,
+                            "store": resolved_store,
+                            "po": info["po"],
+                            "desc": it["desc"],
+                            "matched": item_std,
+                            "score": fuzzy_used["score"],
+                        })
 
                 # 写入 PO
                 if info["po"]:
                     po_cell = ws[f"{PO_COL}{r}"]
                     po_cell.value = int(info["po"])
                     pdf_had_update = True
+                else:
+                    po_key = (pdf_file.name, resolved_store)
+                    if po_key not in missing_po_seen:
+                        missing_po_seen.add(po_key)
+                        missing_po.append({
+                            "pdf": pdf_file.name,
+                            "store": resolved_store,
+                            "reason": f"未找到 PO（需 >= {PO_MIN}）",
+                        })
 
                 updated.append((resolved_store, info["po"]))
 
         except Exception as e:
+            parse_ok = False
             print(f"[!] 解析出错 {pdf_file.name}: {e}")
 
-        if pdf_had_update:
+        if parse_ok and not pdf_found_items:
+            no_item_pdf.append({
+                "pdf": pdf_file.name,
+                "reason": "未匹配到单行或三行的商品结构",
+                "hints": pdf_hint_lines,
+            })
+
+        if pdf_had_update and not pdf_block_archive:
             _safe_move_file(pdf_file, ARCHIVE_DIR)
+        elif pdf_had_update and pdf_block_archive:
+            archive_skipped.append({
+                "pdf": pdf_file.name,
+                "reason": "用户选择不自动匹配，暂不移动文件",
+            })
 
     wb.save(EXCEL_PATH)
     wb.close()
 
     print(f"已更新 {len(updated)} 条记录, 处理 {len(pdf_list)} 份 PDF → {EXCEL_PATH}")
+
+    if not_found_store:
+        print("\n[警告] 以下门店无法匹配到 Excel 门店行，请检查门店名称或 STORE_ALIAS：\n")
+        for rec in not_found_store:
+            store_line = rec.get("store_line") or "(未找到门店行)"
+            print(f"- PDF: {rec['pdf']}, 门店原文: {store_line}, 原因: {rec['reason']}")
+            if rec.get("store_line_norm"):
+                print(f"  规范化: {rec['store_line_norm']}")
+            if rec.get("candidates"):
+                print(f"  可能门店: {', '.join(rec['candidates'])}")
+            if rec.get("mos_lines"):
+                print(f"  PDF 中疑似门店行: {', '.join(rec['mos_lines'])}")
+
+    if no_item_pdf:
+        print("\n[警告] 以下 PDF 没有解析到任何商品行，可能格式不匹配：\n")
+        for rec in no_item_pdf:
+            print(f"- PDF: {rec['pdf']}, 原因: {rec['reason']}")
+            if rec.get("hints"):
+                print(f"  参考行: {', '.join(rec['hints'])}")
+
+    if missing_po:
+        print("\n[提示] 以下记录未找到 PO（可能格式变化或 PO 小于阈值）：\n")
+        for rec in missing_po:
+            print(f"- PDF: {rec['pdf']}, 门店: {rec['store']}, 原因: {rec['reason']}")
+
+    if user_added_aliases:
+        print("\n[提示] 以下品名已临时加入别名（仅本次运行有效）：\n")
+        for rec in user_added_aliases:
+            print(f"- 别名: {rec['alias']} → {rec['mapped']}")
+
+    if archive_skipped:
+        print("\n[提示] 以下文件未移动到归档目录：\n")
+        for rec in archive_skipped:
+            print(f"- PDF: {rec['pdf']}, 原因: {rec['reason']}")
+
+    if fuzzy_item_matches:
+        print("\n[提示] 以下物品使用了模糊匹配并已写入 Excel：\n")
+        for rec in fuzzy_item_matches:
+            print(
+                f"- PDF: {rec['pdf']}, 门店: {rec['store']}, PO: {rec['po']}, "
+                f"原始品名: {rec['desc']} → 匹配列: {rec['matched']} (相似度 {rec['score']})"
+            )
 
     # 若有 PO 里的 items 没有在 Excel 找到对应列，提醒用户
     if not_found_item:
@@ -425,13 +665,19 @@ def main():
             if key in seen:
                 continue
             seen.add(key)
+            desc = rec["desc"]
+            mapped = rec.get("mapped")
+            if mapped and mapped != desc:
+                desc = f"{desc} (映射后: {mapped})"
             print(
                 f"- PDF: {rec['pdf']}, 门店: {rec['store']}, PO: {rec['po']}, "
-                f"品名: {rec['desc']}, 数量: {rec['qty']} {rec['uom']}"
+                f"品名: {desc}, 数量: {rec['qty']} {rec['uom']}"
             )
+            if rec.get("suggestions"):
+                print(f"  可能列名: {', '.join(rec['suggestions'])}")
         print("\n请根据以上资讯，\n1) 确认该物品是否应加入 ITEM_ALIAS；\n2) 或确认 Excel 第 38 行的品名是否与标准描述一致。")
     else:
-        print("\n所有物品均已成功匹配到 Excel 列，没有遗漏的品项。")
+        print("\n已解析到的物品均已成功匹配到 Excel 列，没有遗漏的品项。")
 
 
 if __name__ == "__main__":

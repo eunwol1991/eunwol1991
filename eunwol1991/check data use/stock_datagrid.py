@@ -1,5 +1,7 @@
 ﻿import streamlit as st
+import streamlit.components.v1 as components
 from typing import Any, Optional, Tuple, List, Dict
+import json
 import datetime
 import math
 import pandas as pd
@@ -735,6 +737,9 @@ def apply_filters_v2(df: pd.DataFrame):
 
     ss = st.session_state
 
+    def _set_focus_target(target: str) -> None:
+        ss["__focus_target"] = target
+
     def _ensure_multiselect_key(key: str, options: list, init: list):
         if key not in ss:
             ss[key] = list(init)
@@ -868,7 +873,8 @@ def apply_filters_v2(df: pd.DataFrame):
                 [x for x in base_ser.dropna().unique().tolist() if x])
             _ensure_multiselect_key("f_desc", desc_options, [])
             st.multiselect("Description（去括号后）", desc_options,
-                           key="f_desc", placeholder="选择描述")
+                           key="f_desc", placeholder="选择描述",
+                           on_change=_set_focus_target, args=("desc",))
             sel_desc = list(ss.get("f_desc", []))
 
         if "product_code" in base.columns:
@@ -886,7 +892,8 @@ def apply_filters_v2(df: pd.DataFrame):
                 d["description"]) if not d.empty else []
             _ensure_multiselect_key("f_remark", remark_options, [])
             st.multiselect("Remark（来自描述括号）", remark_options,
-                           key="f_remark", placeholder="选择 Remark")
+                           key="f_remark", placeholder="选择 Remark",
+                           on_change=_set_focus_target, args=("remark",))
             st.checkbox("Exclude selected (Remark)",
                         key="f_remark_ex", value=False)
             sel_remark = list(ss.get("f_remark", []))
@@ -928,6 +935,56 @@ def apply_filters_v2(df: pd.DataFrame):
                     st.date_input("Relabel To 日期范围", key="relabel_date_range",
                                   min_value=min_r.date(), max_value=max_r.date())
                     r_start, r_end = st.session_state.get("relabel_date_range")
+
+        focus_target = ss.get("__focus_target")
+        if focus_target in {"desc", "remark"}:
+            label_text = (
+                "Description（去括号后）"
+                if focus_target == "desc"
+                else "Remark（来自描述括号）"
+            )
+            target_json = json.dumps(label_text)
+            components.html(
+                f"""
+                <script>
+                (function() {{
+                    const targetLabel = {target_json};
+                    const focusByLabel = () => {{
+                        const widgets = window.parent.document.querySelectorAll('[data-testid="stWidget"]');
+                        for (const w of widgets) {{
+                            const label = w.querySelector('[data-testid="stWidgetLabel"]');
+                            if (!label) continue;
+                            const text = (label.textContent || '').trim();
+                            if (!text.startsWith(targetLabel)) continue;
+                            let input = w.querySelector('input[type="text"]');
+                            if (!input) {{
+                                input = w.querySelector('input');
+                            }}
+                            if (input) {{
+                                input.focus();
+                                if (input.setSelectionRange) {{
+                                    const end = input.value ? input.value.length : 0;
+                                    input.setSelectionRange(end, end);
+                                }}
+                                return true;
+                            }}
+                        }}
+                        return false;
+                    }};
+                    let attempts = 0;
+                    const handle = setInterval(() => {{
+                        attempts += 1;
+                        if (focusByLabel() || attempts >= 20) {{
+                            clearInterval(handle);
+                        }}
+                    }}, 100);
+                }})();
+                </script>
+                """,
+                height=0,
+                width=0,
+            )
+            ss["__focus_target"] = None
 
     work = apply_all(base)
     if use_date_filters and "expiry_date" in work.columns and start and end:
@@ -1228,11 +1285,15 @@ def run_stock_page():
         "remark": "Remark",
     }
     for key, label in label_map.items():
-        vals = filter_state.get(key, [])
-        if vals:
+        vals = filter_state.get(key)
+        if vals is None or vals == "":
+            continue
+        if isinstance(vals, (list, tuple, set)):
             formatted = ", ".join(str(v) for v in vals if v)
-            if formatted:
-                filter_summary_parts.append(f"{label}: {formatted}")
+        else:
+            formatted = str(vals).strip()
+        if formatted:
+            filter_summary_parts.append(f"{label}: {formatted}")
 
     def _fmt_range(value):
         if not value or not isinstance(value, (list, tuple)) or len(value) != 2:

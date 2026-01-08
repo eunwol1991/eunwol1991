@@ -133,7 +133,7 @@ def main():
     # ====== 发票起始编号输入 ======
     entry_frame = ttk.Frame(app)
     entry_frame.pack(pady=10)
-    ttk.Label(entry_frame, text="请输入发票起始编号 (例如: 1225 - 001)",
+    ttk.Label(entry_frame, text="请输入发票起始编号 (例如: 0126 - 001)",
               font=("Arial", 12)).pack()
     invoice_entry = ttk.Entry(entry_frame, font=("Arial", 12), width=30)
     invoice_entry.pack(pady=5)
@@ -141,9 +141,9 @@ def main():
     # ====== 文件名匹配模式 ======
     file_pattern = re.compile(
         r"""^(?P<prefix>[A-Z0-9._ \-]+?)          # 开头前缀，如 P17 / C.P / ABC-123
-            \s+xx25\s*[-–—]\s*00x                # xx25 - 00x（连字符可为-、–、—）
+            \s+xx26\s*[-–—]\s*00x                # xx25 - 00x（连字符可为-、–、—）
             (?:\s*[-–—]\s*DO\s*&\s*INV)?         # 可选的 - DO & INV
-            (?:\s*\((?P<name>[^)]+)\))?          # 可选的 (名称)
+            (?:\s*\((?P<name>.+)\))?             # 可选的 (名称，允许内嵌括号)
         """,
         re.IGNORECASE | re.VERBOSE
     )
@@ -254,7 +254,7 @@ def main():
             filename = os.path.basename(src_path)
 
             new_filename = re.sub(
-                r"xx25\s*-\s*00x",
+                r"xx26\s*-\s*00x",
                 f"{invoice_prefix} - {invoice_number:03d}",
                 filename,
                 flags=re.IGNORECASE

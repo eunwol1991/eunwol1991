@@ -3,7 +3,7 @@ import re
 from PyPDF2 import PdfMerger
 
 # 根目录路径
-ROOT_DIR = r"C:\Users\jhunj\Dropbox\DO & INV\DO & INV 2025"
+ROOT_DIR = r"C:\Users\jhunj\Dropbox\DO & INV\DO & INV 2026"
 
 # 匹配发票 PDF 文件名
 invoice_pattern = re.compile(
@@ -19,7 +19,7 @@ folder_month_pattern = None
 def contains_supplier(path: str) -> bool:
     skip_keywords = ['supplier', 'sarpino', 'canadian pizza', 'stuffd',
                      'cash sales', 'staff purchase', 'rite pizza',
-                     'Prezfoods Trading Pte Ltd(De Tian)', 'Alt PIzza']
+                     'Alt PIzza', 'ICON Steak']
     parts = os.path.normpath(path).split(os.sep)
     return any(any(keyword in part.lower() for keyword in skip_keywords) for part in parts)
 
