@@ -112,7 +112,7 @@ def process_folder(folder_path: str):
     prefix = list(prefixes)[0]
     prefix_safe = re.sub(r'[<>:"/\\|?*]', '_', prefix)
 
-    output_name = f"{prefix_safe} INV - {month}'25.pdf".strip()
+    output_name = f"{prefix_safe} INV - {month}'26.pdf".strip()
     merge_pdfs_in_folder(folder_path, matched_pdfs, output_name)
 
 

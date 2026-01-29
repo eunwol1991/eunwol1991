@@ -3,7 +3,7 @@ import threading
 import tkinter as tk
 from tkinter import ttk, scrolledtext, font, filedialog
 
-BASE_DIR = r"C:\\Users\\jhunj\\Dropbox\\DO & INV\\DO & INV 2025"
+BASE_DIR = r"C:\\Users\\jhunj\\Dropbox\\DO & INV\\DO & INV 2026"
 
 MONTH_MAP = {
     1: "1. Jan",

@@ -1,6 +1,7 @@
 import os
 import re
 import threading
+import time
 import queue
 from decimal import Decimal, InvalidOperation
 from datetime import datetime, date
@@ -23,6 +24,8 @@ SPECIAL_CANADIAN_DIR = r"C:\Users\jhunj\Dropbox\for jj\Outlets PDF"
 SHEET_NAME = "Delivery details"
 HEADER_ROW_INDEX = 3  # A4 -> 0-based row index
 IGNORE_DIR_NAME = "Melvin - Stuff'd"
+SCAN_WARN_SECONDS = 20
+SCAN_WARN_FILES = 2000
 
 AMOUNT_RE = re.compile(r"([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{2})?|[0-9]+(?:\.[0-9]{2})?)")
 DATE_RE = re.compile(r"(\d{1,2}/\d{1,2}/\d{2,4})")
@@ -62,12 +65,22 @@ def should_ignore_invoice(invoice_no: str) -> bool:
     text = re.sub(r"\s+", " ", invoice_no or "").strip().upper()
     if not text:
         return True
-    if re.search(r"\bCN\b", text) or text.startswith("CN"):
+    if re.search(r"(^CN\b)|(\bCN\b)|(-\s*CN\b)", text):
         return True
     parts = re.findall(r"[A-Z0-9]+", text)
     if parts and parts[0] == "SD":
         return True
     return False
+
+
+def should_ignore_filename(path: str) -> bool:
+    base = os.path.basename(path or "")
+    if not base:
+        return False
+    text = re.sub(r"\s+", " ", base).strip().upper()
+    if not text:
+        return False
+    return bool(re.search(r"(^CN\b)|(\bCN\b)|(-\s*CN\b)", text))
 
 
 def to_decimal(value) -> Decimal | None:
@@ -170,6 +183,54 @@ def find_total_col(columns: list[str]) -> str | None:
         if "total" in norm and "gst" in norm:
             return col
     return None
+
+
+def find_customer_col(columns: list[str]) -> str | None:
+    exact = {"customer", "customername", "account", "client"}
+    for col in columns:
+        if normalize_col_name(col) in exact:
+            return col
+    for col in columns:
+        norm = normalize_col_name(col)
+        if "customer" in norm or "client" in norm:
+            return col
+    return None
+
+
+def find_outlet_col(columns: list[str]) -> str | None:
+    exact = {"outlet", "outletname", "deliver", "deliverto", "shipto", "shiptoaddress"}
+    for col in columns:
+        if normalize_col_name(col) in exact:
+            return col
+    for col in columns:
+        norm = normalize_col_name(col)
+        if "outlet" in norm or "deliver" in norm or "shipto" in norm:
+            return col
+    return None
+
+
+def normalize_text_value(value) -> str:
+    if value is None:
+        return ""
+    if pd is not None and pd.isna(value):
+        return ""
+    text = str(value).strip()
+    if not text or text.lower() == "nan":
+        return ""
+    return re.sub(r"\s+", " ", text).strip().lower()
+
+
+def parse_invoice_mmyy(invoice_no: str) -> tuple[int, int] | None:
+    if not invoice_no:
+        return None
+    match = re.search(r"\b(\d{2})(\d{2})\b", invoice_no)
+    if not match:
+        return None
+    month = int(match.group(1))
+    year = int(match.group(2))
+    if month < 1 or month > 12:
+        return None
+    return month, 2000 + year
 
 
 def extract_amount_from_line(line: str) -> Decimal | None:
@@ -544,6 +605,8 @@ def parse_pdf_invoice(path: str) -> tuple[dict, str | None]:
 def load_excel_records(path: str, month_code: str) -> dict:
     if pd is None:
         raise RuntimeError("pandas not installed")
+    if should_ignore_filename(path):
+        raise ValueError("Selected Excel file is ignored because it contains '- CN'.")
     df = pd.read_excel(path, sheet_name=SHEET_NAME, header=HEADER_ROW_INDEX)
     if df.empty:
         return {}
@@ -552,6 +615,8 @@ def load_excel_records(path: str, month_code: str) -> dict:
     invoice_col = find_invoice_col(columns)
     date_col = find_date_col(columns)
     total_col = find_total_col(columns)
+    customer_col = find_customer_col(columns)
+    outlet_col = find_outlet_col(columns)
 
     if not invoice_col or not date_col or not total_col:
         missing = []
@@ -586,25 +651,53 @@ def load_excel_records(path: str, month_code: str) -> dict:
             rec = {
                 "invoice_no": inv,
                 "date_values": set(),
+                "customer_values": set(),
+                "outlet_values": set(),
                 "excel_total": Decimal("0"),
                 "line_count": 0,
+                "invoice_mmyy": parse_invoice_mmyy(inv),
             }
             records[inv] = rec
 
         if excel_date:
             rec["date_values"].add(excel_date)
+        if customer_col:
+            cust_val = normalize_text_value(row.get(customer_col))
+            if cust_val:
+                rec["customer_values"].add(cust_val)
+        if outlet_col:
+            outlet_val = normalize_text_value(row.get(outlet_col))
+            if outlet_val:
+                rec["outlet_values"].add(outlet_val)
         rec["excel_total"] += excel_total
         rec["line_count"] += 1
 
     for inv, rec in records.items():
         date_values = sorted(rec["date_values"])
-        if len(date_values) == 1:
-            rec["excel_date"] = date_values[0]
-            rec["excel_status"] = "OK"
-        else:
-            rec["excel_date"] = date_values[0] if date_values else None
-            rec["excel_status"] = "Excel Date mismatch"
+        rec["excel_date"] = date_values[0] if date_values else None
         rec["excel_dates"] = date_values
+
+        has_date_mismatch = len(date_values) > 1
+        has_customer_mismatch = len(rec["customer_values"]) > 1
+        has_outlet_mismatch = len(rec["outlet_values"]) > 1
+        has_inconsistent = has_date_mismatch or has_customer_mismatch or has_outlet_mismatch
+
+        inv_mmyy = rec.get("invoice_mmyy")
+        has_invoice_date_mismatch = False
+        if inv_mmyy and rec["excel_date"]:
+            inv_month, inv_year = inv_mmyy
+            has_invoice_date_mismatch = (
+                rec["excel_date"].month != inv_month or rec["excel_date"].year != inv_year
+            )
+
+        if has_inconsistent:
+            rec["excel_status"] = "Excel invoice duplicated but inconsistent fields"
+        elif has_invoice_date_mismatch:
+            rec["excel_status"] = "Invoice-Date month/year mismatch"
+        else:
+            rec["excel_status"] = "OK"
+        rec["excel_customers"] = sorted(rec["customer_values"])
+        rec["excel_outlets"] = sorted(rec["outlet_values"])
 
     return records
 
@@ -621,6 +714,8 @@ def scan_candidate_files(base_dirs: list[str], month_code: str) -> list[tuple[st
             dirs[:] = [d for d in dirs if d.lower() != ignore_lower]
             for fname in files:
                 fname_lower = fname.lower()
+                if should_ignore_filename(fname):
+                    continue
                 if not is_invoice_pdf_filename(fname_lower):
                     continue
                 if month_lower and month_lower not in fname_lower:
@@ -671,7 +766,76 @@ def select_best_candidate(invoice_no: str, candidates: list[tuple[str, str, str]
     return chosen[2], multiple, False, [m[2] for m in matches]
 
 
-def build_results(excel_records: dict, candidates: list[tuple[str, str, str]], on_progress=None):
+def build_pdf_cache(candidates: list[tuple[str, str, str]], on_progress=None) -> tuple[dict, list[dict]]:
+    pdf_cache: dict[str, tuple[dict, str | None]] = {}
+    pdf_records: list[dict] = []
+    total = len(candidates)
+    for idx, cand in enumerate(candidates, start=1):
+        _, _, path = cand
+        if on_progress:
+            on_progress(total, idx, f"Parsing PDF {os.path.basename(path)}")
+        pdf_info, pdf_error = parse_pdf_invoice(path)
+        pdf_cache[path] = (pdf_info, pdf_error)
+        invoice_no = (pdf_info or {}).get("invoice_no")
+        if invoice_no and not should_ignore_invoice(invoice_no):
+            pdf_records.append({
+                "invoice_no": invoice_no,
+                "pdf_path": path,
+                "pdf_info": pdf_info,
+                "pdf_error": pdf_error,
+            })
+    return pdf_cache, pdf_records
+
+
+def build_missing_excel_records(pdf_records: list[dict], excel_records: dict) -> list[dict]:
+    excel_norm = {normalize_invoice_no(inv) for inv in excel_records.keys()}
+    seen = set()
+    missing = []
+    for rec in pdf_records:
+        invoice_no = rec.get("invoice_no") or ""
+        norm = normalize_invoice_no(invoice_no)
+        if not norm or norm in excel_norm or norm in seen:
+            continue
+        seen.add(norm)
+        pdf_info = rec.get("pdf_info") or {}
+        pdf_error = rec.get("pdf_error")
+        subtotal = pdf_info.get("subtotal")
+        gst = pdf_info.get("gst")
+        pdf_total = None
+        if subtotal is not None and gst is not None:
+            pdf_total = subtotal + gst
+        missing.append({
+            "invoice_no": invoice_no,
+            "excel_date": None,
+            "excel_dates": [],
+            "excel_total": None,
+            "line_count": 0,
+            "excel_status": "",
+            "pdf_found": True,
+            "pdf_path": rec.get("pdf_path", ""),
+            "pdf_invoice": pdf_info.get("invoice_no"),
+            "pdf_date": pdf_info.get("date"),
+            "pdf_subtotal": subtotal,
+            "pdf_gst": gst,
+            "pdf_total": pdf_total,
+            "pdf_total_line": pdf_info.get("total_line"),
+            "diff": None,
+            "status": "Missing Excel record (PDF -> Excel)",
+            "candidates": [],
+            "revised_used": False,
+            "debug_lines": pdf_info.get("debug_lines") if pdf_info else [],
+            "debug_labels": pdf_info.get("debug_labels") if pdf_info else [],
+            "pdf_error": pdf_error,
+        })
+    return missing
+
+
+def build_results(
+    excel_records: dict,
+    candidates: list[tuple[str, str, str]],
+    pdf_cache: dict | None = None,
+    on_progress=None,
+):
     results = []
     invoice_list = sorted(excel_records.keys())
     total = len(invoice_list)
@@ -694,7 +858,10 @@ def build_results(excel_records: dict, candidates: list[tuple[str, str, str]], o
         diff = None
 
         if pdf_found:
-            pdf_info, pdf_error = parse_pdf_invoice(path)
+            if pdf_cache and path in pdf_cache:
+                pdf_info, pdf_error = pdf_cache[path]
+            else:
+                pdf_info, pdf_error = parse_pdf_invoice(path)
             pdf_invoice = pdf_info.get("invoice_no")
             pdf_date = pdf_info.get("date")
             subtotal = pdf_info.get("subtotal")
@@ -705,10 +872,10 @@ def build_results(excel_records: dict, candidates: list[tuple[str, str, str]], o
                 diff = pdf_total - excel_total
 
         status = "OK"
-        if excel_status == "Excel Date mismatch":
-            status = "Excel Date mismatch"
+        if excel_status and excel_status != "OK":
+            status = excel_status
         elif not pdf_found:
-            status = "Missing PDF"
+            status = "Missing PDF (Excel -> PDF)"
         elif pdf_error or not pdf_info or pdf_invoice is None or pdf_date is None or pdf_total is None:
             status = "PDF parse fail"
         else:
@@ -861,6 +1028,7 @@ class InvoiceValidatorApp(tk.Tk):
 
         self.tree.tag_configure("status_total", foreground="#B00020", background="#FFECEC")
         self.tree.tag_configure("status_date", foreground="#1E40AF", background="#E8F0FF")
+        self.tree.tag_configure("status_excel", foreground="#92400E", background="#FFF7E6")
 
         vsb = ttk.Scrollbar(tree_frame, orient=tk.VERTICAL, command=self.tree.yview)
         hsb = ttk.Scrollbar(tree_frame, orient=tk.HORIZONTAL, command=self.tree.xview)
@@ -925,12 +1093,32 @@ class InvoiceValidatorApp(tk.Tk):
             base_dirs = [BASE_DIR_DEFAULT]
             if SPECIAL_CANADIAN_DIR and os.path.isdir(SPECIAL_CANADIAN_DIR):
                 base_dirs.append(SPECIAL_CANADIAN_DIR)
+            scan_start = time.perf_counter()
             candidates = scan_candidate_files(base_dirs, month_code)
+            scan_seconds = time.perf_counter() - scan_start
+            if scan_seconds >= SCAN_WARN_SECONDS or len(candidates) >= SCAN_WARN_FILES:
+                self._queue.put((
+                    "warn",
+                    f"扫描耗时 {scan_seconds:.1f}s，候选文件 {len(candidates)} 个。"
+                    " 如果后续变慢，可考虑优化。"
+                ))
 
             def on_progress(total, current, note):
                 self._queue.put(("progress", total, current, note))
 
-            results = build_results(excel_records, candidates, on_progress=on_progress)
+            self._queue.put(("status", "Parsing PDFs..."))
+            pdf_cache, pdf_records = build_pdf_cache(candidates, on_progress=on_progress)
+
+            self._queue.put(("status", "Matching Excel -> PDF..."))
+            results = build_results(
+                excel_records,
+                candidates,
+                pdf_cache=pdf_cache,
+                on_progress=on_progress,
+            )
+
+            missing_excel = build_missing_excel_records(pdf_records, excel_records)
+            results.extend(missing_excel)
             self._queue.put(("done", results))
         except Exception as exc:
             self._queue.put(("error", str(exc)))
@@ -958,6 +1146,8 @@ class InvoiceValidatorApp(tk.Tk):
                     self.run_btn.configure(state=tk.NORMAL)
                     self.status_var.set("Error")
                     messagebox.showerror("Error", msg[1])
+                elif kind == "warn":
+                    messagebox.showwarning("Performance Notice", msg[1])
         except queue.Empty:
             pass
         self.after(150, self._process_queue)
@@ -1027,8 +1217,10 @@ class InvoiceValidatorApp(tk.Tk):
             tags = ()
             if status == "Total mismatch":
                 tags = ("status_total",)
-            elif status in ("Date mismatch", "Excel Date mismatch"):
+            elif status in ("Date mismatch", "Invoice-Date month/year mismatch"):
                 tags = ("status_date",)
+            elif status == "Excel invoice duplicated but inconsistent fields":
+                tags = ("status_excel",)
             values = (
                 rec["invoice_no"],
                 format_date_value(rec.get("excel_date")),
@@ -1068,6 +1260,10 @@ class InvoiceValidatorApp(tk.Tk):
         lines.append(f"Line count: {rec.get('line_count', 0)}")
         lines.append(f"Excel status: {rec.get('excel_status', '')}")
         lines.append(f"Excel Date consistent: {'Yes' if rec.get('excel_status') == 'OK' else 'No'}")
+        if rec.get("excel_customers"):
+            lines.append(f"Excel Customers: {', '.join(rec.get('excel_customers', []))}")
+        if rec.get("excel_outlets"):
+            lines.append(f"Excel Outlets: {', '.join(rec.get('excel_outlets', []))}")
         lines.append("")
         lines.append(f"PDF Found: {'Y' if rec.get('pdf_found') else 'N'}")
         lines.append(f"PDF Path: {rec.get('pdf_path', '')}")

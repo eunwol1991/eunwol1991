@@ -89,7 +89,7 @@ def update_excel_files(
                             if sheet_name == "DO":
                                 sheet[f"B{row_number}"].value = product_code
                                 sheet[f"C{row_number}"].value = product_description
-                                sheet[f"H{row_number}"].value = pack_size
+                                sheet[f"G{row_number}"].value = pack_size
                                 # sheet[f"H{row_number}"].value = None
                                 sheet[f"I{row_number}"].value = qty
                                 sheet[f"K{row_number}"].value = uom
@@ -161,7 +161,7 @@ class App(tk.Tk):
         left = ttk.Frame(frm_cfg)
         left.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
-        self.filename_substring_var = tk.StringVar(value="xx25")
+        self.filename_substring_var = tk.StringVar(value="xx26")
         self.find_keyword_var = tk.StringVar(value="abcd")
         self.debug_var = tk.BooleanVar(value=True)
         self.process_do_var = tk.BooleanVar(value=True)

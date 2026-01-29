@@ -456,7 +456,7 @@ def _extract_reorder_points(df_group: pd.DataFrame) -> Dict[str, Optional[float]
 def aggregate_summary(
     df: pd.DataFrame,
     warehouses: Optional[List[str]] = None,
-) -> Tuple[pd.DataFrame, Dict[Tuple[str, str, str, str], pd.DataFrame]]:
+) -> Tuple[pd.DataFrame, Dict[Tuple[str, str, str, str, str], pd.DataFrame]]:
     warehouses = warehouses or PRIMARY_WAREHOUSES
     columns = [
         "Supplier", "Brand", "Product", "Pack Size", "Product Code",
@@ -501,14 +501,18 @@ def aggregate_summary(
         work["_brand_norm"] = ""
 
     rows = []
-    detail_map: Dict[Tuple[str, str, str, str], pd.DataFrame] = {}
+    detail_map: Dict[Tuple[str, str, str, str, str], pd.DataFrame] = {}
 
-    for key, grp in work.groupby(["supplier", "_brand_norm", "norm_desc", "_pack_size_norm"], dropna=False):
+    for key, grp in work.groupby(
+        ["supplier", "_brand_norm", "norm_desc", "_pack_size_norm", "_product_code_norm"],
+        dropna=False,
+    ):
         if not isinstance(key, tuple):
             key = (key,)
         supplier_val = key[0]
         brand_val = key[1] if len(key) > 1 else ""
         norm_desc_val = key[2] if len(key) > 2 else ""
+        code_val = key[4] if len(key) > 4 else ""
         supplier_name = str(supplier_val).strip() if pd.notna(
             supplier_val) and str(supplier_val).strip() else "Unknown supplier"
         product_label = str(norm_desc_val).strip() if pd.notna(
@@ -519,11 +523,11 @@ def aggregate_summary(
         brand_text = str(brand_val).strip() if pd.notna(
             brand_val) and str(brand_val).strip() else ""
         brand_label = brand_text if brand_text else "Unknown brand"
-        group_key = (supplier_name, brand_label, product_label, pack_norm_val)
+        code_text = str(code_val).strip() if pd.notna(code_val) else ""
+        product_code_label = code_text if code_text else "-"
+        group_key = (supplier_name, brand_label,
+                     product_label, pack_norm_val, code_text)
         detail_map[group_key] = grp.copy()
-
-        codes = sorted({c for c in grp["_product_code_norm"].tolist() if c})
-        product_code_label = " / ".join(codes) if codes else "-"
 
         wh_totals = {wh: {"ctn": 0.0, "pkt": 0.0} for wh in warehouses}
         wh_unit = grp.groupby(["_warehouse_norm", "_unit_norm"], dropna=False)[
