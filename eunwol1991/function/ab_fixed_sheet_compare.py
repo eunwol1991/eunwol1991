@@ -71,27 +71,38 @@ def build_results(a_path: str, b_path: str, on_progress=None):
 
         start_index = wb_a.sheetnames.index(START_SHEET_NAME)
         a_sheet_names = wb_a.sheetnames[start_index:]
+        a_sheet_set = set(a_sheet_names)
+        if START_SHEET_NAME in wb_b.sheetnames:
+            b_start_index = wb_b.sheetnames.index(START_SHEET_NAME)
+            b_sheet_names = wb_b.sheetnames[b_start_index:]
+        else:
+            b_sheet_names = wb_b.sheetnames
+        b_sheet_set = set(b_sheet_names)
+        b_only_sheets = [name for name in b_sheet_names if name not in a_sheet_set]
 
         summary_rows = []
         detail_rows = []
 
-        total = len(a_sheet_names)
-        for idx, sheet_name in enumerate(a_sheet_names, start=1):
+        total = len(a_sheet_names) + len(b_only_sheets)
+        progress_idx = 0
+
+        for sheet_name in a_sheet_names:
+            progress_idx += 1
             if on_progress:
-                on_progress(total, idx, f"Scanning {sheet_name}")
+                on_progress(total, progress_idx, f"Scanning {sheet_name}")
 
             ws_a = wb_a[sheet_name]
             a_effective, a_records = scan_sheet(ws_a)
             a_keys = {rec[2] for rec in a_records}
 
-            if sheet_name not in wb_b.sheetnames:
+            if sheet_name not in b_sheet_set:
                 summary_rows.append({
                     "SheetName": sheet_name,
                     "A_EffectiveRows": a_effective,
                     "B_EffectiveRows": 0,
                     "MissingCount": 0,
-                    "Status": "ISSUE",
-                    "Note": "MISSING_SHEET_IN_B",
+                    "Status": "OK",
+                    "Note": "SHEET_ONLY_IN_A_IGNORED",
                 })
                 continue
 
@@ -106,6 +117,7 @@ def build_results(a_path: str, b_path: str, on_progress=None):
             for key in missing_keys:
                 row_num, row_values = b_key_first[key]
                 detail_rows.append({
+                    "IssueType": "ROW_MISSING_IN_A",
                     "SheetName": sheet_name,
                     "B_RowNumber": row_num,
                     "ColA": row_values[0],
@@ -126,6 +138,42 @@ def build_results(a_path: str, b_path: str, on_progress=None):
                 "MissingCount": len(missing_keys),
                 "Status": status,
                 "Note": "",
+            })
+
+        for sheet_name in b_only_sheets:
+            progress_idx += 1
+            if on_progress:
+                on_progress(total, progress_idx, f"Scanning {sheet_name} (B only)")
+
+            ws_b = wb_b[sheet_name]
+            b_effective, b_records = scan_sheet(ws_b)
+            b_key_first = {}
+            for row_num, row_values, key in b_records:
+                if key not in b_key_first:
+                    b_key_first[key] = (row_num, row_values)
+
+            for key, (row_num, row_values) in b_key_first.items():
+                detail_rows.append({
+                    "IssueType": "SHEET_MISSING_IN_A",
+                    "SheetName": sheet_name,
+                    "B_RowNumber": row_num,
+                    "ColA": row_values[0],
+                    "ColB": row_values[1],
+                    "ColC": row_values[2],
+                    "ColD": row_values[3],
+                    "ColE": row_values[4],
+                    "ColF": row_values[5],
+                    "ColG": row_values[6],
+                    "Key": key,
+                })
+
+            summary_rows.append({
+                "SheetName": sheet_name,
+                "A_EffectiveRows": 0,
+                "B_EffectiveRows": b_effective,
+                "MissingCount": len(b_key_first),
+                "Status": "ISSUE",
+                "Note": "MISSING_SHEET_IN_A",
             })
 
         return summary_rows, detail_rows
@@ -219,13 +267,13 @@ class FixedCompareApp(tk.Tk):
         frame = ttk.Frame(self.notebook)
         self.notebook.add(frame, text="Details")
         columns = (
-            "SheetName", "B_RowNumber", "ColA", "ColB", "ColC", "ColD", "ColE", "ColF", "ColG", "Key"
+            "IssueType", "SheetName", "B_RowNumber", "ColA", "ColB", "ColC", "ColD", "ColE", "ColF", "ColG", "Key"
         )
         self.detail_tree = ttk.Treeview(
             frame, columns=columns, show="headings")
         for col in columns:
             self.detail_tree.heading(col, text=col)
-            width = 140 if col in ("SheetName", "Key") else 100
+            width = 140 if col in ("IssueType", "SheetName", "Key") else 100
             self.detail_tree.column(col, width=width, anchor=tk.W)
 
         vsb = ttk.Scrollbar(frame, orient=tk.VERTICAL,
@@ -340,6 +388,7 @@ class FixedCompareApp(tk.Tk):
 
         for row in detail_rows:
             values = (
+                row.get("IssueType", ""),
                 row.get("SheetName", ""),
                 row.get("B_RowNumber", 0),
                 row.get("ColA", ""),

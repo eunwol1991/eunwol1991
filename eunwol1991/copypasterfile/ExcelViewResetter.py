@@ -5,11 +5,14 @@ from tkinter import ttk, filedialog, messagebox
 import xlwings as xw
 
 # -------------------- 配置保存/读取 --------------------
+
+
 def get_config_path():
     appdata = os.environ.get("APPDATA") or os.path.expanduser("~")
     cfg_dir = os.path.join(appdata, "ExcelViewResetter")
     os.makedirs(cfg_dir, exist_ok=True)
     return os.path.join(cfg_dir, "config.json")
+
 
 def load_config():
     path = get_config_path()
@@ -21,6 +24,7 @@ def load_config():
             return {}
     return {}
 
+
 def save_config(cfg: dict):
     path = get_config_path()
     try:
@@ -28,6 +32,7 @@ def save_config(cfg: dict):
             json.dump(cfg, f, ensure_ascii=False, indent=2)
     except Exception:
         pass
+
 
 def add_recent_path(cfg: dict, new_path: str, limit: int = 8):
     recent = cfg.get("recent_paths", [])
@@ -39,6 +44,8 @@ def add_recent_path(cfg: dict, new_path: str, limit: int = 8):
     save_config(cfg)
 
 # -------------------- Dropbox 根目录探测 --------------------
+
+
 def detect_dropbox_roots():
     # 返回可能的 Dropbox 根目录列表（按优先顺序）。
     # 读取 %APPDATA%\Dropbox\info.json 或 ~/AppData/Local/Dropbox/info.json
@@ -47,7 +54,8 @@ def detect_dropbox_roots():
     # Roaming
     p1 = os.path.join(os.environ.get("APPDATA", ""), "Dropbox", "info.json")
     # Local
-    p2 = os.path.join(os.environ.get("LOCALAPPDATA", ""), "Dropbox", "info.json")
+    p2 = os.path.join(os.environ.get("LOCALAPPDATA", ""),
+                      "Dropbox", "info.json")
     for p in [p1, p2]:
         if os.path.isfile(p):
             try:
@@ -68,9 +76,11 @@ def detect_dropbox_roots():
     return out
 
 # -------------------- 你的核心处理逻辑 --------------------
+
+
 def process_excel_files(
     directory: str,
-    filename_substring: str = "xx25",
+    filename_substring: str = "xx26",
     visible: bool = True,
     debug: bool = True,
 ):
@@ -123,13 +133,15 @@ def process_excel_files(
                                     wb.app.api.ActiveWindow.ScrollColumn = 1
                                     wb.app.api.ActiveWindow.ScrollRow = 1
                                     # 选择区域并定位
-                                    sheet.api.Application.Goto(sheet.range(rng).api, True)
+                                    sheet.api.Application.Goto(
+                                        sheet.range(rng).api, True)
                                     sheet.range(focus).select()
                                     # 再次回左上，抵消选择导致的横移
                                     wb.app.api.ActiveWindow.ScrollColumn = 1
                                     wb.app.api.ActiveWindow.ScrollRow = 1
                                     if debug:
-                                        print(f"✅ {sheet.name}: 选中 {rng}，定位 {focus}，并已强制左上")
+                                        print(
+                                            f"✅ {sheet.name}: 选中 {rng}，定位 {focus}，并已强制左上")
                                 except Exception as e:
                                     print(f"⚠️ 处理工作表 '{sheet.name}' 出错：{e}")
 
@@ -163,6 +175,8 @@ def process_excel_files(
             print(f"  ❌ {p}")
 
 # -------------------- 极简 GUI --------------------
+
+
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
@@ -185,29 +199,40 @@ class App(tk.Tk):
         frm.pack(fill=tk.BOTH, expand=True)
 
         ttk.Label(frm, text="目标文件夹：").grid(row=0, column=0, sticky="w")
-        ttk.Entry(frm, textvariable=self.dir_var, width=70).grid(row=0, column=1, padx=6, sticky="w")
-        ttk.Button(frm, text="选择…", command=self.choose_dir).grid(row=0, column=2, padx=2)
+        ttk.Entry(frm, textvariable=self.dir_var, width=70).grid(
+            row=0, column=1, padx=6, sticky="w")
+        ttk.Button(frm, text="选择…", command=self.choose_dir).grid(
+            row=0, column=2, padx=2)
 
         # 最近使用下拉
-        ttk.Label(frm, text="最近使用：").grid(row=1, column=0, sticky="w", pady=(8,0))
-        self.recent_cb = ttk.Combobox(frm, state="readonly", values=recent, width=68)
-        self.recent_cb.grid(row=1, column=1, sticky="w", pady=(8,0))
-        ttk.Button(frm, text="载入", command=self.load_recent).grid(row=1, column=2, padx=2, pady=(8,0))
+        ttk.Label(frm, text="最近使用：").grid(
+            row=1, column=0, sticky="w", pady=(8, 0))
+        self.recent_cb = ttk.Combobox(
+            frm, state="readonly", values=recent, width=68)
+        self.recent_cb.grid(row=1, column=1, sticky="w", pady=(8, 0))
+        ttk.Button(frm, text="载入", command=self.load_recent).grid(
+            row=1, column=2, padx=2, pady=(8, 0))
 
         # 过滤子串
-        self.sub_var = tk.StringVar(value="xx25")
-        ttk.Label(frm, text="文件名需包含：").grid(row=2, column=0, sticky="w", pady=(8,0))
-        ttk.Entry(frm, textvariable=self.sub_var, width=20).grid(row=2, column=1, sticky="w", pady=(8,0))
-        ttk.Label(frm, text="（忽略大小写）").grid(row=2, column=2, sticky="w", pady=(8,0))
+        self.sub_var = tk.StringVar(value="xx26")
+        ttk.Label(frm, text="文件名需包含：").grid(
+            row=2, column=0, sticky="w", pady=(8, 0))
+        ttk.Entry(frm, textvariable=self.sub_var, width=20).grid(
+            row=2, column=1, sticky="w", pady=(8, 0))
+        ttk.Label(frm, text="（忽略大小写）").grid(
+            row=2, column=2, sticky="w", pady=(8, 0))
 
         # 可见/日志
         self.visible_var = tk.BooleanVar(value=True)
         self.debug_var = tk.BooleanVar(value=True)
-        ttk.Checkbutton(frm, text="显示 Excel 窗口", variable=self.visible_var).grid(row=3, column=0, sticky="w", pady=(8,0))
-        ttk.Checkbutton(frm, text="打印调试日志", variable=self.debug_var).grid(row=3, column=1, sticky="w", pady=(8,0))
+        ttk.Checkbutton(frm, text="显示 Excel 窗口", variable=self.visible_var).grid(
+            row=3, column=0, sticky="w", pady=(8, 0))
+        ttk.Checkbutton(frm, text="打印调试日志", variable=self.debug_var).grid(
+            row=3, column=1, sticky="w", pady=(8, 0))
 
         # 操作
-        ttk.Button(frm, text="开始处理", command=self.run).grid(row=4, column=0, columnspan=3, pady=14, sticky="we")
+        ttk.Button(frm, text="开始处理", command=self.run).grid(
+            row=4, column=0, columnspan=3, pady=14, sticky="we")
 
         for i in range(3):
             frm.grid_columnconfigure(i, weight=1)
@@ -249,6 +274,7 @@ class App(tk.Tk):
             messagebox.showinfo("完成", "处理结束，详情见控制台日志。")
         except Exception as e:
             messagebox.showerror("异常", str(e))
+
 
 if __name__ == "__main__":
     App().mainloop()

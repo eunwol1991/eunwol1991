@@ -1,5 +1,6 @@
 import os
 import re
+import shlex
 import threading
 import time
 import queue
@@ -787,6 +788,85 @@ def build_pdf_cache(candidates: list[tuple[str, str, str]], on_progress=None) ->
     return pdf_cache, pdf_records
 
 
+def infer_issue_side(status: str, multiple_candidates: bool = False) -> tuple[str, str]:
+    if status == "OK":
+        return "None", ""
+    if status in (
+        "Excel invoice duplicated but inconsistent fields",
+        "Invoice-Date month/year mismatch",
+    ):
+        return "Excel", "Excel rows for this invoice are inconsistent."
+    if status == "Missing Excel record (PDF -> Excel)":
+        return "Excel", "Invoice exists in PDF but is missing in Excel."
+    if status == "Missing PDF (Excel -> PDF)":
+        return "PDF/File", "No matching PDF file was found for this Excel invoice."
+    if status == "PDF parse fail":
+        return "PDF parser", "PDF was found but required fields could not be parsed."
+    if status == "Invoice mismatch":
+        if multiple_candidates:
+            return "PDF/File", "Multiple PDF candidates matched; the chosen file may be wrong."
+        return "Either", "Excel invoice number and parsed PDF invoice number differ."
+    if status == "Date mismatch":
+        return "Either", "PDF date and Excel date differ."
+    if status == "Total mismatch":
+        return "Either", "PDF subtotal+GST and Excel total differ."
+    return "Unknown", ""
+
+
+STATUS_ERROR_FIELDS: dict[str, set[str]] = {
+    "Invoice mismatch": {"excel_invoice", "pdf_invoice"},
+    "Date mismatch": {"excel_date", "pdf_date"},
+    "Total mismatch": {"excel_total", "pdf_total", "diff"},
+    "Missing PDF (Excel -> PDF)": {"pdf_found", "pdf_path"},
+    "Missing Excel record (PDF -> Excel)": {"excel_invoice"},
+    "PDF parse fail": {"pdf_invoice", "pdf_date", "pdf_total"},
+    "Excel invoice duplicated but inconsistent fields": {"excel_invoice", "excel_date"},
+    "Invoice-Date month/year mismatch": {"excel_invoice", "excel_date"},
+}
+
+
+FIELD_LABELS: dict[str, str] = {
+    "excel_invoice": "Excel Invoice #",
+    "pdf_invoice": "PDF Invoice #",
+    "excel_date": "Excel Date",
+    "pdf_date": "PDF Date",
+    "excel_total": "Excel Total",
+    "pdf_total": "PDF Total",
+    "diff": "Diff",
+    "pdf_found": "PDF Found",
+    "pdf_path": "PDF Path",
+}
+
+
+NUMERIC_RANGE_PATTERN = re.compile(
+    r"^\s*([+-]?\d+(?:\.\d+)?)?\s*\.\.\s*([+-]?\d+(?:\.\d+)?)?\s*$"
+)
+
+
+def mismatch_fields_for_status(status: str) -> set[str]:
+    return set(STATUS_ERROR_FIELDS.get(status, set()))
+
+
+def mismatch_field_labels(fields: set[str]) -> list[str]:
+    labels = []
+    for key, label in FIELD_LABELS.items():
+        if key in fields:
+            labels.append(label)
+    return labels
+
+
+def parse_numeric_range(text: str) -> tuple[Decimal | None, Decimal | None] | None:
+    m = NUMERIC_RANGE_PATTERN.match((text or "").strip())
+    if not m:
+        return None
+    lo_text, hi_text = m.group(1), m.group(2)
+    lo = to_decimal(lo_text) if lo_text else None
+    hi = to_decimal(hi_text) if hi_text else None
+    if lo is None and hi is None:
+        return None
+    return lo, hi
+
+
 def build_missing_excel_records(pdf_records: list[dict], excel_records: dict) -> list[dict]:
     excel_norm = {normalize_invoice_no(inv) for inv in excel_records.keys()}
     seen = set()
@@ -804,8 +884,10 @@ def build_missing_excel_records(pdf_records: list[dict], excel_records: dict) ->
         pdf_total = None
         if subtotal is not None and gst is not None:
             pdf_total = subtotal + gst
+        issue_side, issue_hint = infer_issue_side("Missing Excel record (PDF -> Excel)")
         missing.append({
             "invoice_no": invoice_no,
+            "excel_invoice": "",
             "excel_date": None,
             "excel_dates": [],
             "excel_total": None,
@@ -821,6 +903,8 @@ def build_missing_excel_records(pdf_records: list[dict], excel_records: dict) ->
             "pdf_total_line": pdf_info.get("total_line"),
             "diff": None,
             "status": "Missing Excel record (PDF -> Excel)",
+            "issue_side": issue_side,
+            "issue_hint": issue_hint,
             "candidates": [],
             "revised_used": False,
             "debug_lines": pdf_info.get("debug_lines") if pdf_info else [],
@@ -885,9 +969,11 @@ def build_results(
                 status = "Date mismatch"
             elif pdf_total is not None and abs(pdf_total - excel_total) > Decimal("0.05"):
                 status = "Total mismatch"
+        issue_side, issue_hint = infer_issue_side(status, multiple_candidates=multiple)
 
         results.append({
             "invoice_no": inv,
+            "excel_invoice": inv,
             "excel_date": excel_date,
             "excel_dates": rec.get("excel_dates", []),
             "excel_total": excel_total,
@@ -903,6 +989,8 @@ def build_results(
             "pdf_total_line": pdf_info.get("total_line") if pdf_info else None,
             "diff": diff,
             "status": status,
+            "issue_side": issue_side,
+            "issue_hint": issue_hint,
             "candidates": all_candidates,
             "revised_used": revised_used,
             "debug_lines": pdf_info.get("debug_lines") if pdf_info else [],
@@ -923,6 +1011,7 @@ class InvoiceValidatorApp(tk.Tk):
         self.excel_path_var = tk.StringVar()
         self.month_var = tk.StringVar()
         self.status_filter_var = tk.StringVar(value="All")
+        self.text_filter_var = tk.StringVar()
         self.status_var = tk.StringVar(value="Ready")
         self.progress_var = tk.DoubleVar(value=0)
 
@@ -980,6 +1069,17 @@ class InvoiceValidatorApp(tk.Tk):
         )
         self.status_filter.pack(side=tk.LEFT, padx=(6, 12))
         self.status_filter.bind("<<ComboboxSelected>>", self._apply_filter)
+        ttk.Label(filter_bar, text="Text filter:").pack(side=tk.LEFT)
+        self.text_filter = ttk.Entry(
+            filter_bar,
+            textvariable=self.text_filter_var,
+            width=42,
+        )
+        self.text_filter.pack(side=tk.LEFT, padx=(6, 4))
+        self.text_filter.bind("<KeyRelease>", self._apply_filter)
+        ttk.Button(filter_bar, text="Clear", command=self._clear_text_filter).pack(
+            side=tk.LEFT, padx=(0, 12)
+        )
         ttk.Button(filter_bar, text="Debug", command=self._open_debug).pack(side=tk.LEFT)
 
         bar = ttk.Frame(self, padding=(10, 0, 10, 6))
@@ -995,40 +1095,36 @@ class InvoiceValidatorApp(tk.Tk):
         tree_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
 
         columns = (
-            "invoice_no",
+            "excel_invoice",
+            "pdf_invoice",
             "excel_date",
-            "excel_total",
-            "pdf_found",
-            "pdf_path",
             "pdf_date",
+            "excel_total",
             "pdf_total",
             "diff",
+            "pdf_path",
             "status",
         )
         self.tree = ttk.Treeview(tree_frame, columns=columns, show="headings")
-        self.tree.heading("invoice_no", text="Invoice #")
+        self.tree.heading("excel_invoice", text="Excel Invoice #")
+        self.tree.heading("pdf_invoice", text="PDF Invoice #")
         self.tree.heading("excel_date", text="Excel Date")
-        self.tree.heading("excel_total", text="Excel Total Inc GST")
-        self.tree.heading("pdf_found", text="PDF Found")
-        self.tree.heading("pdf_path", text="PDF Path")
         self.tree.heading("pdf_date", text="PDF Date")
+        self.tree.heading("excel_total", text="Excel Total Inc GST")
         self.tree.heading("pdf_total", text="PDF Total")
         self.tree.heading("diff", text="Diff")
+        self.tree.heading("pdf_path", text="PDF Path")
         self.tree.heading("status", text="Status")
 
-        self.tree.column("invoice_no", width=160, anchor=tk.W)
+        self.tree.column("excel_invoice", width=170, anchor=tk.W)
+        self.tree.column("pdf_invoice", width=170, anchor=tk.W)
         self.tree.column("excel_date", width=110, anchor=tk.CENTER)
-        self.tree.column("excel_total", width=140, anchor=tk.E)
-        self.tree.column("pdf_found", width=80, anchor=tk.CENTER)
-        self.tree.column("pdf_path", width=320, anchor=tk.W)
         self.tree.column("pdf_date", width=110, anchor=tk.CENTER)
+        self.tree.column("excel_total", width=140, anchor=tk.E)
         self.tree.column("pdf_total", width=120, anchor=tk.E)
         self.tree.column("diff", width=80, anchor=tk.E)
-        self.tree.column("status", width=220, anchor=tk.W)
-
-        self.tree.tag_configure("status_total", foreground="#B00020", background="#FFECEC")
-        self.tree.tag_configure("status_date", foreground="#1E40AF", background="#E8F0FF")
-        self.tree.tag_configure("status_excel", foreground="#92400E", background="#FFF7E6")
+        self.tree.column("pdf_path", width=320, anchor=tk.W)
+        self.tree.column("status", width=230, anchor=tk.W)
 
         vsb = ttk.Scrollbar(tree_frame, orient=tk.VERTICAL, command=self.tree.yview)
         hsb = ttk.Scrollbar(tree_frame, orient=tk.HORIZONTAL, command=self.tree.xview)
@@ -1176,10 +1272,11 @@ class InvoiceValidatorApp(tk.Tk):
             lines.append("No parse failures.")
         else:
             for rec in self._debug_records:
+                excel_invoice = rec.get("excel_invoice", "")
                 lines.append("=" * 60)
                 lines.append(f"PDF Path: {rec.get('pdf_path', '')}")
-                lines.append(f"Invoice #: {rec.get('invoice_no', '')}")
-                lines.append(f"PDF Invoice No: {rec.get('pdf_invoice') or ''}")
+                lines.append(f"Excel Invoice #: {excel_invoice}")
+                lines.append(f"PDF Invoice #: {rec.get('pdf_invoice') or ''}")
                 lines.append(f"PDF Date: {format_date_value(rec.get('pdf_date'))}")
                 lines.append(f"Subtotal: {format_money(rec.get('pdf_subtotal'))}")
                 lines.append(f"GST: {format_money(rec.get('pdf_gst'))}")
@@ -1207,32 +1304,190 @@ class InvoiceValidatorApp(tk.Tk):
         if self.status_filter_var.get() not in values:
             self.status_filter_var.set("All")
 
+    def _clear_text_filter(self):
+        if self.text_filter_var.get():
+            self.text_filter_var.set("")
+            self._apply_filter()
+
+    def _tokenize_filter_query(self, query: str) -> list[str]:
+        text = (query or "").strip()
+        if not text:
+            return []
+        try:
+            return [tok for tok in shlex.split(text) if tok]
+        except ValueError:
+            return [tok for tok in text.split() if tok]
+
+    def _build_filter_fields(self, rec: dict) -> dict[str, str]:
+        excel_invoice = str(rec.get("excel_invoice", "") or "")
+        pdf_invoice = str(rec.get("pdf_invoice") or "")
+        excel_date = format_date_value(rec.get("excel_date"))
+        pdf_date = format_date_value(rec.get("pdf_date"))
+        excel_total = format_money(rec.get("excel_total"))
+        pdf_total = format_money(rec.get("pdf_total"))
+        diff = format_money(rec.get("diff"))
+        status = str(rec.get("status", "") or "")
+        issue_side = str(rec.get("issue_side", "") or "")
+        issue_hint = str(rec.get("issue_hint", "") or "")
+        pdf_path = str(rec.get("pdf_path", "") or "")
+        mismatch_labels = ", ".join(mismatch_field_labels(mismatch_fields_for_status(status)))
+
+        fields = {
+            "invoice": f"{excel_invoice} {pdf_invoice}",
+            "excel_invoice": excel_invoice,
+            "pdf_invoice": pdf_invoice,
+            "date": f"{excel_date} {pdf_date}",
+            "excel_date": excel_date,
+            "pdf_date": pdf_date,
+            "amount": f"{excel_total} {pdf_total} {diff}",
+            "excel_total": excel_total,
+            "pdf_total": pdf_total,
+            "diff": diff,
+            "status": status,
+            "path": pdf_path,
+            "issue": f"{issue_side} {issue_hint}",
+            "field": mismatch_labels,
+        }
+        return {k: v.lower() for k, v in fields.items()}
+
+    def _build_numeric_fields(self, rec: dict) -> dict[str, list[Decimal]]:
+        values = {
+            "excel_total": rec.get("excel_total"),
+            "pdf_total": rec.get("pdf_total"),
+            "diff": rec.get("diff"),
+        }
+        numeric: dict[str, list[Decimal]] = {}
+        for key, raw in values.items():
+            dec = to_decimal(raw)
+            numeric[key] = [dec] if dec is not None else []
+        numeric["amount"] = numeric["excel_total"] + numeric["pdf_total"] + numeric["diff"]
+        return numeric
+
+    def _matches_text_filter(self, rec: dict, query: str) -> bool:
+        tokens = self._tokenize_filter_query(query)
+        if not tokens:
+            return True
+
+        fields = self._build_filter_fields(rec)
+        numeric = self._build_numeric_fields(rec)
+        all_text = " ".join(fields.values())
+        aliases = {
+            "invoice": "invoice",
+            "inv": "invoice",
+            "excel_invoice": "excel_invoice",
+            "pdf_invoice": "pdf_invoice",
+            "date": "date",
+            "excel_date": "excel_date",
+            "pdf_date": "pdf_date",
+            "amount": "amount",
+            "amt": "amount",
+            "excel_total": "excel_total",
+            "pdf_total": "pdf_total",
+            "diff": "diff",
+            "status": "status",
+            "path": "path",
+            "issue": "issue",
+            "field": "field",
+        }
+
+        for token in tokens:
+            token = token.strip()
+            if not token:
+                continue
+
+            field_key = None
+            term = token
+            if ":" in token:
+                key, term = token.split(":", 1)
+                field_key = aliases.get(key.strip().lower())
+
+            term = term.strip().lower()
+            if not term:
+                continue
+
+            if field_key in numeric:
+                rng = parse_numeric_range(term)
+                if rng is not None:
+                    lo, hi = rng
+                    matched = False
+                    for val in numeric[field_key]:
+                        if lo is not None and val < lo:
+                            continue
+                        if hi is not None and val > hi:
+                            continue
+                        matched = True
+                        break
+                    if not matched:
+                        return False
+                    continue
+
+            if field_key:
+                if term not in fields.get(field_key, ""):
+                    return False
+            else:
+                if term not in all_text:
+                    return False
+
+        return True
+
+    @staticmethod
+    def _mark_field_error(text: str, is_error: bool, empty_fallback: str = "") -> str:
+        shown = str(text or empty_fallback)
+        if not is_error:
+            return shown
+        if not shown:
+            return "[ERR]"
+        return f"[ERR] {shown}"
+
     def _apply_filter(self, _event=None):
         self._clear_tree()
         selected = self.status_filter_var.get()
+        text_query = self.text_filter_var.get().strip()
         for rec in self._results:
             status = rec.get("status", "")
             if selected != "All" and status != selected:
                 continue
-            tags = ()
-            if status == "Total mismatch":
-                tags = ("status_total",)
-            elif status in ("Date mismatch", "Invoice-Date month/year mismatch"):
-                tags = ("status_date",)
-            elif status == "Excel invoice duplicated but inconsistent fields":
-                tags = ("status_excel",)
+            if text_query and not self._matches_text_filter(rec, text_query):
+                continue
+
+            error_fields = mismatch_fields_for_status(status)
             values = (
-                rec["invoice_no"],
-                format_date_value(rec.get("excel_date")),
-                format_money(rec.get("excel_total")),
-                "Y" if rec.get("pdf_found") else "N",
-                rec.get("pdf_path", ""),
-                format_date_value(rec.get("pdf_date")),
-                format_money(rec.get("pdf_total")),
-                format_money(rec.get("diff")),
+                self._mark_field_error(
+                    rec.get("excel_invoice", ""),
+                    "excel_invoice" in error_fields,
+                ),
+                self._mark_field_error(
+                    rec.get("pdf_invoice") or "",
+                    "pdf_invoice" in error_fields,
+                ),
+                self._mark_field_error(
+                    format_date_value(rec.get("excel_date")),
+                    "excel_date" in error_fields,
+                ),
+                self._mark_field_error(
+                    format_date_value(rec.get("pdf_date")),
+                    "pdf_date" in error_fields,
+                ),
+                self._mark_field_error(
+                    format_money(rec.get("excel_total")),
+                    "excel_total" in error_fields,
+                ),
+                self._mark_field_error(
+                    format_money(rec.get("pdf_total")),
+                    "pdf_total" in error_fields,
+                ),
+                self._mark_field_error(
+                    format_money(rec.get("diff")),
+                    "diff" in error_fields,
+                ),
+                self._mark_field_error(
+                    rec.get("pdf_path", ""),
+                    "pdf_path" in error_fields,
+                    empty_fallback="(not found)",
+                ),
                 rec.get("status", ""),
             )
-            item_id = self.tree.insert("", tk.END, values=values, tags=tags)
+            item_id = self.tree.insert("", tk.END, values=values)
             self._data[item_id] = rec
 
     def _open_detail(self, _event=None):
@@ -1243,20 +1498,39 @@ class InvoiceValidatorApp(tk.Tk):
         if not rec:
             return
 
+        excel_invoice = rec.get("excel_invoice", "")
+        pdf_invoice = rec.get("pdf_invoice") or ""
+        invoice_ref = excel_invoice or pdf_invoice
+
         top = tk.Toplevel(self)
-        top.title(f"Invoice Detail - {rec.get('invoice_no', '')}")
+        top.title(f"Invoice Detail - {invoice_ref}")
         top.geometry("720x520")
 
         txt = ScrolledText(top, wrap=tk.WORD)
         txt.pack(fill=tk.BOTH, expand=True)
 
+        status = rec.get("status", "")
+        error_fields = mismatch_fields_for_status(status)
+        mismatch_labels = mismatch_field_labels(error_fields)
+
+        def mark_line(field_key: str, text: str) -> str:
+            if field_key in error_fields:
+                return f"[ERR] {text}"
+            return text
+
         lines = []
-        lines.append(f"Invoice #: {rec.get('invoice_no', '')}")
-        lines.append(f"Excel Date: {format_date_value(rec.get('excel_date'))}")
+        lines.append(mark_line("excel_invoice", f"Excel Invoice #: {excel_invoice}"))
+        lines.append(mark_line("pdf_invoice", f"PDF Invoice #: {pdf_invoice}"))
+        if excel_invoice and pdf_invoice:
+            inv_match = "Yes" if normalize_invoice_no(excel_invoice) == normalize_invoice_no(pdf_invoice) else "No"
+            lines.append(f"Invoice Match: {inv_match}")
+        else:
+            lines.append("Invoice Match: Unknown")
+        lines.append(mark_line("excel_date", f"Excel Date: {format_date_value(rec.get('excel_date'))}"))
         if rec.get("excel_dates"):
             dates = ", ".join(format_date_value(d) for d in rec.get("excel_dates", []))
             lines.append(f"Excel Date(s): {dates}")
-        lines.append(f"Excel Total Inc GST: {format_money(rec.get('excel_total'))}")
+        lines.append(mark_line("excel_total", f"Excel Total Inc GST: {format_money(rec.get('excel_total'))}"))
         lines.append(f"Line count: {rec.get('line_count', 0)}")
         lines.append(f"Excel status: {rec.get('excel_status', '')}")
         lines.append(f"Excel Date consistent: {'Yes' if rec.get('excel_status') == 'OK' else 'No'}")
@@ -1265,16 +1539,20 @@ class InvoiceValidatorApp(tk.Tk):
         if rec.get("excel_outlets"):
             lines.append(f"Excel Outlets: {', '.join(rec.get('excel_outlets', []))}")
         lines.append("")
-        lines.append(f"PDF Found: {'Y' if rec.get('pdf_found') else 'N'}")
-        lines.append(f"PDF Path: {rec.get('pdf_path', '')}")
-        lines.append(f"PDF Invoice No: {rec.get('pdf_invoice') or ''}")
-        lines.append(f"PDF Date: {format_date_value(rec.get('pdf_date'))}")
+        lines.append(mark_line("pdf_found", f"PDF Found: {'Y' if rec.get('pdf_found') else 'N'}"))
+        lines.append(mark_line("pdf_path", f"PDF Path: {rec.get('pdf_path', '')}"))
+        lines.append(mark_line("pdf_invoice", f"PDF Invoice #: {rec.get('pdf_invoice') or ''}"))
+        lines.append(mark_line("pdf_date", f"PDF Date: {format_date_value(rec.get('pdf_date'))}"))
         lines.append(f"PDF Subtotal: {format_money(rec.get('pdf_subtotal'))}")
         lines.append(f"PDF GST: {format_money(rec.get('pdf_gst'))}")
-        lines.append(f"PDF Total (Subtotal+GST): {format_money(rec.get('pdf_total'))}")
+        lines.append(mark_line("pdf_total", f"PDF Total (Subtotal+GST): {format_money(rec.get('pdf_total'))}"))
         lines.append(f"PDF Total line (ref): {format_money(rec.get('pdf_total_line'))}")
-        lines.append(f"Diff: {format_money(rec.get('diff'))}")
+        lines.append(mark_line("diff", f"Diff: {format_money(rec.get('diff'))}"))
+        lines.append(f"Issue side: {rec.get('issue_side', '')}")
         lines.append(f"Status: {rec.get('status', '')}")
+        lines.append(f"Mismatch fields: {', '.join(mismatch_labels) if mismatch_labels else 'None'}")
+        if rec.get("issue_hint"):
+            lines.append(f"Issue hint: {rec.get('issue_hint')}")
         lines.append(f"Revised chosen: {'Yes' if rec.get('revised_used') else 'No'}")
         if rec.get("status") and rec.get("status") != "OK":
             lines.append(f"Mismatch reason: {rec.get('status')}")

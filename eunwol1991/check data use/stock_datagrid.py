@@ -1770,7 +1770,7 @@ def run_stock_page():
     else:
         detail_export_df = pd.DataFrame()
 
-    download_cols = st.columns([1, 1, 1])
+    download_cols = st.columns([1, 1, 1, 1])
     csv_buffer = io.StringIO()
     export_summary_clean = _strip_html_df(export_summary)
     export_summary_clean.to_csv(csv_buffer, index=False)
@@ -1811,6 +1811,24 @@ def run_stock_page():
         file_name="stock_filtered_detail.csv",
         mime="text/csv",
         help="Download the raw rows that back the current table after all filters, quick search, and status filters.",
+    )
+
+    detail_excel_buffer = io.BytesIO()
+    with pd.ExcelWriter(detail_excel_buffer) as writer:
+        detail_export_clean.to_excel(
+            writer, sheet_name="Stock Report", index=False)
+        meta_rows = []
+        for k, v in (filter_state or {}).items():
+            meta_rows.append({"key": str(k), "value": str(v)})
+        pd.DataFrame(meta_rows, columns=["key", "value"]).to_excel(
+            writer, sheet_name="Filters", index=False)
+    detail_excel_buffer.seek(0)
+    download_cols[3].download_button(
+        "Export Stock Report Excel",
+        data=detail_excel_buffer.getvalue(),
+        file_name="stock_report.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        help="Export the filtered stock report as an Excel file.",
     )
 
     for _, row in view_df.iterrows():
@@ -1984,6 +2002,7 @@ def apply_sales_filters(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, str]]
         'Product Code': 'sales_filter_product_code',
         'Account': 'sales_filter_account',
     }
+    customer_exclude_key = "sales_filter_customer_exclude"
 
     def _series(name: str) -> pd.Series:
         if name not in df.columns:
@@ -2018,7 +2037,10 @@ def apply_sales_filters(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, str]]
     date_from: Optional[datetime.date] = None
     date_to: Optional[datetime.date] = None
 
-    def _mask(exclude: Optional[str] = None) -> pd.Series:
+    def _mask(
+        exclude: Optional[str] = None,
+        ignore_customer_exclude: bool = False,
+    ) -> pd.Series:
         mask = pd.Series(True, index=df.index)
         for key, column in filter_columns.items():
             if key == exclude:
@@ -2027,6 +2049,10 @@ def apply_sales_filters(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, str]]
             if not sel:
                 continue
             mask &= series_cache[column].isin(sel)
+        if not ignore_customer_exclude and exclude != "Exclude Customer":
+            excluded_customers = ss.get(customer_exclude_key, [])
+            if excluded_customers:
+                mask &= ~series_cache["Customer"].isin(excluded_customers)
         if exclude != 'Invoice contains':
             invoice_query = ss.get('sales_filter_invoice', '')
             if invoice_query:
@@ -2041,7 +2067,10 @@ def apply_sales_filters(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, str]]
 
     def _options_for(key: str) -> List[str]:
         column = filter_columns[key]
-        mask = _mask(exclude=key)
+        mask = _mask(
+            exclude=key,
+            ignore_customer_exclude=(key == "Customer"),
+        )
         values = sorted(
             {val for val in series_cache[column][mask] if val},
             key=_month_sort_key if key == 'Month' else lambda x: x.upper(),
@@ -2072,11 +2101,13 @@ def apply_sales_filters(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, str]]
         customer_options = _options_for('Customer')
         _ensure_multiselect_key_state(
             session_keys['Customer'], customer_options, default=[])
+        _ensure_multiselect_key_state(
+            customer_exclude_key, customer_options, default=[])
         outlet_options = _options_for('Outlet')
         _ensure_multiselect_key_state(
             session_keys['Outlet'], outlet_options, default=[])
 
-        multi_cols = st.columns(4)
+        multi_cols = st.columns(5)
         with multi_cols[0]:
             st.multiselect(
                 'Year',
@@ -2096,6 +2127,13 @@ def apply_sales_filters(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, str]]
                 key=session_keys['Customer'],
             )
         with multi_cols[3]:
+            st.multiselect(
+                'Exclude Customer',
+                customer_options,
+                key=customer_exclude_key,
+                help='Selected customers will be excluded from results.',
+            )
+        with multi_cols[4]:
             st.multiselect(
                 'Outlet',
                 outlet_options,
@@ -2217,6 +2255,7 @@ def apply_sales_filters(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, str]]
         'Year': ss.get(session_keys['Year'], []),
         'Month': ss.get(session_keys['Month'], []),
         'Customer': ss.get(session_keys['Customer'], []),
+        'Exclude Customer': ss.get(customer_exclude_key, []),
         'Outlet': ss.get(session_keys['Outlet'], []),
         'Product Description': ss.get(session_keys['Product Description'], []),
         'Supplier': ss.get(session_keys['Supplier'], []),
@@ -2425,6 +2464,131 @@ def _customer_purchase_breakdown(df: pd.DataFrame) -> pd.DataFrame:
     return summary[summary_cols]
 
 
+def build_sales_usage_views(
+    df: pd.DataFrame,
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    monthly_cols = ["Month", "Qty in Ctns", "Qty in Pcs", "Total Qty", "Total Value"]
+    customer_cols = ["Customer", "Qty in Ctns", "Qty in Pcs", "Total Qty", "Total Value"]
+    matrix_default = pd.DataFrame(columns=["Customer", "Overall"])
+
+    if df.empty:
+        return (
+            pd.DataFrame(columns=monthly_cols),
+            pd.DataFrame(columns=customer_cols),
+            matrix_default,
+        )
+
+    working = df.copy()
+    for numeric_col in ["Qty in Ctns", "Qty in Pcs", "Total Value"]:
+        if numeric_col not in working.columns:
+            working[numeric_col] = 0.0
+        working[numeric_col] = pd.to_numeric(
+            working[numeric_col], errors="coerce").fillna(0.0)
+
+    if "Customer" in working.columns:
+        customer_series = working["Customer"].astype(
+            "string").fillna("").str.strip()
+    else:
+        customer_series = pd.Series([""] * len(working), index=working.index, dtype="string")
+    working["__customer"] = customer_series.replace("", pd.NA).fillna("Unknown")
+
+    if "Year" in working.columns:
+        year_series = working["Year"].astype("string").fillna("").str.strip()
+    else:
+        year_series = pd.Series([""] * len(working), index=working.index, dtype="string")
+    if "Month" in working.columns:
+        month_series = working["Month"].astype("string").fillna("").str.strip()
+    else:
+        month_series = pd.Series([""] * len(working), index=working.index, dtype="string")
+
+    month_label = month_series.apply(_format_month_label).replace("", pd.NA).fillna("Unknown")
+    year_clean = year_series.replace("", pd.NA)
+    working["__month_label"] = month_label.where(
+        year_clean.isna(),
+        year_clean.fillna("") + "-" + month_label,
+    )
+
+    month_sort = month_series.map(_month_sort_key)
+    month_sort = pd.to_numeric(month_sort, errors="coerce").fillna(13)
+    month_sort = month_sort.where(month_sort != 999, 13)
+    year_sort = pd.to_numeric(year_clean, errors="coerce").fillna(9999)
+    working["__month_order"] = year_sort * 100 + month_sort
+
+    monthly_usage = (
+        working
+        .groupby(["__month_label", "__month_order"], as_index=False, dropna=False)[
+            ["Qty in Ctns", "Qty in Pcs", "Total Value"]
+        ]
+        .sum()
+        .sort_values(["__month_order", "__month_label"], kind="stable")
+    )
+    monthly_usage["Total Qty"] = monthly_usage.apply(
+        lambda row: _format_quantity_pair(row.get("Qty in Ctns"), row.get("Qty in Pcs")),
+        axis=1,
+    )
+    monthly_usage = monthly_usage.rename(columns={"__month_label": "Month"})
+    monthly_usage = monthly_usage[monthly_cols].reset_index(drop=True)
+
+    customer_usage = (
+        working
+        .groupby("__customer", as_index=False, dropna=False)[
+            ["Qty in Ctns", "Qty in Pcs", "Total Value"]
+        ]
+        .sum()
+        .rename(columns={"__customer": "Customer"})
+        .sort_values(
+            ["Qty in Ctns", "Qty in Pcs", "Total Value", "Customer"],
+            ascending=[False, False, False, True],
+            kind="stable",
+        )
+        .reset_index(drop=True)
+    )
+    customer_usage["Total Qty"] = customer_usage.apply(
+        lambda row: _format_quantity_pair(row.get("Qty in Ctns"), row.get("Qty in Pcs")),
+        axis=1,
+    )
+    customer_usage = customer_usage[customer_cols]
+
+    customer_month = (
+        working
+        .groupby(["__customer", "__month_label", "__month_order"], as_index=False, dropna=False)[
+            ["Qty in Ctns", "Qty in Pcs"]
+        ]
+        .sum()
+    )
+    customer_month["Total Qty"] = customer_month.apply(
+        lambda row: _format_quantity_pair(row.get("Qty in Ctns"), row.get("Qty in Pcs")),
+        axis=1,
+    )
+    if customer_month.empty:
+        customer_month_matrix = matrix_default
+    else:
+        ordered_months = (
+            customer_month[["__month_label", "__month_order"]]
+            .drop_duplicates()
+            .sort_values(["__month_order", "__month_label"], kind="stable")
+        )
+        customer_month_matrix = (
+            customer_month.pivot(
+                index="__customer",
+                columns="__month_label",
+                values="Total Qty",
+            )
+            .fillna("-")
+            .reindex(columns=ordered_months["__month_label"].tolist())
+            .reset_index()
+            .rename(columns={"__customer": "Customer"})
+        )
+        overall_map = customer_usage.set_index("Customer")["Total Qty"]
+        customer_month_matrix.insert(
+            1,
+            "Overall",
+            customer_month_matrix["Customer"].map(overall_map).fillna("0"),
+        )
+
+    return monthly_usage, customer_usage, customer_month_matrix
+
+
 # ----------------------------- Sales 页 -----------------------------
 
 def run_sales_page():
@@ -2464,7 +2628,7 @@ def run_sales_page():
 
     filtered_df, filter_state = apply_sales_filters(sales_df)
     filter_order = [
-        "Year", "Month", "Customer", "Outlet", "Product Description",
+        "Year", "Month", "Customer", "Exclude Customer", "Outlet", "Product Description",
         "Supplier", "Brand/Category", "Product Code", "Account", "Invoice contains",
         "Date from", "Date to",
     ]
@@ -2632,6 +2796,18 @@ def run_sales_page():
                     columns="__order").reset_index(drop=True)
             )
 
+    monthly_usage_df, customer_usage_df, customer_month_matrix_df = build_sales_usage_views(
+        filtered_df
+    )
+    monthly_usage_display = monthly_usage_df.copy()
+    customer_usage_display = customer_usage_df.copy()
+    for table in [monthly_usage_display, customer_usage_display]:
+        for qty_col in ["Qty in Ctns", "Qty in Pcs"]:
+            if qty_col in table.columns:
+                table[qty_col] = table[qty_col].apply(_format_qty_display)
+        if "Total Value" in table.columns:
+            table["Total Value"] = table["Total Value"].apply(_format_price_display)
+
     display_cols = []
     if show_by_weeks and "Week" in summary_display.columns:
         display_cols.append("Week")
@@ -2695,6 +2871,36 @@ def run_sales_page():
                 summary_display[display_cols],
                 width="stretch",
             )
+        usage_tab_month, usage_tab_customer, usage_tab_matrix = st.tabs(
+            ["Usage by Month", "Usage by Customer", "Customer x Month"]
+        )
+        with usage_tab_month:
+            if monthly_usage_display.empty:
+                st.info("当前筛选未产出月度用量数据。")
+            else:
+                st.caption("每个月的总用量（ctn/pkt）和销售额。")
+                st.dataframe(monthly_usage_display, width="stretch")
+                month_chart = monthly_usage_df[["Month", "Qty in Ctns", "Qty in Pcs"]].copy()
+                month_chart = month_chart.set_index("Month")
+                if not month_chart.empty:
+                    st.bar_chart(month_chart)
+        with usage_tab_customer:
+            if customer_usage_display.empty:
+                st.info("当前筛选未产出客户用量数据。")
+            else:
+                st.caption("每个客户的总用量（ctn/pkt）和销售额。")
+                st.dataframe(customer_usage_display, width="stretch")
+                customer_chart = customer_usage_df[[
+                    "Customer", "Qty in Ctns", "Qty in Pcs"]].copy()
+                customer_chart = customer_chart.head(15).set_index("Customer")
+                if not customer_chart.empty:
+                    st.bar_chart(customer_chart)
+        with usage_tab_matrix:
+            if customer_month_matrix_df.empty:
+                st.info("当前筛选未产出客户-月份矩阵。")
+            else:
+                st.caption("每个客户在每个月的用量（Total Qty）。")
+                st.dataframe(customer_month_matrix_df, width="stretch")
     with raw_tab:
         st.caption(
             f"Detailed records ({len(detail_display):,} rows) —— 当前筛选共享 Summary。")
@@ -2730,6 +2936,15 @@ def run_sales_page():
             summary_export = _strip_html_df(summary_df)
             summary_export.to_excel(
                 writer, sheet_name="Customer-Month Summary", index=False)
+            monthly_usage_export = _strip_html_df(monthly_usage_display)
+            monthly_usage_export.to_excel(
+                writer, sheet_name="Usage by Month", index=False)
+            customer_usage_export = _strip_html_df(customer_usage_display)
+            customer_usage_export.to_excel(
+                writer, sheet_name="Usage by Customer", index=False)
+            customer_month_export = _strip_html_df(customer_month_matrix_df)
+            customer_month_export.to_excel(
+                writer, sheet_name="Customer x Month", index=False)
             meta_rows = [
                 {"key": k, "value": str(v)} for k, v in filter_state.items()
             ]
