@@ -1,0 +1,17 @@
+beautifulsoup4
+chardet
+colorama
+EbookLib
+filelock
+fuzzywuzzy
+matplotlib
+openpyxl
+pandas
+Pillow
+psutil
+PyMuPDF
+PyPDF2
+pywin32; sys_platform == "win32"
+streamlit
+ttkbootstrap
+xlwings
