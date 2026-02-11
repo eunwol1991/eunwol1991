@@ -1,1 +1,5 @@
 .uv-venv
+*logs*
+temp_out.txt
+eunwol1991/temp_out.txt
+eunwol1991/c_clean_log_*.txt
