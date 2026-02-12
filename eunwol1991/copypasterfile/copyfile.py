@@ -11,16 +11,73 @@ from tkinter import font as tkfont
 from tkinter import BooleanVar, DoubleVar, StringVar, TclError
 
 
+def _windows_path_to_wsl(path: str) -> str:
+    text = (path or "").strip()
+    match = re.match(r"^([A-Za-z]):\\(.*)$", text)
+    if not match:
+        return text
+    drive = match.group(1).lower()
+    rest = match.group(2).replace("\\", "/")
+    return f"/mnt/{drive}/{rest}"
+
+
+def _first_existing_path(candidates):
+    for candidate in candidates:
+        if candidate and os.path.isdir(candidate):
+            return candidate
+    return ""
+
+
+def _is_wsl() -> bool:
+    if os.name == "nt":
+        return False
+    if os.environ.get("WSL_DISTRO_NAME"):
+        return True
+    try:
+        with open("/proc/version", "r", encoding="utf-8") as f:
+            return "microsoft" in f.read().lower()
+    except OSError:
+        return False
+
+
+def _platform_drive_root() -> str:
+    if os.name == "nt":
+        return "c:/"
+    if _is_wsl():
+        return "/mnt/c"
+    return "/"
+
+
+def _default_dropbox_base() -> str:
+    root = _platform_drive_root()
+    if root.endswith("/"):
+        return f"{root}Users/jhunj/Dropbox"
+    return f"{root}/Users/jhunj/Dropbox"
+
+
 def main():
     file_info_list = []
     selected_files = []
     current_source_dir = [""]
 
-    default_source_dir = r"C:\Users\jhunj\Dropbox\DO & INV\DO & INV 2026"
-    last_directory = [default_source_dir if os.path.isdir(default_source_dir) else os.getcwd()]
+    dropbox_base = _default_dropbox_base()
+    source_default = f"{dropbox_base}/DO & INV/DO & INV 2026"
+    target_default = f"{dropbox_base}/for jj/Doc to print - JJ"
+
+    default_source_dir = _first_existing_path(
+        [
+            source_default,
+            os.getcwd(),
+        ]
+    )
+    last_directory = [default_source_dir]
 
     base_width, base_height = 920, 740
-    target_dir = r"C:\Users\jhunj\Dropbox\for jj\Doc to print - JJ"
+    target_dir = _first_existing_path(
+        [
+            target_default,
+        ]
+    )
 
     app = ttk.Window(themename="darkly")
     app.title("File Selector")
@@ -28,11 +85,24 @@ def main():
     app.resizable(True, True)
 
     style = ttk.Style()
-    style.configure("Zoom.TLabel", foreground="#FFFFFF")
 
-    base_font_size = 12
-    tree_font_main = tkfont.Font(family="Arial", size=base_font_size)
-    tree_font_chosen = tkfont.Font(family="Arial", size=base_font_size)
+    base_body_size = 12
+    base_small_size = 10
+    base_section_size = 14
+    base_title_size = 18
+
+    ui_font = tkfont.Font(family="Arial", size=base_body_size)
+    small_font = tkfont.Font(family="Arial", size=base_small_size)
+    section_font = tkfont.Font(family="Arial", size=base_section_size)
+    title_font = tkfont.Font(family="Arial", size=base_title_size)
+    tree_font_main = tkfont.Font(family="Arial", size=base_body_size)
+    tree_font_chosen = tkfont.Font(family="Arial", size=base_body_size)
+
+    style.configure("TLabel", font=ui_font)
+    style.configure("TButton", font=ui_font)
+    style.configure("TCheckbutton", font=ui_font)
+    style.configure("TEntry", font=ui_font)
+    style.configure("Zoom.TLabel", foreground="#FFFFFF", font=small_font)
 
     style.configure("Main.Treeview", font=tree_font_main)
     style.configure("Chosen.Treeview", font=tree_font_chosen)
@@ -58,13 +128,37 @@ def main():
         except Exception:
             pass
 
-        new_size = max(8, int(round(base_font_size * factor)))
-        tree_font_main.configure(size=new_size)
-        tree_font_chosen.configure(size=new_size)
+        body_size = max(8, int(round(base_body_size * factor)))
+        small_size = max(8, int(round(base_small_size * factor)))
+        section_size = max(9, int(round(base_section_size * factor)))
+        title_size = max(10, int(round(base_title_size * factor)))
 
-        style.configure("Main.Treeview", rowheight=rowheight_for(tree_font_main, factor))
-        style.configure("Chosen.Treeview", rowheight=rowheight_for(tree_font_chosen, factor))
-        style.configure("Treeview.Heading", padding=(max(4, int(6 * factor)),))
+        ui_font.configure(size=body_size)
+        small_font.configure(size=small_size)
+        section_font.configure(size=section_size)
+        title_font.configure(size=title_size)
+        tree_font_main.configure(size=body_size)
+        tree_font_chosen.configure(size=body_size)
+
+        style.configure("TLabel", font=ui_font)
+        style.configure("TButton", font=ui_font)
+        style.configure("TCheckbutton", font=ui_font)
+        style.configure("TEntry", font=ui_font)
+        style.configure(
+            "Main.Treeview",
+            font=tree_font_main,
+            rowheight=rowheight_for(tree_font_main, factor),
+        )
+        style.configure(
+            "Chosen.Treeview",
+            font=tree_font_chosen,
+            rowheight=rowheight_for(tree_font_chosen, factor),
+        )
+        style.configure(
+            "Treeview.Heading",
+            font=ui_font,
+            padding=(max(4, int(6 * factor)),),
+        )
         app.geometry(f"{int(base_width * factor)}x{int(base_height * factor)}")
         zoom_label.configure(text=f"UI Scale: {int(round(factor * 100))}%")
 
@@ -74,7 +168,7 @@ def main():
     ttk.Label(
         topbar,
         text="Choose Source Folder and Match Files",
-        font=("Arial", 18),
+        font=title_font,
         bootstyle="info",
     ).pack(side=LEFT, padx=(0, 10))
 
@@ -117,7 +211,7 @@ def main():
     ttk.Label(
         selected_frame,
         text="Selected Files Order",
-        font=("Arial", 14),
+        font=section_font,
         bootstyle="info",
     ).pack(anchor="w")
 
@@ -142,10 +236,10 @@ def main():
     ttk.Label(
         input_row,
         text="Invoice Start:",
-        font=("Arial", 12),
+        font=ui_font,
     ).pack(side=LEFT)
 
-    invoice_entry = ttk.Entry(input_row, font=("Arial", 12), width=14)
+    invoice_entry = ttk.Entry(input_row, font=ui_font, width=14)
     invoice_entry.pack(side=LEFT, padx=(6, 0))
 
     option_row = ttk.Frame(entry_frame)
@@ -163,7 +257,7 @@ def main():
     ttk.Label(
         entry_frame,
         textvariable=schedule_hint_var,
-        font=("Arial", 10),
+        font=small_font,
         bootstyle="secondary",
     ).pack(anchor=CENTER, pady=(4, 0))
 
@@ -197,7 +291,9 @@ def main():
             return ref_date + timedelta(days=1)
         return ref_date + timedelta(days=1)
 
-    def classify_wef_status(wef_date: date | None, ref_date: date, cutoff_date: date) -> str:
+    def classify_wef_status(
+        wef_date: date | None, ref_date: date, cutoff_date: date
+    ) -> str:
         if wef_date is None:
             return "no-wef"
         if wef_date < ref_date:
@@ -336,21 +432,25 @@ def main():
 
         top = ttk.Frame(dialog)
         top.pack(fill=X, padx=12, pady=(12, 8))
-        ttk.Label(top, text="Index root folder:", font=("Arial", 10)).pack(side=LEFT)
+        ttk.Label(top, text="Index root folder:", font=small_font).pack(side=LEFT)
         root_entry = ttk.Entry(top, textvariable=root_var, width=72)
         root_entry.pack(side=LEFT, padx=(8, 8), fill=X, expand=True)
 
         def browse_root():
-            picked = filedialog.askdirectory(initialdir=root_var.get().strip() or base_dir)
+            picked = filedialog.askdirectory(
+                initialdir=root_var.get().strip() or base_dir
+            )
             if picked:
                 root_var.set(picked)
                 rebuild_index()
 
-        ttk.Button(top, text="Change Root", command=browse_root, bootstyle=INFO).pack(side=LEFT)
+        ttk.Button(top, text="Change Root", command=browse_root, bootstyle=INFO).pack(
+            side=LEFT
+        )
 
         search_bar = ttk.Frame(dialog)
         search_bar.pack(fill=X, padx=12, pady=(0, 8))
-        ttk.Label(search_bar, text="Keyword filter:", font=("Arial", 10)).pack(side=LEFT)
+        ttk.Label(search_bar, text="Keyword filter:", font=small_font).pack(side=LEFT)
         keyword_entry = ttk.Entry(search_bar, textvariable=keyword_var, width=42)
         keyword_entry.pack(side=LEFT, padx=(8, 8), fill=X, expand=True)
 
@@ -400,7 +500,9 @@ def main():
             dialog.destroy()
 
         def use_system_dialog():
-            picked = filedialog.askdirectory(initialdir=root_var.get().strip() or base_dir)
+            picked = filedialog.askdirectory(
+                initialdir=root_var.get().strip() or base_dir
+            )
             if picked:
                 selected["path"] = picked
                 dialog.destroy()
@@ -415,7 +517,9 @@ def main():
                     text=str(idx),
                     values=(folder_name, item["relative"]),
                 )
-                folder_list.item(iid, tags=("oddrow",) if idx % 2 == 0 else ("evenrow",))
+                folder_list.item(
+                    iid, tags=("oddrow",) if idx % 2 == 0 else ("evenrow",)
+                )
             folder_list.tag_configure("oddrow", background="#2B2B2B")
             folder_list.tag_configure("evenrow", background="#242424")
             if rows:
@@ -444,11 +548,15 @@ def main():
                 filtered_dirs.extend(indexed_dirs)
             else:
                 for item in indexed_dirs:
-                    haystack = f'{item["relative"]} {os.path.basename(item["path"])}'.lower()
+                    haystack = (
+                        f"{item['relative']} {os.path.basename(item['path'])}".lower()
+                    )
                     if all(term in haystack for term in terms):
                         filtered_dirs.append(item)
             fill_list(filtered_dirs)
-            status_var.set(f"Indexed {len(indexed_dirs)} folder(s), matched {len(filtered_dirs)}.")
+            status_var.set(
+                f"Indexed {len(indexed_dirs)} folder(s), matched {len(filtered_dirs)}."
+            )
 
         def rebuild_index(_event=None):
             selected_root = os.path.abspath(root_var.get().strip() or base_dir)
@@ -469,13 +577,18 @@ def main():
             indexed_dirs.sort(key=lambda x: x["relative"].lower())
             apply_filter()
 
-        ttk.Button(btn_row, text="System Picker", command=use_system_dialog, bootstyle="secondary").pack(
-            side=LEFT
-        )
-        ttk.Button(btn_row, text="Cancel", command=dialog.destroy, bootstyle="warning").pack(
-            side=RIGHT, padx=(8, 0)
-        )
-        ttk.Button(btn_row, text="Confirm", command=confirm_selection, bootstyle="success").pack(side=RIGHT)
+        ttk.Button(
+            btn_row,
+            text="System Picker",
+            command=use_system_dialog,
+            bootstyle="secondary",
+        ).pack(side=LEFT)
+        ttk.Button(
+            btn_row, text="Cancel", command=dialog.destroy, bootstyle="warning"
+        ).pack(side=RIGHT, padx=(8, 0))
+        ttk.Button(
+            btn_row, text="Confirm", command=confirm_selection, bootstyle="success"
+        ).pack(side=RIGHT)
 
         keyword_var.trace_add("write", apply_filter)
         root_entry.bind("<Return>", rebuild_index)
@@ -527,7 +640,9 @@ def main():
                     continue
 
                 wef_date = extract_wef_date_from_path(full_path)
-                wef_status = classify_wef_status(wef_date, effective_date, activation_cutoff)
+                wef_status = classify_wef_status(
+                    wef_date, effective_date, activation_cutoff
+                )
                 status_counts[wef_status] = status_counts.get(wef_status, 0) + 1
                 if wef_status == "future":
                     hidden_future_count += 1
@@ -604,8 +719,13 @@ def main():
         update_selected_listbox()
 
     def copy_files():
-        if not os.path.exists(target_dir):
-            messagebox.showerror("Error", "Target folder does not exist.")
+        if not target_dir:
+            messagebox.showerror("Error", "Target folder is not configured.")
+            return
+        try:
+            os.makedirs(target_dir, exist_ok=True)
+        except OSError as exc:
+            messagebox.showerror("Error", f"Cannot access target folder: {exc}")
             return
         if not selected_files:
             messagebox.showwarning("Warning", "Please choose file(s) to copy first.")
@@ -615,15 +735,21 @@ def main():
 
         if auto_number_var.get():
             if not re.fullmatch(r"\d{4}", invoice_input):
-                messagebox.showwarning("Warning", "Auto mode expects 4-digit prefix, example: 0226.")
+                messagebox.showwarning(
+                    "Warning", "Auto mode expects 4-digit prefix, example: 0226."
+                )
                 return
             invoice_prefix = invoice_input
             month_value = int(invoice_prefix[:2])
             if month_value < 1 or month_value > 12:
-                messagebox.showwarning("Warning", "Invalid month in prefix. Use MMYY format.")
+                messagebox.showwarning(
+                    "Warning", "Invalid month in prefix. Use MMYY format."
+                )
                 return
             if not current_source_dir[0] or not os.path.isdir(current_source_dir[0]):
-                messagebox.showwarning("Warning", "Please browse and choose source folder first.")
+                messagebox.showwarning(
+                    "Warning", "Please browse and choose source folder first."
+                )
                 return
             search_dir = resolve_month_folder(current_source_dir[0], invoice_prefix)
             if not search_dir:
@@ -679,18 +805,18 @@ def main():
 
     btn_frame = ttk.Frame(app)
     btn_frame.pack(pady=10)
-    ttk.Button(btn_frame, text="Choose Source", command=browse_source, bootstyle=INFO).grid(
-        row=0, column=0, padx=10
-    )
+    ttk.Button(
+        btn_frame, text="Choose Source", command=browse_source, bootstyle=INFO
+    ).grid(row=0, column=0, padx=10)
     ttk.Button(btn_frame, text="Add", command=add_to_selected, bootstyle=SUCCESS).grid(
         row=0, column=1, padx=10
     )
     ttk.Button(btn_frame, text="Clear", command=clear_selected, bootstyle=WARNING).grid(
         row=0, column=2, padx=10
     )
-    ttk.Button(btn_frame, text="Delete", command=delete_selected, bootstyle=DANGER).grid(
-        row=0, column=3, padx=10
-    )
+    ttk.Button(
+        btn_frame, text="Delete", command=delete_selected, bootstyle=DANGER
+    ).grid(row=0, column=3, padx=10)
     ttk.Button(btn_frame, text="Copy", command=copy_files, bootstyle=PRIMARY).grid(
         row=0, column=4, padx=10
     )

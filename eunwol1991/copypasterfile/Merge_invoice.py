@@ -2,8 +2,36 @@ import os
 import re
 from PyPDF2 import PdfMerger
 
+
+
+def _is_wsl() -> bool:
+    if os.name == "nt":
+        return False
+    if os.environ.get("WSL_DISTRO_NAME"):
+        return True
+    try:
+        with open("/proc/version", "r", encoding="utf-8") as f:
+            return "microsoft" in f.read().lower()
+    except OSError:
+        return False
+
+
+def _platform_drive_root() -> str:
+    if os.name == "nt":
+        return "c:/"
+    if _is_wsl():
+        return "/mnt/c"
+    return "/"
+
+
+def _from_c(path_tail: str) -> str:
+    tail = (path_tail or "").lstrip("/")
+    root = _platform_drive_root()
+    if root.endswith("/"):
+        return f"{root}{tail}"
+    return f"{root}/{tail}"
 # 根目录路径
-ROOT_DIR = r"C:\Users\jhunj\Dropbox\DO & INV\DO & INV 2026"
+ROOT_DIR = _from_c("Users/jhunj/Dropbox/DO & INV/DO & INV 2026")
 
 # 匹配发票 PDF 文件名
 invoice_pattern = re.compile(
