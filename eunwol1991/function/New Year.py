@@ -1,3 +1,31 @@
+
+
+def _is_wsl() -> bool:
+    if os.name == "nt":
+        return False
+    if os.environ.get("WSL_DISTRO_NAME"):
+        return True
+    try:
+        with open("/proc/version", "r", encoding="utf-8") as f:
+            return "microsoft" in f.read().lower()
+    except OSError:
+        return False
+
+
+def _platform_drive_root() -> str:
+    if os.name == "nt":
+        return "c:/"
+    if _is_wsl():
+        return "/mnt/c"
+    return "/"
+
+
+def _from_c(path_tail: str) -> str:
+    tail = (path_tail or "").lstrip("/")
+    root = _platform_drive_root()
+    if root.endswith("/"):
+        return f"{root}{tail}"
+    return f"{root}/{tail}"
 # new_year_safe_fast_final_v2.py
 # 重点修正：
 # - 2025 -> 2026（档名 + 内容）
@@ -21,12 +49,12 @@ except ImportError:
 # =========================
 # 配置区
 # =========================
-SRC_ROOT = Path(r"C:\Users\jhunj\Dropbox\DO & INV\DO & INV 2025")
+SRC_ROOT = Path(_from_c("Users/jhunj/Dropbox/DO & INV/DO & INV 2025"))
 
-DEST_PARENT = Path(r"C:\Users\jhunj\Dropbox\for jj")
+DEST_PARENT = Path(_from_c("Users/jhunj/Dropbox/for jj"))
 DEST_FOLDER_NAME = "DO & INV 2026"
 
-BUILD_ROOT = Path(r"C:\Users\jhunj\Desktop\DO & INV 2026_build")
+BUILD_ROOT = Path(_from_c("Users/jhunj/Desktop/DO & INV 2026_build"))
 
 MONTH_REQUIRED = "12. Dec"
 KEEP_MONTH = "1. Jan"

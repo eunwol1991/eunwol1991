@@ -10,6 +10,34 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from tkinter.scrolledtext import ScrolledText
 
+
+
+def _is_wsl() -> bool:
+    if os.name == "nt":
+        return False
+    if os.environ.get("WSL_DISTRO_NAME"):
+        return True
+    try:
+        with open("/proc/version", "r", encoding="utf-8") as f:
+            return "microsoft" in f.read().lower()
+    except OSError:
+        return False
+
+
+def _platform_drive_root() -> str:
+    if os.name == "nt":
+        return "c:/"
+    if _is_wsl():
+        return "/mnt/c"
+    return "/"
+
+
+def _from_c(path_tail: str) -> str:
+    tail = (path_tail or "").lstrip("/")
+    root = _platform_drive_root()
+    if root.endswith("/"):
+        return f"{root}{tail}"
+    return f"{root}/{tail}"
 try:
     import pandas as pd
 except Exception:  # pragma: no cover
@@ -20,15 +48,17 @@ try:
 except Exception:  # pragma: no cover
     fitz = None
 
-BASE_DIR_DEFAULT = r"C:\Users\jhunj\Dropbox\DO & INV\DO & INV 2026"
-SPECIAL_CANADIAN_DIR = r"C:\Users\jhunj\Dropbox\for jj\Outlets PDF"
+BASE_DIR_DEFAULT = _from_c("Users/jhunj/Dropbox/DO & INV")
+SPECIAL_CANADIAN_DIR = _from_c("Users/jhunj/Dropbox/for jj/Outlets PDF")
 SHEET_NAME = "Delivery details"
 HEADER_ROW_INDEX = 3  # A4 -> 0-based row index
 IGNORE_DIR_NAME = "Melvin - Stuff'd"
 SCAN_WARN_SECONDS = 20
 SCAN_WARN_FILES = 2000
 
-AMOUNT_RE = re.compile(r"([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{2})?|[0-9]+(?:\.[0-9]{2})?)")
+AMOUNT_RE = re.compile(
+    r"([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{2})?|[0-9]+(?:\.[0-9]{2})?)"
+)
 DATE_RE = re.compile(r"(\d{1,2}/\d{1,2}/\d{2,4})")
 INVOICE_NO_PATTERNS = [
     re.compile(
@@ -40,9 +70,7 @@ DATE_PATTERNS = [
     re.compile(r"Invoice\s*Date\s*[:#]?\s*(\d{1,2}/\d{1,2}/\d{2,4})", re.I),
     re.compile(r"Date\s*[:#]?\s*(\d{1,2}/\d{1,2}/\d{2,4})", re.I),
 ]
-SUBTOTAL_PATTERN = re.compile(
-    r"Sub\s*Total\s*\$?\s*([0-9,]+(?:\.[0-9]{2})?)", re.I
-)
+SUBTOTAL_PATTERN = re.compile(r"Sub\s*Total\s*\$?\s*([0-9,]+(?:\.[0-9]{2})?)", re.I)
 GST_PATTERN = re.compile(
     r"(?:Add\s*GST|GST)\s*9%?\s*\$?\s*([0-9,]+(?:\.[0-9]{2})?)", re.I
 )
@@ -255,7 +283,11 @@ def is_invoice_pdf_filename(name_lower: str) -> bool:
     if not name_lower.endswith(".pdf"):
         return False
     has_inv = bool(re.search(r"\b(inv|invoice)\b", name_lower)) or ("inv" in name_lower)
-    has_do = bool(re.search(r"\bdo\b", name_lower)) or ("delivery order" in name_lower) or ("d/o" in name_lower)
+    has_do = (
+        bool(re.search(r"\bdo\b", name_lower))
+        or ("delivery order" in name_lower)
+        or ("d/o" in name_lower)
+    )
     if has_do and not has_inv:
         return False
     if INV_NAME_HINT.search(name_lower):
@@ -290,7 +322,9 @@ def collect_money_amounts(lines: list[str]) -> list[Decimal]:
     return amounts
 
 
-def collect_money_amounts_from_layout(doc, min_x_ratio: float, exclude_y: list[float]) -> list[Decimal]:
+def collect_money_amounts_from_layout(
+    doc, min_x_ratio: float, exclude_y: list[float]
+) -> list[Decimal]:
     amounts: list[Decimal] = []
     for page in doc:
         page_width = float(page.rect.width)
@@ -392,7 +426,9 @@ def extract_amounts_from_layout(doc) -> dict:
             labels["gst"] = s
         elif lower.strip().startswith("total"):
             labels["total"] = s
-        if any(k in lower for k in ["price", "per unit", "carton", "quantity", "amount"]):
+        if any(
+            k in lower for k in ["price", "per unit", "carton", "quantity", "amount"]
+        ):
             header_y.append(s["y"])
 
     def pick_amount(label_key: str) -> Decimal | None:
@@ -409,7 +445,8 @@ def extract_amounts_from_layout(doc) -> dict:
         right = [a for a in right if not any(abs(a["y"] - hy) <= 6 for hy in header_y)]
 
         span_right = [
-            s for s in spans
+            s
+            for s in spans
             if s["page"] == label["page"]
             and s["x"] >= label["width"] * 0.70
             and abs(s["y"] - label["y"]) <= 10
@@ -436,7 +473,13 @@ def extract_amounts_from_layout(doc) -> dict:
     subtotal = pick_amount("subtotal")
     gst = pick_amount("gst")
     total = pick_amount("total")
-    return {"subtotal": subtotal, "gst": gst, "total": total, "labels": labels, "header_y": header_y}
+    return {
+        "subtotal": subtotal,
+        "gst": gst,
+        "total": total,
+        "labels": labels,
+        "header_y": header_y,
+    }
 
 
 def _is_gst_line(line: str) -> bool:
@@ -492,7 +535,9 @@ def parse_pdf_invoice(path: str) -> tuple[dict, str | None]:
             if gst_matches:
                 gst = to_decimal(gst_matches[-1])
 
-        def scan_amount_after_label(idx: int, prefer_next_if_percent: bool, max_lookahead: int = 20) -> Decimal | None:
+        def scan_amount_after_label(
+            idx: int, prefer_next_if_percent: bool, max_lookahead: int = 20
+        ) -> Decimal | None:
             for j in range(idx + 1, min(len(lines), idx + max_lookahead + 1)):
                 amt = extract_amount_from_line(lines[j])
                 if amt is not None:
@@ -556,7 +601,9 @@ def parse_pdf_invoice(path: str) -> tuple[dict, str | None]:
             if m:
                 gst = to_decimal(m.group(1))
 
-        is_abr = "abr" in os.path.basename(path).lower() or bool(re.search(r"\bABR\b", text))
+        is_abr = "abr" in os.path.basename(path).lower() or bool(
+            re.search(r"\bABR\b", text)
+        )
         layout_info = None
         if is_abr:
             layout_info = extract_amounts_from_layout(doc)
@@ -572,21 +619,45 @@ def parse_pdf_invoice(path: str) -> tuple[dict, str | None]:
             inferred_subtotal, inferred_gst, inferred_total = infer_subtotal_gst(
                 amounts, min_value=Decimal("1.00")
             )
-            if (subtotal is None or gst is None) and inferred_subtotal is not None and inferred_gst is not None:
+            if (
+                (subtotal is None or gst is None)
+                and inferred_subtotal is not None
+                and inferred_gst is not None
+            ):
                 subtotal = inferred_subtotal
                 gst = inferred_gst
-            elif subtotal is not None and gst is not None and inferred_subtotal is not None and inferred_gst is not None:
-                if inferred_total is not None and abs((subtotal + gst) - inferred_total) > Decimal("0.05"):
+            elif (
+                subtotal is not None
+                and gst is not None
+                and inferred_subtotal is not None
+                and inferred_gst is not None
+            ):
+                if inferred_total is not None and abs(
+                    (subtotal + gst) - inferred_total
+                ) > Decimal("0.05"):
                     subtotal = inferred_subtotal
                     gst = inferred_gst
         else:
             amounts = collect_money_amounts(lines)
-            inferred_subtotal, inferred_gst, inferred_total = infer_subtotal_gst(amounts)
-            if (subtotal is None or gst is None) and inferred_subtotal is not None and inferred_gst is not None:
+            inferred_subtotal, inferred_gst, inferred_total = infer_subtotal_gst(
+                amounts
+            )
+            if (
+                (subtotal is None or gst is None)
+                and inferred_subtotal is not None
+                and inferred_gst is not None
+            ):
                 subtotal = inferred_subtotal
                 gst = inferred_gst
-            elif subtotal is not None and gst is not None and inferred_subtotal is not None and inferred_gst is not None:
-                if inferred_total is not None and abs((subtotal + gst) - inferred_total) > Decimal("0.05"):
+            elif (
+                subtotal is not None
+                and gst is not None
+                and inferred_subtotal is not None
+                and inferred_gst is not None
+            ):
+                if inferred_total is not None and abs(
+                    (subtotal + gst) - inferred_total
+                ) > Decimal("0.05"):
                     subtotal = inferred_subtotal
                     gst = inferred_gst
 
@@ -597,7 +668,9 @@ def parse_pdf_invoice(path: str) -> tuple[dict, str | None]:
             "gst": gst,
             "total_line": total_line,
             "debug_lines": preview_lines,
-            "debug_labels": list((layout_info or {}).get("labels", {}).values()) if layout_info else [],
+            "debug_labels": list((layout_info or {}).get("labels", {}).values())
+            if layout_info
+            else [],
         }, None
     finally:
         doc.close()
@@ -681,14 +754,17 @@ def load_excel_records(path: str, month_code: str) -> dict:
         has_date_mismatch = len(date_values) > 1
         has_customer_mismatch = len(rec["customer_values"]) > 1
         has_outlet_mismatch = len(rec["outlet_values"]) > 1
-        has_inconsistent = has_date_mismatch or has_customer_mismatch or has_outlet_mismatch
+        has_inconsistent = (
+            has_date_mismatch or has_customer_mismatch or has_outlet_mismatch
+        )
 
         inv_mmyy = rec.get("invoice_mmyy")
         has_invoice_date_mismatch = False
         if inv_mmyy and rec["excel_date"]:
             inv_month, inv_year = inv_mmyy
             has_invoice_date_mismatch = (
-                rec["excel_date"].month != inv_month or rec["excel_date"].year != inv_year
+                rec["excel_date"].month != inv_month
+                or rec["excel_date"].year != inv_year
             )
 
         if has_inconsistent:
@@ -703,7 +779,9 @@ def load_excel_records(path: str, month_code: str) -> dict:
     return records
 
 
-def scan_candidate_files(base_dirs: list[str], month_code: str) -> list[tuple[str, str, str]]:
+def scan_candidate_files(
+    base_dirs: list[str], month_code: str
+) -> list[tuple[str, str, str]]:
     candidates: list[tuple[str, str, str]] = []
     ignore_lower = IGNORE_DIR_NAME.lower()
     month_lower = month_code.lower()
@@ -732,10 +810,7 @@ def select_best_candidate(invoice_no: str, candidates: list[tuple[str, str, str]
     invoice_compact = compact_text(invoice_no)
     matcher = build_invoice_matcher(invoice_no)
 
-    matches = [
-        c for c in candidates
-        if matcher.search(c[0])
-    ]
+    matches = [c for c in candidates if matcher.search(c[0])]
     if not matches:
         return None, False, False, []
 
@@ -767,7 +842,9 @@ def select_best_candidate(invoice_no: str, candidates: list[tuple[str, str, str]
     return chosen[2], multiple, False, [m[2] for m in matches]
 
 
-def build_pdf_cache(candidates: list[tuple[str, str, str]], on_progress=None) -> tuple[dict, list[dict]]:
+def build_pdf_cache(
+    candidates: list[tuple[str, str, str]], on_progress=None
+) -> tuple[dict, list[dict]]:
     pdf_cache: dict[str, tuple[dict, str | None]] = {}
     pdf_records: list[dict] = []
     total = len(candidates)
@@ -779,12 +856,14 @@ def build_pdf_cache(candidates: list[tuple[str, str, str]], on_progress=None) ->
         pdf_cache[path] = (pdf_info, pdf_error)
         invoice_no = (pdf_info or {}).get("invoice_no")
         if invoice_no and not should_ignore_invoice(invoice_no):
-            pdf_records.append({
-                "invoice_no": invoice_no,
-                "pdf_path": path,
-                "pdf_info": pdf_info,
-                "pdf_error": pdf_error,
-            })
+            pdf_records.append(
+                {
+                    "invoice_no": invoice_no,
+                    "pdf_path": path,
+                    "pdf_info": pdf_info,
+                    "pdf_error": pdf_error,
+                }
+            )
     return pdf_cache, pdf_records
 
 
@@ -804,7 +883,10 @@ def infer_issue_side(status: str, multiple_candidates: bool = False) -> tuple[st
         return "PDF parser", "PDF was found but required fields could not be parsed."
     if status == "Invoice mismatch":
         if multiple_candidates:
-            return "PDF/File", "Multiple PDF candidates matched; the chosen file may be wrong."
+            return (
+                "PDF/File",
+                "Multiple PDF candidates matched; the chosen file may be wrong.",
+            )
         return "Either", "Excel invoice number and parsed PDF invoice number differ."
     if status == "Date mismatch":
         return "Either", "PDF date and Excel date differ."
@@ -867,7 +949,9 @@ def parse_numeric_range(text: str) -> tuple[Decimal | None, Decimal | None] | No
     return lo, hi
 
 
-def build_missing_excel_records(pdf_records: list[dict], excel_records: dict) -> list[dict]:
+def build_missing_excel_records(
+    pdf_records: list[dict], excel_records: dict
+) -> list[dict]:
     excel_norm = {normalize_invoice_no(inv) for inv in excel_records.keys()}
     seen = set()
     missing = []
@@ -885,32 +969,34 @@ def build_missing_excel_records(pdf_records: list[dict], excel_records: dict) ->
         if subtotal is not None and gst is not None:
             pdf_total = subtotal + gst
         issue_side, issue_hint = infer_issue_side("Missing Excel record (PDF -> Excel)")
-        missing.append({
-            "invoice_no": invoice_no,
-            "excel_invoice": "",
-            "excel_date": None,
-            "excel_dates": [],
-            "excel_total": None,
-            "line_count": 0,
-            "excel_status": "",
-            "pdf_found": True,
-            "pdf_path": rec.get("pdf_path", ""),
-            "pdf_invoice": pdf_info.get("invoice_no"),
-            "pdf_date": pdf_info.get("date"),
-            "pdf_subtotal": subtotal,
-            "pdf_gst": gst,
-            "pdf_total": pdf_total,
-            "pdf_total_line": pdf_info.get("total_line"),
-            "diff": None,
-            "status": "Missing Excel record (PDF -> Excel)",
-            "issue_side": issue_side,
-            "issue_hint": issue_hint,
-            "candidates": [],
-            "revised_used": False,
-            "debug_lines": pdf_info.get("debug_lines") if pdf_info else [],
-            "debug_labels": pdf_info.get("debug_labels") if pdf_info else [],
-            "pdf_error": pdf_error,
-        })
+        missing.append(
+            {
+                "invoice_no": invoice_no,
+                "excel_invoice": "",
+                "excel_date": None,
+                "excel_dates": [],
+                "excel_total": None,
+                "line_count": 0,
+                "excel_status": "",
+                "pdf_found": True,
+                "pdf_path": rec.get("pdf_path", ""),
+                "pdf_invoice": pdf_info.get("invoice_no"),
+                "pdf_date": pdf_info.get("date"),
+                "pdf_subtotal": subtotal,
+                "pdf_gst": gst,
+                "pdf_total": pdf_total,
+                "pdf_total_line": pdf_info.get("total_line"),
+                "diff": None,
+                "status": "Missing Excel record (PDF -> Excel)",
+                "issue_side": issue_side,
+                "issue_hint": issue_hint,
+                "candidates": [],
+                "revised_used": False,
+                "debug_lines": pdf_info.get("debug_lines") if pdf_info else [],
+                "debug_labels": pdf_info.get("debug_labels") if pdf_info else [],
+                "pdf_error": pdf_error,
+            }
+        )
     return missing
 
 
@@ -932,7 +1018,9 @@ def build_results(
         excel_date = rec.get("excel_date")
         excel_status = rec.get("excel_status", "OK")
 
-        path, multiple, revised_used, all_candidates = select_best_candidate(inv, candidates)
+        path, multiple, revised_used, all_candidates = select_best_candidate(
+            inv, candidates
+        )
         pdf_found = bool(path)
         pdf_info = {}
         pdf_error = None
@@ -960,43 +1048,53 @@ def build_results(
             status = excel_status
         elif not pdf_found:
             status = "Missing PDF (Excel -> PDF)"
-        elif pdf_error or not pdf_info or pdf_invoice is None or pdf_date is None or pdf_total is None:
+        elif (
+            pdf_error
+            or not pdf_info
+            or pdf_invoice is None
+            or pdf_date is None
+            or pdf_total is None
+        ):
             status = "PDF parse fail"
         else:
             if normalize_invoice_no(pdf_invoice) != normalize_invoice_no(inv):
                 status = "Invoice mismatch"
             elif excel_date and pdf_date and pdf_date != excel_date:
                 status = "Date mismatch"
-            elif pdf_total is not None and abs(pdf_total - excel_total) > Decimal("0.05"):
+            elif pdf_total is not None and abs(pdf_total - excel_total) > Decimal(
+                "0.05"
+            ):
                 status = "Total mismatch"
         issue_side, issue_hint = infer_issue_side(status, multiple_candidates=multiple)
 
-        results.append({
-            "invoice_no": inv,
-            "excel_invoice": inv,
-            "excel_date": excel_date,
-            "excel_dates": rec.get("excel_dates", []),
-            "excel_total": excel_total,
-            "line_count": rec.get("line_count", 0),
-            "excel_status": excel_status,
-            "pdf_found": pdf_found,
-            "pdf_path": path or "",
-            "pdf_invoice": pdf_invoice,
-            "pdf_date": pdf_date,
-            "pdf_subtotal": pdf_info.get("subtotal") if pdf_info else None,
-            "pdf_gst": pdf_info.get("gst") if pdf_info else None,
-            "pdf_total": pdf_total,
-            "pdf_total_line": pdf_info.get("total_line") if pdf_info else None,
-            "diff": diff,
-            "status": status,
-            "issue_side": issue_side,
-            "issue_hint": issue_hint,
-            "candidates": all_candidates,
-            "revised_used": revised_used,
-            "debug_lines": pdf_info.get("debug_lines") if pdf_info else [],
-            "debug_labels": pdf_info.get("debug_labels") if pdf_info else [],
-            "pdf_error": pdf_error,
-        })
+        results.append(
+            {
+                "invoice_no": inv,
+                "excel_invoice": inv,
+                "excel_date": excel_date,
+                "excel_dates": rec.get("excel_dates", []),
+                "excel_total": excel_total,
+                "line_count": rec.get("line_count", 0),
+                "excel_status": excel_status,
+                "pdf_found": pdf_found,
+                "pdf_path": path or "",
+                "pdf_invoice": pdf_invoice,
+                "pdf_date": pdf_date,
+                "pdf_subtotal": pdf_info.get("subtotal") if pdf_info else None,
+                "pdf_gst": pdf_info.get("gst") if pdf_info else None,
+                "pdf_total": pdf_total,
+                "pdf_total_line": pdf_info.get("total_line") if pdf_info else None,
+                "diff": diff,
+                "status": status,
+                "issue_side": issue_side,
+                "issue_hint": issue_hint,
+                "candidates": all_candidates,
+                "revised_used": revised_used,
+                "debug_lines": pdf_info.get("debug_lines") if pdf_info else [],
+                "debug_labels": pdf_info.get("debug_labels") if pdf_info else [],
+                "pdf_error": pdf_error,
+            }
+        )
 
     return results
 
@@ -1080,13 +1178,19 @@ class InvoiceValidatorApp(tk.Tk):
         ttk.Button(filter_bar, text="Clear", command=self._clear_text_filter).pack(
             side=tk.LEFT, padx=(0, 12)
         )
-        ttk.Button(filter_bar, text="Debug", command=self._open_debug).pack(side=tk.LEFT)
+        ttk.Button(filter_bar, text="Debug", command=self._open_debug).pack(
+            side=tk.LEFT
+        )
 
         bar = ttk.Frame(self, padding=(10, 0, 10, 6))
         bar.pack(fill=tk.X)
 
         self.progress = ttk.Progressbar(
-            bar, orient="horizontal", length=300, mode="determinate", variable=self.progress_var
+            bar,
+            orient="horizontal",
+            length=300,
+            mode="determinate",
+            variable=self.progress_var,
         )
         self.progress.pack(side=tk.LEFT)
         ttk.Label(bar, textvariable=self.status_var).pack(side=tk.LEFT, padx=10)
@@ -1140,8 +1244,10 @@ class InvoiceValidatorApp(tk.Tk):
         self.tree.bind("<Double-1>", self._open_detail)
 
     def _choose_excel(self):
+        start_dir = BASE_DIR_DEFAULT if os.path.isdir(BASE_DIR_DEFAULT) else "/mnt/c"
         path = filedialog.askopenfilename(
             title="Select Excel file",
+            initialdir=start_dir,
             filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")],
         )
         if path:
@@ -1183,7 +1289,9 @@ class InvoiceValidatorApp(tk.Tk):
         try:
             excel_records = load_excel_records(excel_path, month_code)
             if not excel_records:
-                self._queue.put(("error", "No invoices found for the given month code."))
+                self._queue.put(
+                    ("error", "No invoices found for the given month code.")
+                )
                 return
             self._queue.put(("status", "Scanning files..."))
             base_dirs = [BASE_DIR_DEFAULT]
@@ -1193,17 +1301,21 @@ class InvoiceValidatorApp(tk.Tk):
             candidates = scan_candidate_files(base_dirs, month_code)
             scan_seconds = time.perf_counter() - scan_start
             if scan_seconds >= SCAN_WARN_SECONDS or len(candidates) >= SCAN_WARN_FILES:
-                self._queue.put((
-                    "warn",
-                    f"扫描耗时 {scan_seconds:.1f}s，候选文件 {len(candidates)} 个。"
-                    " 如果后续变慢，可考虑优化。"
-                ))
+                self._queue.put(
+                    (
+                        "warn",
+                        f"扫描耗时 {scan_seconds:.1f}s，候选文件 {len(candidates)} 个。"
+                        " 如果后续变慢，可考虑优化。",
+                    )
+                )
 
             def on_progress(total, current, note):
                 self._queue.put(("progress", total, current, note))
 
             self._queue.put(("status", "Parsing PDFs..."))
-            pdf_cache, pdf_records = build_pdf_cache(candidates, on_progress=on_progress)
+            pdf_cache, pdf_records = build_pdf_cache(
+                candidates, on_progress=on_progress
+            )
 
             self._queue.put(("status", "Matching Excel -> PDF..."))
             results = build_results(
@@ -1255,7 +1367,9 @@ class InvoiceValidatorApp(tk.Tk):
 
     def _load_results(self, results: list[dict]):
         self._results = results
-        self._debug_records = [r for r in results if r.get("status") == "PDF parse fail"]
+        self._debug_records = [
+            r for r in results if r.get("status") == "PDF parse fail"
+        ]
         self._refresh_status_filter()
         self._apply_filter()
 
@@ -1285,7 +1399,9 @@ class InvoiceValidatorApp(tk.Tk):
                 lines.append("Label spans:")
                 for lbl in rec.get("debug_labels", []):
                     try:
-                        lines.append(f"  p{lbl.get('page')} x={lbl.get('x'):.1f} y={lbl.get('y'):.1f} text={lbl.get('text')}")
+                        lines.append(
+                            f"  p{lbl.get('page')} x={lbl.get('x'):.1f} y={lbl.get('y'):.1f} text={lbl.get('text')}"
+                        )
                     except Exception:
                         lines.append(f"  {lbl}")
                 lines.append("")
@@ -1298,7 +1414,9 @@ class InvoiceValidatorApp(tk.Tk):
         txt.configure(state="disabled")
 
     def _refresh_status_filter(self):
-        statuses = sorted({rec.get("status", "") for rec in self._results if rec.get("status", "")})
+        statuses = sorted(
+            {rec.get("status", "") for rec in self._results if rec.get("status", "")}
+        )
         values = ["All"] + statuses
         self.status_filter.configure(values=values)
         if self.status_filter_var.get() not in values:
@@ -1330,7 +1448,9 @@ class InvoiceValidatorApp(tk.Tk):
         issue_side = str(rec.get("issue_side", "") or "")
         issue_hint = str(rec.get("issue_hint", "") or "")
         pdf_path = str(rec.get("pdf_path", "") or "")
-        mismatch_labels = ", ".join(mismatch_field_labels(mismatch_fields_for_status(status)))
+        mismatch_labels = ", ".join(
+            mismatch_field_labels(mismatch_fields_for_status(status))
+        )
 
         fields = {
             "invoice": f"{excel_invoice} {pdf_invoice}",
@@ -1360,7 +1480,9 @@ class InvoiceValidatorApp(tk.Tk):
         for key, raw in values.items():
             dec = to_decimal(raw)
             numeric[key] = [dec] if dec is not None else []
-        numeric["amount"] = numeric["excel_total"] + numeric["pdf_total"] + numeric["diff"]
+        numeric["amount"] = (
+            numeric["excel_total"] + numeric["pdf_total"] + numeric["diff"]
+        )
         return numeric
 
     def _matches_text_filter(self, rec: dict, query: str) -> bool:
@@ -1522,35 +1644,66 @@ class InvoiceValidatorApp(tk.Tk):
         lines.append(mark_line("excel_invoice", f"Excel Invoice #: {excel_invoice}"))
         lines.append(mark_line("pdf_invoice", f"PDF Invoice #: {pdf_invoice}"))
         if excel_invoice and pdf_invoice:
-            inv_match = "Yes" if normalize_invoice_no(excel_invoice) == normalize_invoice_no(pdf_invoice) else "No"
+            inv_match = (
+                "Yes"
+                if normalize_invoice_no(excel_invoice)
+                == normalize_invoice_no(pdf_invoice)
+                else "No"
+            )
             lines.append(f"Invoice Match: {inv_match}")
         else:
             lines.append("Invoice Match: Unknown")
-        lines.append(mark_line("excel_date", f"Excel Date: {format_date_value(rec.get('excel_date'))}"))
+        lines.append(
+            mark_line(
+                "excel_date", f"Excel Date: {format_date_value(rec.get('excel_date'))}"
+            )
+        )
         if rec.get("excel_dates"):
             dates = ", ".join(format_date_value(d) for d in rec.get("excel_dates", []))
             lines.append(f"Excel Date(s): {dates}")
-        lines.append(mark_line("excel_total", f"Excel Total Inc GST: {format_money(rec.get('excel_total'))}"))
+        lines.append(
+            mark_line(
+                "excel_total",
+                f"Excel Total Inc GST: {format_money(rec.get('excel_total'))}",
+            )
+        )
         lines.append(f"Line count: {rec.get('line_count', 0)}")
         lines.append(f"Excel status: {rec.get('excel_status', '')}")
-        lines.append(f"Excel Date consistent: {'Yes' if rec.get('excel_status') == 'OK' else 'No'}")
+        lines.append(
+            f"Excel Date consistent: {'Yes' if rec.get('excel_status') == 'OK' else 'No'}"
+        )
         if rec.get("excel_customers"):
-            lines.append(f"Excel Customers: {', '.join(rec.get('excel_customers', []))}")
+            lines.append(
+                f"Excel Customers: {', '.join(rec.get('excel_customers', []))}"
+            )
         if rec.get("excel_outlets"):
             lines.append(f"Excel Outlets: {', '.join(rec.get('excel_outlets', []))}")
         lines.append("")
-        lines.append(mark_line("pdf_found", f"PDF Found: {'Y' if rec.get('pdf_found') else 'N'}"))
+        lines.append(
+            mark_line("pdf_found", f"PDF Found: {'Y' if rec.get('pdf_found') else 'N'}")
+        )
         lines.append(mark_line("pdf_path", f"PDF Path: {rec.get('pdf_path', '')}"))
-        lines.append(mark_line("pdf_invoice", f"PDF Invoice #: {rec.get('pdf_invoice') or ''}"))
-        lines.append(mark_line("pdf_date", f"PDF Date: {format_date_value(rec.get('pdf_date'))}"))
+        lines.append(
+            mark_line("pdf_invoice", f"PDF Invoice #: {rec.get('pdf_invoice') or ''}")
+        )
+        lines.append(
+            mark_line("pdf_date", f"PDF Date: {format_date_value(rec.get('pdf_date'))}")
+        )
         lines.append(f"PDF Subtotal: {format_money(rec.get('pdf_subtotal'))}")
         lines.append(f"PDF GST: {format_money(rec.get('pdf_gst'))}")
-        lines.append(mark_line("pdf_total", f"PDF Total (Subtotal+GST): {format_money(rec.get('pdf_total'))}"))
+        lines.append(
+            mark_line(
+                "pdf_total",
+                f"PDF Total (Subtotal+GST): {format_money(rec.get('pdf_total'))}",
+            )
+        )
         lines.append(f"PDF Total line (ref): {format_money(rec.get('pdf_total_line'))}")
         lines.append(mark_line("diff", f"Diff: {format_money(rec.get('diff'))}"))
         lines.append(f"Issue side: {rec.get('issue_side', '')}")
         lines.append(f"Status: {rec.get('status', '')}")
-        lines.append(f"Mismatch fields: {', '.join(mismatch_labels) if mismatch_labels else 'None'}")
+        lines.append(
+            f"Mismatch fields: {', '.join(mismatch_labels) if mismatch_labels else 'None'}"
+        )
         if rec.get("issue_hint"):
             lines.append(f"Issue hint: {rec.get('issue_hint')}")
         lines.append(f"Revised chosen: {'Yes' if rec.get('revised_used') else 'No'}")
@@ -1574,7 +1727,9 @@ class InvoiceValidatorApp(tk.Tk):
                 lines.append("Label spans:")
                 for lbl in rec.get("debug_labels", []):
                     try:
-                        lines.append(f"p{lbl.get('page')} x={lbl.get('x'):.1f} y={lbl.get('y'):.1f} text={lbl.get('text')}")
+                        lines.append(
+                            f"p{lbl.get('page')} x={lbl.get('x'):.1f} y={lbl.get('y'):.1f} text={lbl.get('text')}"
+                        )
                     except Exception:
                         lines.append(str(lbl))
 

@@ -4,6 +4,34 @@ import queue
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
+
+
+def _is_wsl() -> bool:
+    if os.name == "nt":
+        return False
+    if os.environ.get("WSL_DISTRO_NAME"):
+        return True
+    try:
+        with open("/proc/version", "r", encoding="utf-8") as f:
+            return "microsoft" in f.read().lower()
+    except OSError:
+        return False
+
+
+def _platform_drive_root() -> str:
+    if os.name == "nt":
+        return "c:/"
+    if _is_wsl():
+        return "/mnt/c"
+    return "/"
+
+
+def _from_c(path_tail: str) -> str:
+    tail = (path_tail or "").lstrip("/")
+    root = _platform_drive_root()
+    if root.endswith("/"):
+        return f"{root}{tail}"
+    return f"{root}/{tail}"
 try:
     import openpyxl
 except Exception:  # pragma: no cover
@@ -13,8 +41,9 @@ except Exception:  # pragma: no cover
 START_SHEET_NAME = "SC Details"
 MAX_EMPTY_ROWS = 20
 COL_START = 1  # A
-COL_END = 7    # G
+COL_END = 7  # G
 KEY_SEPARATOR = "|||"
+BASE_DIR_DEFAULT = _from_c("Users/jhunj/Dropbox/DO & INV")
 
 
 def cell_is_empty(value) -> bool:
@@ -96,14 +125,16 @@ def build_results(a_path: str, b_path: str, on_progress=None):
             a_keys = {rec[2] for rec in a_records}
 
             if sheet_name not in b_sheet_set:
-                summary_rows.append({
-                    "SheetName": sheet_name,
-                    "A_EffectiveRows": a_effective,
-                    "B_EffectiveRows": 0,
-                    "MissingCount": 0,
-                    "Status": "OK",
-                    "Note": "SHEET_ONLY_IN_A_IGNORED",
-                })
+                summary_rows.append(
+                    {
+                        "SheetName": sheet_name,
+                        "A_EffectiveRows": a_effective,
+                        "B_EffectiveRows": 0,
+                        "MissingCount": 0,
+                        "Status": "OK",
+                        "Note": "SHEET_ONLY_IN_A_IGNORED",
+                    }
+                )
                 continue
 
             ws_b = wb_b[sheet_name]
@@ -116,29 +147,33 @@ def build_results(a_path: str, b_path: str, on_progress=None):
             missing_keys = [k for k in b_key_first.keys() if k not in a_keys]
             for key in missing_keys:
                 row_num, row_values = b_key_first[key]
-                detail_rows.append({
-                    "IssueType": "ROW_MISSING_IN_A",
-                    "SheetName": sheet_name,
-                    "B_RowNumber": row_num,
-                    "ColA": row_values[0],
-                    "ColB": row_values[1],
-                    "ColC": row_values[2],
-                    "ColD": row_values[3],
-                    "ColE": row_values[4],
-                    "ColF": row_values[5],
-                    "ColG": row_values[6],
-                    "Key": key,
-                })
+                detail_rows.append(
+                    {
+                        "IssueType": "ROW_MISSING_IN_A",
+                        "SheetName": sheet_name,
+                        "B_RowNumber": row_num,
+                        "ColA": row_values[0],
+                        "ColB": row_values[1],
+                        "ColC": row_values[2],
+                        "ColD": row_values[3],
+                        "ColE": row_values[4],
+                        "ColF": row_values[5],
+                        "ColG": row_values[6],
+                        "Key": key,
+                    }
+                )
 
             status = "OK" if not missing_keys else "ISSUE"
-            summary_rows.append({
-                "SheetName": sheet_name,
-                "A_EffectiveRows": a_effective,
-                "B_EffectiveRows": b_effective,
-                "MissingCount": len(missing_keys),
-                "Status": status,
-                "Note": "",
-            })
+            summary_rows.append(
+                {
+                    "SheetName": sheet_name,
+                    "A_EffectiveRows": a_effective,
+                    "B_EffectiveRows": b_effective,
+                    "MissingCount": len(missing_keys),
+                    "Status": status,
+                    "Note": "",
+                }
+            )
 
         for sheet_name in b_only_sheets:
             progress_idx += 1
@@ -153,28 +188,32 @@ def build_results(a_path: str, b_path: str, on_progress=None):
                     b_key_first[key] = (row_num, row_values)
 
             for key, (row_num, row_values) in b_key_first.items():
-                detail_rows.append({
-                    "IssueType": "SHEET_MISSING_IN_A",
-                    "SheetName": sheet_name,
-                    "B_RowNumber": row_num,
-                    "ColA": row_values[0],
-                    "ColB": row_values[1],
-                    "ColC": row_values[2],
-                    "ColD": row_values[3],
-                    "ColE": row_values[4],
-                    "ColF": row_values[5],
-                    "ColG": row_values[6],
-                    "Key": key,
-                })
+                detail_rows.append(
+                    {
+                        "IssueType": "SHEET_MISSING_IN_A",
+                        "SheetName": sheet_name,
+                        "B_RowNumber": row_num,
+                        "ColA": row_values[0],
+                        "ColB": row_values[1],
+                        "ColC": row_values[2],
+                        "ColD": row_values[3],
+                        "ColE": row_values[4],
+                        "ColF": row_values[5],
+                        "ColG": row_values[6],
+                        "Key": key,
+                    }
+                )
 
-            summary_rows.append({
-                "SheetName": sheet_name,
-                "A_EffectiveRows": 0,
-                "B_EffectiveRows": b_effective,
-                "MissingCount": len(b_key_first),
-                "Status": "ISSUE",
-                "Note": "MISSING_SHEET_IN_A",
-            })
+            summary_rows.append(
+                {
+                    "SheetName": sheet_name,
+                    "A_EffectiveRows": 0,
+                    "B_EffectiveRows": b_effective,
+                    "MissingCount": len(b_key_first),
+                    "Status": "ISSUE",
+                    "Note": "MISSING_SHEET_IN_A",
+                }
+            )
 
         return summary_rows, detail_rows
     finally:
@@ -212,8 +251,7 @@ class FixedCompareApp(tk.Tk):
             row=0, column=2, padx=4
         )
 
-        ttk.Label(top, text="B Excel:").grid(
-            row=1, column=0, sticky=tk.W, pady=(6, 0))
+        ttk.Label(top, text="B Excel:").grid(row=1, column=0, sticky=tk.W, pady=(6, 0))
         ttk.Entry(top, textvariable=self.b_path_var, width=90).grid(
             row=1, column=1, sticky=tk.W, padx=6, pady=(6, 0)
         )
@@ -228,7 +266,11 @@ class FixedCompareApp(tk.Tk):
         self.run_btn = ttk.Button(action_bar, text="Run", command=self._start)
         self.run_btn.pack(side=tk.LEFT)
         self.progress = ttk.Progressbar(
-            action_bar, orient="horizontal", length=320, mode="determinate", variable=self.progress_var
+            action_bar,
+            orient="horizontal",
+            length=320,
+            mode="determinate",
+            variable=self.progress_var,
         )
         self.progress.pack(side=tk.LEFT, padx=10)
         ttk.Label(action_bar, textvariable=self.status_var).pack(side=tk.LEFT)
@@ -242,21 +284,26 @@ class FixedCompareApp(tk.Tk):
     def _build_summary_tab(self):
         frame = ttk.Frame(self.notebook)
         self.notebook.add(frame, text="Summary")
-        columns = ("SheetName", "A_EffectiveRows",
-                   "B_EffectiveRows", "MissingCount", "Status", "Note")
-        self.summary_tree = ttk.Treeview(
-            frame, columns=columns, show="headings")
+        columns = (
+            "SheetName",
+            "A_EffectiveRows",
+            "B_EffectiveRows",
+            "MissingCount",
+            "Status",
+            "Note",
+        )
+        self.summary_tree = ttk.Treeview(frame, columns=columns, show="headings")
         for col in columns:
             self.summary_tree.heading(col, text=col)
             self.summary_tree.column(
-                col, width=160 if col == "SheetName" else 130, anchor=tk.W)
+                col, width=160 if col == "SheetName" else 130, anchor=tk.W
+            )
 
-        vsb = ttk.Scrollbar(frame, orient=tk.VERTICAL,
-                            command=self.summary_tree.yview)
-        hsb = ttk.Scrollbar(frame, orient=tk.HORIZONTAL,
-                            command=self.summary_tree.xview)
-        self.summary_tree.configure(
-            yscrollcommand=vsb.set, xscrollcommand=hsb.set)
+        vsb = ttk.Scrollbar(frame, orient=tk.VERTICAL, command=self.summary_tree.yview)
+        hsb = ttk.Scrollbar(
+            frame, orient=tk.HORIZONTAL, command=self.summary_tree.xview
+        )
+        self.summary_tree.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
         self.summary_tree.grid(row=0, column=0, sticky="nsew")
         vsb.grid(row=0, column=1, sticky="ns")
         hsb.grid(row=1, column=0, sticky="ew")
@@ -267,21 +314,27 @@ class FixedCompareApp(tk.Tk):
         frame = ttk.Frame(self.notebook)
         self.notebook.add(frame, text="Details")
         columns = (
-            "IssueType", "SheetName", "B_RowNumber", "ColA", "ColB", "ColC", "ColD", "ColE", "ColF", "ColG", "Key"
+            "IssueType",
+            "SheetName",
+            "B_RowNumber",
+            "ColA",
+            "ColB",
+            "ColC",
+            "ColD",
+            "ColE",
+            "ColF",
+            "ColG",
+            "Key",
         )
-        self.detail_tree = ttk.Treeview(
-            frame, columns=columns, show="headings")
+        self.detail_tree = ttk.Treeview(frame, columns=columns, show="headings")
         for col in columns:
             self.detail_tree.heading(col, text=col)
             width = 140 if col in ("IssueType", "SheetName", "Key") else 100
             self.detail_tree.column(col, width=width, anchor=tk.W)
 
-        vsb = ttk.Scrollbar(frame, orient=tk.VERTICAL,
-                            command=self.detail_tree.yview)
-        hsb = ttk.Scrollbar(frame, orient=tk.HORIZONTAL,
-                            command=self.detail_tree.xview)
-        self.detail_tree.configure(
-            yscrollcommand=vsb.set, xscrollcommand=hsb.set)
+        vsb = ttk.Scrollbar(frame, orient=tk.VERTICAL, command=self.detail_tree.yview)
+        hsb = ttk.Scrollbar(frame, orient=tk.HORIZONTAL, command=self.detail_tree.xview)
+        self.detail_tree.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
         self.detail_tree.grid(row=0, column=0, sticky="nsew")
         vsb.grid(row=0, column=1, sticky="ns")
         hsb.grid(row=1, column=0, sticky="ew")
@@ -289,16 +342,20 @@ class FixedCompareApp(tk.Tk):
         frame.columnconfigure(0, weight=1)
 
     def _choose_a(self):
+        start_dir = BASE_DIR_DEFAULT if os.path.isdir(BASE_DIR_DEFAULT) else "/mnt/c"
         path = filedialog.askopenfilename(
             title="Select A Excel",
+            initialdir=start_dir,
             filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")],
         )
         if path:
             self.a_path_var.set(path)
 
     def _choose_b(self):
+        start_dir = BASE_DIR_DEFAULT if os.path.isdir(BASE_DIR_DEFAULT) else "/mnt/c"
         path = filedialog.askopenfilename(
             title="Select B Excel",
+            initialdir=start_dir,
             filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")],
         )
         if path:
@@ -313,12 +370,10 @@ class FixedCompareApp(tk.Tk):
         a_path = self.a_path_var.get().strip()
         b_path = self.b_path_var.get().strip()
         if not a_path or not os.path.isfile(a_path):
-            messagebox.showerror(
-                "Error", "Please select a valid A Excel file.")
+            messagebox.showerror("Error", "Please select a valid A Excel file.")
             return
         if not b_path or not os.path.isfile(b_path):
-            messagebox.showerror(
-                "Error", "Please select a valid B Excel file.")
+            messagebox.showerror("Error", "Please select a valid B Excel file.")
             return
 
         self._running = True
@@ -328,16 +383,17 @@ class FixedCompareApp(tk.Tk):
         self._clear_results()
 
         worker = threading.Thread(
-            target=self._run_job, args=(a_path, b_path), daemon=True)
+            target=self._run_job, args=(a_path, b_path), daemon=True
+        )
         worker.start()
 
     def _run_job(self, a_path: str, b_path: str):
         try:
+
             def on_progress(total, current, note):
                 self._queue.put(("progress", total, current, note))
 
-            summary, details = build_results(
-                a_path, b_path, on_progress=on_progress)
+            summary, details = build_results(a_path, b_path, on_progress=on_progress)
             self._queue.put(("done", summary, details))
         except Exception as exc:
             self._queue.put(("error", str(exc)))
@@ -358,7 +414,8 @@ class FixedCompareApp(tk.Tk):
                     summary, details = msg[1], msg[2]
                     self._load_results(summary, details)
                     self.status_var.set(
-                        f"Done. Summary: {len(summary)}, Details: {len(details)}")
+                        f"Done. Summary: {len(summary)}, Details: {len(details)}"
+                    )
                 elif kind == "error":
                     self._running = False
                     self.run_btn.configure(state=tk.NORMAL)

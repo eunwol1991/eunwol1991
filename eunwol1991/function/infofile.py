@@ -3,7 +3,35 @@ import threading
 import tkinter as tk
 from tkinter import ttk, scrolledtext, font, filedialog
 
-BASE_DIR = r"C:\\Users\\jhunj\\Dropbox\\DO & INV\\DO & INV 2026"
+
+
+def _is_wsl() -> bool:
+    if os.name == "nt":
+        return False
+    if os.environ.get("WSL_DISTRO_NAME"):
+        return True
+    try:
+        with open("/proc/version", "r", encoding="utf-8") as f:
+            return "microsoft" in f.read().lower()
+    except OSError:
+        return False
+
+
+def _platform_drive_root() -> str:
+    if os.name == "nt":
+        return "c:/"
+    if _is_wsl():
+        return "/mnt/c"
+    return "/"
+
+
+def _from_c(path_tail: str) -> str:
+    tail = (path_tail or "").lstrip("/")
+    root = _platform_drive_root()
+    if root.endswith("/"):
+        return f"{root}{tail}"
+    return f"{root}/{tail}"
+BASE_DIR = _from_c("Users/jhunj/Dropbox/DO & INV/DO & INV 2026")
 
 MONTH_MAP = {
     1: "1. Jan",

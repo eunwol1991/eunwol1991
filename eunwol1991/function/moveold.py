@@ -3,9 +3,37 @@ import re
 import shutil
 from collections import defaultdict
 
+
+
+def _is_wsl() -> bool:
+    if os.name == "nt":
+        return False
+    if os.environ.get("WSL_DISTRO_NAME"):
+        return True
+    try:
+        with open("/proc/version", "r", encoding="utf-8") as f:
+            return "microsoft" in f.read().lower()
+    except OSError:
+        return False
+
+
+def _platform_drive_root() -> str:
+    if os.name == "nt":
+        return "c:/"
+    if _is_wsl():
+        return "/mnt/c"
+    return "/"
+
+
+def _from_c(path_tail: str) -> str:
+    tail = (path_tail or "").lstrip("/")
+    root = _platform_drive_root()
+    if root.endswith("/"):
+        return f"{root}{tail}"
+    return f"{root}/{tail}"
 # === 配置 ===
-ROOT_FOLDER = r"C:\Users\jhunj\Dropbox\Halal Update\Product Spec\Griffith"
-HISTORY_FOLDER = r"C:\Users\jhunj\Dropbox\Halal Update\Product Spec\Griffith\History"
+ROOT_FOLDER = _from_c("Users/jhunj/Dropbox/Halal Update/Product Spec/Griffith")
+HISTORY_FOLDER = _from_c("Users/jhunj/Dropbox/Halal Update/Product Spec/Griffith/History")
 DRY_RUN = False  # 先设 True 仅查看将会移动哪些文件；确认无误后改为 False 执行移动
 
 # 匹配示例：
