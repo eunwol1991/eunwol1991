@@ -1,8 +1,36 @@
 import os
 import win32com.client as win32
 
+
+
+def _is_wsl() -> bool:
+    if os.name == "nt":
+        return False
+    if os.environ.get("WSL_DISTRO_NAME"):
+        return True
+    try:
+        with open("/proc/version", "r", encoding="utf-8") as f:
+            return "microsoft" in f.read().lower()
+    except OSError:
+        return False
+
+
+def _platform_drive_root() -> str:
+    if os.name == "nt":
+        return "c:/"
+    if _is_wsl():
+        return "/mnt/c"
+    return "/"
+
+
+def _from_c(path_tail: str) -> str:
+    tail = (path_tail or "").lstrip("/")
+    root = _platform_drive_root()
+    if root.endswith("/"):
+        return f"{root}{tail}"
+    return f"{root}/{tail}"
 # 要处理的根目录
-root_folder = r"C:\Users\jhunj\Dropbox\DO & INV\DO & INV 2025"
+root_folder = _from_c("Users/jhunj/Dropbox/DO & INV/DO & INV 2025")
 # 要跳过的目录
 skip_folder = os.path.join(
     root_folder, "1. Order Summary & Sales Summary(Mth end)")

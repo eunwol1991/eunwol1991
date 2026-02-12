@@ -5,6 +5,34 @@ import threading
 from collections import defaultdict
 from difflib import SequenceMatcher
 
+
+
+def _is_wsl() -> bool:
+    if os.name == "nt":
+        return False
+    if os.environ.get("WSL_DISTRO_NAME"):
+        return True
+    try:
+        with open("/proc/version", "r", encoding="utf-8") as f:
+            return "microsoft" in f.read().lower()
+    except OSError:
+        return False
+
+
+def _platform_drive_root() -> str:
+    if os.name == "nt":
+        return "c:/"
+    if _is_wsl():
+        return "/mnt/c"
+    return "/"
+
+
+def _from_c(path_tail: str) -> str:
+    tail = (path_tail or "").lstrip("/")
+    root = _platform_drive_root()
+    if root.endswith("/"):
+        return f"{root}{tail}"
+    return f"{root}/{tail}"
 try:
     import fitz  # PyMuPDF
 except Exception:  # pragma: no cover
@@ -27,7 +55,7 @@ except Exception:  # pragma: no cover
 
 
 # ===== Defaults (editable) =====
-BASE_DIR = r"C:\\Users\\jhunj\\Dropbox\\DO & INV\\DO & INV 2025"
+BASE_DIR = _from_c("Users/jhunj/Dropbox/DO & INV/DO & INV 2025")
 TARGET_MONTH = "0925"  # e.g. 0825 / 0925
 VALID_TAGS = {"INV", "DO & INV"}
 FILENAME_PATTERN = re.compile(
@@ -765,7 +793,7 @@ def launch_gui_modern():
             self.style = ttk.Style(self)
             try:
                 self.tk.call(
-                    "source", r"C:\\Users\\jhunj\\puython\\check data use\\azure.tcl")
+                    "source", _from_c("Users/jhunj/puython/check data use/azure.tcl"))
                 # 默认 light，再根据保存主题切换
                 self.tk.call("set_theme", "light")
                 if str(self._theme).lower() == "dark":

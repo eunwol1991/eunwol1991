@@ -1,3 +1,32 @@
+import os
+
+
+def _is_wsl() -> bool:
+    if os.name == "nt":
+        return False
+    if os.environ.get("WSL_DISTRO_NAME"):
+        return True
+    try:
+        with open("/proc/version", "r", encoding="utf-8") as f:
+            return "microsoft" in f.read().lower()
+    except OSError:
+        return False
+
+
+def _platform_drive_root() -> str:
+    if os.name == "nt":
+        return "c:/"
+    if _is_wsl():
+        return "/mnt/c"
+    return "/"
+
+
+def _from_c(path_tail: str) -> str:
+    tail = (path_tail or "").lstrip("/")
+    root = _platform_drive_root()
+    if root.endswith("/"):
+        return f"{root}{tail}"
+    return f"{root}/{tail}"
 """
 固定路径 PDF 读取预览
 ------------------------------------------------
@@ -9,7 +38,7 @@ import re
 import fitz  # PyMuPDF
 
 # 固定 PDF 路径
-PDF_PATH = Path(r"C:\Users\jhunj\Downloads\mos_pdfs\Savori (2908).pdf")
+PDF_PATH = Path(_from_c("Users/jhunj/Downloads/mos_pdfs/Savori (2908).pdf"))
 
 # 正则
 UNIT_RE = r"(?:ctn|ctns|pkt|pkts|tin|tins|can|cans|box|boxes|btl|btls|pc|pcs)"

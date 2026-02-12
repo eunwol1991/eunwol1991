@@ -4,8 +4,36 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from fuzzywuzzy import fuzz
 
+
+
+def _is_wsl() -> bool:
+    if os.name == "nt":
+        return False
+    if os.environ.get("WSL_DISTRO_NAME"):
+        return True
+    try:
+        with open("/proc/version", "r", encoding="utf-8") as f:
+            return "microsoft" in f.read().lower()
+    except OSError:
+        return False
+
+
+def _platform_drive_root() -> str:
+    if os.name == "nt":
+        return "c:/"
+    if _is_wsl():
+        return "/mnt/c"
+    return "/"
+
+
+def _from_c(path_tail: str) -> str:
+    tail = (path_tail or "").lstrip("/")
+    root = _platform_drive_root()
+    if root.endswith("/"):
+        return f"{root}{tail}"
+    return f"{root}/{tail}"
 # ==== 全局变量 ====
-BASE_DIR = r"C:\Users\jhunj\Dropbox"  # 改成你的路径
+BASE_DIR = _from_c("Users/jhunj/Dropbox")  # 改成你的路径
 search_cache = []
 current_results = []
 copy_mapping = {}
