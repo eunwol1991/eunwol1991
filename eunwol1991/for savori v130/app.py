@@ -1,218 +1,438 @@
 import os
+import sys
 import threading
-import ttkbootstrap as ttk
-from ttkbootstrap.constants import *
-from tkinter import filedialog, messagebox, StringVar, Tk
+import importlib
 
-from convert_do_pdf import convert_all_excels as convert_all_do_excels, convert_range_excels as convert_range_do_excels
-from convert_inv_pdf import convert_all_excels as convert_all_inv_excels, convert_range_excels as convert_range_inv_excels, convert_keyword_excels as convert_keyword_inv_excels
-from merge_inv_pdfs import merge_INV_pdfs_in_range, merge_INV_pdfs_by_keywords, merge_all_inv_pdfs, merge_INV_pdfs_by_numbers, merge_pdfs as merge_inv_pdfs
+from PyQt6.QtGui import QFont
+from PyQt6.QtWidgets import (
+    QApplication,
+    QComboBox,
+    QFileDialog,
+    QGridLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
+
+from merge_inv_pdfs import (
+    merge_INV_pdfs_in_range,
+    merge_INV_pdfs_by_keywords,
+    merge_all_inv_pdfs,
+    merge_INV_pdfs_by_numbers,
+    merge_pdfs as merge_inv_pdfs,
+)
 from merge_do_pdfs import merge_do_pdfs_in_range, merge_pdfs as merge_do_pdfs
 
 
-class PDFExcelApp:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("PDF and Excel Tool")
-        self.base_font_size = 12  # 基础字体大小
+def _is_wsl() -> bool:
+    if os.name == "nt":
+        return False
+    if os.environ.get("WSL_DISTRO_NAME"):
+        return True
+    try:
+        with open("/proc/version", "r", encoding="utf-8") as f:
+            return "microsoft" in f.read().lower()
+    except OSError:
+        return False
 
-        # 设置初始窗口大小为1920 x 1080的1/4
-        self.root.geometry("960x540")
 
-        self.create_widgets()
+def _platform_drive_root() -> str:
+    if os.name == "nt":
+        return "c:/"
+    if _is_wsl():
+        return "/mnt/c"
+    return "/"
 
-    def create_widgets(self):
-        self.font = ('Helvetica', self.base_font_size)
 
-        ttk.Label(self.root, text="选择文件夹:", font=self.font).grid(
-            row=0, column=0, padx=10, pady=10, sticky='w')
+def _default_base_dir() -> str:
+    root = _platform_drive_root()
+    if root.endswith("/"):
+        return f"{root}Users/jhunj/Dropbox/DO & INV/DO & INV 2026"
+    return f"{root}/Users/jhunj/Dropbox/DO & INV/DO & INV 2026"
 
-        self.file_path_entry = ttk.Entry(self.root, width=50, font=self.font)
-        self.file_path_entry.grid(
-            row=0, column=1, padx=10, pady=10, sticky='ew')
 
-        self.browse_button = ttk.Button(
-            self.root, text="浏览", command=self.browse_directory, bootstyle=PRIMARY)
-        self.browse_button.grid(row=0, column=2, padx=10, pady=10, sticky='ew')
+BASE_DIR_DEFAULT = _default_base_dir()
 
-        ttk.Label(self.root, text="选择输出文件夹:", font=self.font).grid(
-            row=1, column=0, padx=10, pady=10, sticky='w')
 
-        self.output_path_entry = ttk.Entry(self.root, width=50, font=self.font)
-        self.output_path_entry.grid(
-            row=1, column=1, padx=10, pady=10, sticky='ew')
+TOKYONIGHT_QSS = """
+QWidget {
+    background-color: #1a1b26;
+    color: #c0caf5;
+    font-size: 13px;
+}
 
-        self.browse_output_button = ttk.Button(
-            self.root, text="浏览", command=self.browse_output_directory, bootstyle=PRIMARY)
-        self.browse_output_button.grid(
-            row=1, column=2, padx=10, pady=10, sticky='ew')
+QLabel {
+    color: #c0caf5;
+    font-weight: 600;
+}
 
-        ttk.Label(self.root, text="选择操作:", font=self.font).grid(
-            row=2, column=0, padx=10, pady=10, sticky='w')
+QLineEdit,
+QComboBox {
+    background-color: #24283b;
+    color: #c0caf5;
+    border: 1px solid #414868;
+    border-radius: 8px;
+    padding: 8px 10px;
+    selection-background-color: #33467c;
+    min-height: 22px;
+}
 
+QLineEdit:focus,
+QComboBox:focus {
+    border: 1px solid #7aa2f7;
+}
+
+QPushButton {
+    background-color: #7aa2f7;
+    color: #1a1b26;
+    border: none;
+    border-radius: 8px;
+    padding: 9px 12px;
+    font-weight: 700;
+    min-height: 24px;
+}
+
+QPushButton:hover {
+    background-color: #89b4fa;
+}
+
+QPushButton:pressed {
+    background-color: #5f82ce;
+}
+"""
+
+
+class PDFExcelApp(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("PDF and Excel Tool")
+        self.resize(1080, 680)
+        self.setup_ui()
+
+    def _load_do_converter(self):
+        try:
+            mod = importlib.import_module("convert_do_pdf")
+            return mod.convert_all_excels, mod.convert_range_excels
+        except ModuleNotFoundError as exc:
+            if getattr(exc, "name", "") == "win32com":
+                QMessageBox.critical(
+                    self,
+                    "Error",
+                    "Missing dependency: pywin32 (win32com).\n"
+                    "This Excel-to-PDF feature requires Windows Python + Microsoft Excel.\n"
+                    "Install on Windows env: pip install pywin32",
+                )
+                return None, None
+            raise
+
+    def _load_inv_converter(self):
+        try:
+            mod = importlib.import_module("convert_inv_pdf")
+            return (
+                mod.convert_all_excels,
+                mod.convert_range_excels,
+                mod.convert_keyword_excels,
+            )
+        except ModuleNotFoundError as exc:
+            if getattr(exc, "name", "") == "win32com":
+                QMessageBox.critical(
+                    self,
+                    "Error",
+                    "Missing dependency: pywin32 (win32com).\n"
+                    "This Excel-to-PDF feature requires Windows Python + Microsoft Excel.\n"
+                    "Install on Windows env: pip install pywin32",
+                )
+                return None, None, None
+            raise
+
+    def setup_ui(self):
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(18, 18, 18, 18)
+        main_layout.setSpacing(12)
+
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(12)
+        grid.setVerticalSpacing(12)
+
+        row = 0
+        grid.addWidget(QLabel("Select folder:"), row, 0)
+        self.file_path_entry = QLineEdit()
+        self.file_path_entry.setText(
+            BASE_DIR_DEFAULT if os.path.isdir(BASE_DIR_DEFAULT) else ""
+        )
+        grid.addWidget(self.file_path_entry, row, 1)
+        browse_btn = QPushButton("Browse")
+        browse_btn.clicked.connect(self.browse_directory)
+        grid.addWidget(browse_btn, row, 2)
+
+        row += 1
+        grid.addWidget(QLabel("Select output folder:"), row, 0)
+        self.output_path_entry = QLineEdit()
+        self.output_path_entry.setText(
+            BASE_DIR_DEFAULT if os.path.isdir(BASE_DIR_DEFAULT) else ""
+        )
+        grid.addWidget(self.output_path_entry, row, 1)
+        browse_out_btn = QPushButton("Browse")
+        browse_out_btn.clicked.connect(self.browse_output_directory)
+        grid.addWidget(browse_out_btn, row, 2)
+
+        row += 1
+        grid.addWidget(QLabel("Select action:"), row, 0)
         self.options = [
-            "1. 转换全部",
-            "2. 输入数字序号只转换范围内的文件",
-            "3. 输入关键词转换相关的文件",
-            "4. 合并所有带有INV的文件",
-            "5. 按数字序列查找PDF"
+            "1. Convert all",
+            "2. Convert by numeric range",
+            "3. Convert by keyword",
+            "4. Merge all files with INV",
+            "5. Find PDFs by number list",
         ]
-        self.option_var = StringVar(self.root)
-        self.option_var.set(self.options[0])
-        self.option_menu = ttk.Combobox(
-            self.root, textvariable=self.option_var, values=self.options, state='readonly', font=self.font)
-        self.option_menu.grid(row=2, column=1, padx=10, pady=10, sticky='ew')
+        self.option_menu = QComboBox()
+        self.option_menu.addItems(self.options)
+        grid.addWidget(self.option_menu, row, 1)
 
-        ttk.Label(self.root, text="起始数字序号:", font=self.font).grid(
-            row=3, column=0, padx=10, pady=10, sticky='w')
-        self.start_num_var = StringVar()
-        self.start_num_entry = ttk.Entry(
-            self.root, textvariable=self.start_num_var, font=self.font)
-        self.start_num_entry.grid(
-            row=3, column=1, padx=10, pady=10, sticky='ew')
+        row += 1
+        grid.addWidget(QLabel("Start number:"), row, 0)
+        self.start_num_entry = QLineEdit()
+        grid.addWidget(self.start_num_entry, row, 1)
 
-        ttk.Label(self.root, text="结束数字序号:", font=self.font).grid(
-            row=4, column=0, padx=10, pady=10, sticky='w')
-        self.end_num_var = StringVar()
-        self.end_num_entry = ttk.Entry(
-            self.root, textvariable=self.end_num_var, font=self.font)
-        self.end_num_entry.grid(row=4, column=1, padx=10, pady=10, sticky='ew')
+        row += 1
+        grid.addWidget(QLabel("End number:"), row, 0)
+        self.end_num_entry = QLineEdit()
+        grid.addWidget(self.end_num_entry, row, 1)
 
-        ttk.Label(self.root, text="关键词:", font=self.font).grid(
-            row=5, column=0, padx=10, pady=10, sticky='w')
-        self.keyword_var = StringVar()
-        self.keyword_entry = ttk.Entry(
-            self.root, textvariable=self.keyword_var, font=self.font)
-        self.keyword_entry.grid(row=5, column=1, padx=10, pady=10, sticky='ew')
+        row += 1
+        grid.addWidget(QLabel("Keyword:"), row, 0)
+        self.keyword_entry = QLineEdit()
+        grid.addWidget(self.keyword_entry, row, 1)
 
-        style = ttk.Style()
-        style.configure('TButton', font=self.font)
+        main_layout.addLayout(grid)
 
-        self.convert_do_button = ttk.Button(
-            self.root, text="Convert DO Excel to PDF", command=self.run_convert_do, bootstyle=SUCCESS, style='TButton')
-        self.convert_do_button.grid(
-            row=6, column=0, padx=10, pady=10, sticky='ew')
+        button_row_1 = QHBoxLayout()
+        button_row_1.setSpacing(10)
+        convert_do_btn = QPushButton("Convert DO Excel to PDF")
+        convert_do_btn.clicked.connect(self.run_convert_do)
+        button_row_1.addWidget(convert_do_btn)
 
-        self.convert_inv_button = ttk.Button(
-            self.root, text="Convert INV Excel to PDF", command=self.run_convert_inv, bootstyle=SUCCESS, style='TButton')
-        self.convert_inv_button.grid(
-            row=6, column=1, padx=10, pady=10, sticky='ew')
+        convert_inv_btn = QPushButton("Convert INV Excel to PDF")
+        convert_inv_btn.clicked.connect(self.run_convert_inv)
+        button_row_1.addWidget(convert_inv_btn)
+        main_layout.addLayout(button_row_1)
 
-        self.merge_inv_button = ttk.Button(
-            self.root, text="Merge INV PDFs", command=self.run_merge_inv, bootstyle=SUCCESS, style='TButton')
-        self.merge_inv_button.grid(
-            row=7, column=0, padx=10, pady=10, sticky='ew')
+        button_row_2 = QHBoxLayout()
+        button_row_2.setSpacing(10)
+        merge_inv_btn = QPushButton("Merge INV PDFs")
+        merge_inv_btn.clicked.connect(self.run_merge_inv)
+        button_row_2.addWidget(merge_inv_btn)
 
-        self.merge_do_button = ttk.Button(
-            self.root, text="Merge DO PDFs", command=self.run_merge_do, bootstyle=SUCCESS, style='TButton')
-        self.merge_do_button.grid(
-            row=7, column=1, padx=10, pady=10, sticky='ew')
-
-        # Adjust column weights to allow resizing
-        for i in range(3):
-            self.root.grid_columnconfigure(i, weight=1)
+        merge_do_btn = QPushButton("Merge DO PDFs")
+        merge_do_btn.clicked.connect(self.run_merge_do)
+        button_row_2.addWidget(merge_do_btn)
+        main_layout.addLayout(button_row_2)
 
     def browse_directory(self):
-        directory = filedialog.askdirectory()
-        self.file_path_entry.delete(0, 'end')
-        self.file_path_entry.insert(0, directory)
+        default_dir = (
+            BASE_DIR_DEFAULT
+            if os.path.isdir(BASE_DIR_DEFAULT)
+            else _platform_drive_root()
+        )
+        directory = QFileDialog.getExistingDirectory(
+            self, "Select source folder", default_dir
+        )
+        if directory:
+            self.file_path_entry.setText(directory)
 
     def browse_output_directory(self):
-        directory = filedialog.askdirectory()
-        self.output_path_entry.delete(0, 'end')
-        self.output_path_entry.insert(0, directory)
+        default_dir = (
+            BASE_DIR_DEFAULT
+            if os.path.isdir(BASE_DIR_DEFAULT)
+            else _platform_drive_root()
+        )
+        directory = QFileDialog.getExistingDirectory(
+            self, "Select output folder", default_dir
+        )
+        if directory:
+            self.output_path_entry.setText(directory)
+
+    def _choice(self):
+        return self.option_menu.currentText().split(".")[0]
+
+    def _parse_int(self, text: str, field_name: str):
+        try:
+            return int(text.strip())
+        except ValueError:
+            QMessageBox.warning(self, "Error", f"{field_name} must be an integer.")
+            return None
 
     def run_convert_do(self):
-        directory = os.path.abspath(self.file_path_entry.get())
-        output_directory = os.path.abspath(self.output_path_entry.get())
+        directory = os.path.abspath(self.file_path_entry.text().strip())
+        output_directory = os.path.abspath(self.output_path_entry.text().strip())
         excel_files = self.read_excel_files(directory)
-        choice = self.option_var.get().split('.')[0]
+        choice = self._choice()
+
         if choice == "1":
-            self.run_in_background(convert_all_do_excels,
-                                   directory, output_directory, excel_files)
+            convert_all_do_excels, _ = self._load_do_converter()
+            if not convert_all_do_excels:
+                return
+            self.run_in_background(
+                convert_all_do_excels, directory, output_directory, excel_files
+            )
         elif choice == "2":
-            start_num = int(self.start_num_var.get())
-            end_num = int(self.end_num_var.get())
-            self.run_in_background(convert_range_do_excels, directory,
-                                   output_directory, start_num, end_num, excel_files)
+            _, convert_range_do_excels = self._load_do_converter()
+            if not convert_range_do_excels:
+                return
+            start_num = self._parse_int(self.start_num_entry.text(), "Start number")
+            end_num = self._parse_int(self.end_num_entry.text(), "End number")
+            if start_num is None or end_num is None:
+                return
+            self.run_in_background(
+                convert_range_do_excels,
+                directory,
+                output_directory,
+                start_num,
+                end_num,
+                excel_files,
+            )
         else:
-            messagebox.showerror("错误", "无效的选项")
+            QMessageBox.warning(self, "Error", "Invalid option")
 
     def run_convert_inv(self):
-        directory = os.path.abspath(self.file_path_entry.get())
-        output_directory = os.path.abspath(self.output_path_entry.get())
+        directory = os.path.abspath(self.file_path_entry.text().strip())
+        output_directory = os.path.abspath(self.output_path_entry.text().strip())
         excel_files = self.read_excel_files(directory)
-        choice = self.option_var.get().split('.')[0]
+        choice = self._choice()
+
         if choice == "1":
+            convert_all_inv_excels, _, _ = self._load_inv_converter()
+            if not convert_all_inv_excels:
+                return
             self.run_in_background(
-                self.convert_inv_with_debug, convert_all_inv_excels, directory, output_directory, excel_files)
+                self.convert_inv_with_debug,
+                convert_all_inv_excels,
+                directory,
+                output_directory,
+                excel_files,
+            )
         elif choice == "2":
-            start_num = int(self.start_num_var.get())
-            end_num = int(self.end_num_var.get())
-            self.run_in_background(self.convert_inv_with_debug, convert_range_inv_excels,
-                                   directory, output_directory, start_num, end_num, excel_files)
+            _, convert_range_inv_excels, _ = self._load_inv_converter()
+            if not convert_range_inv_excels:
+                return
+            start_num = self._parse_int(self.start_num_entry.text(), "Start number")
+            end_num = self._parse_int(self.end_num_entry.text(), "End number")
+            if start_num is None or end_num is None:
+                return
+            self.run_in_background(
+                self.convert_inv_with_debug,
+                convert_range_inv_excels,
+                directory,
+                output_directory,
+                start_num,
+                end_num,
+                excel_files,
+            )
         elif choice == "3":
-            keyword = self.keyword_var.get()
-            self.run_in_background(self.convert_inv_with_debug, convert_keyword_inv_excels,
-                                   directory, output_directory, keyword, excel_files)
+            _, _, convert_keyword_inv_excels = self._load_inv_converter()
+            if not convert_keyword_inv_excels:
+                return
+            keyword = self.keyword_entry.text()
+            self.run_in_background(
+                self.convert_inv_with_debug,
+                convert_keyword_inv_excels,
+                directory,
+                output_directory,
+                keyword,
+                excel_files,
+            )
         else:
-            messagebox.showerror("错误", "无效的选项")
+            QMessageBox.warning(self, "Error", "Invalid option")
 
     def run_merge_inv(self):
-        directory = os.path.abspath(self.file_path_entry.get())
-        choice = self.option_var.get().split('.')[0]
+        directory = os.path.abspath(self.file_path_entry.text().strip())
+        choice = self._choice()
+
         if choice == "2":
-            start_num = int(self.start_num_var.get())
-            end_num = int(self.end_num_var.get())
+            start_num = self._parse_int(self.start_num_entry.text(), "Start number")
+            end_num = self._parse_int(self.end_num_entry.text(), "End number")
+            if start_num is None or end_num is None:
+                return
             pdf_files = merge_INV_pdfs_in_range(directory, start_num, end_num)
         elif choice == "3":
-            keywords = self.keyword_var.get().split(',')
+            keywords = self.keyword_entry.text().split(",")
             pdf_files = merge_INV_pdfs_by_keywords(directory, keywords)
         elif choice == "4":
             pdf_files = merge_all_inv_pdfs(directory)
         elif choice == "5":
-            numbers = [int(num.strip())
-                       for num in self.start_num_var.get().split(',')]
+            try:
+                numbers = [
+                    int(num.strip()) for num in self.start_num_entry.text().split(",")
+                ]
+            except ValueError:
+                QMessageBox.warning(self, "Error", "Number list must contain integers.")
+                return
             pdf_files = merge_INV_pdfs_by_numbers(directory, numbers)
         else:
-            messagebox.showerror("错误", "无效的选项")
+            QMessageBox.warning(self, "Error", "Invalid option")
             return
 
         if not pdf_files:
-            messagebox.showerror("错误", "没有找到符合条件的PDF文件。")
+            QMessageBox.warning(self, "Error", "No matching PDF files found.")
             return
 
-        output_filename = filedialog.asksaveasfilename(
-            defaultextension=".pdf", filetypes=[("PDF files", "*.pdf")])
+        output_filename, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save merged INV PDF",
+            "",
+            "PDF files (*.pdf)",
+        )
         if not output_filename:
             return
+        if not output_filename.lower().endswith(".pdf"):
+            output_filename += ".pdf"
 
         self.run_in_background(merge_inv_pdfs, pdf_files, output_filename)
 
     def run_merge_do(self):
-        directory = os.path.abspath(self.file_path_entry.get())
-        choice = self.option_var.get().split('.')[0]
+        directory = os.path.abspath(self.file_path_entry.text().strip())
+        choice = self._choice()
+
         if choice == "2":
-            start_num = int(self.start_num_var.get())
-            end_num = int(self.end_num_var.get())
+            start_num = self._parse_int(self.start_num_entry.text(), "Start number")
+            end_num = self._parse_int(self.end_num_entry.text(), "End number")
+            if start_num is None or end_num is None:
+                return
             pdf_files = merge_do_pdfs_in_range(directory, start_num, end_num)
         elif choice == "5":
-            numbers = [int(num.strip())
-                       for num in self.start_num_var.get().split(',')]
-            pdf_files = merge_do_pdfs_in_range(
-                directory, numbers[0], numbers[-1])
+            try:
+                numbers = [
+                    int(num.strip()) for num in self.start_num_entry.text().split(",")
+                ]
+            except ValueError:
+                QMessageBox.warning(self, "Error", "Number list must contain integers.")
+                return
+            if not numbers:
+                QMessageBox.warning(self, "Error", "Number list is empty.")
+                return
+            pdf_files = merge_do_pdfs_in_range(directory, numbers[0], numbers[-1])
         else:
-            messagebox.showerror("错误", "无效的选项")
+            QMessageBox.warning(self, "Error", "Invalid option")
             return
 
         if not pdf_files:
-            messagebox.showerror("错误", "没有找到符合条件的PDF文件。")
+            QMessageBox.warning(self, "Error", "No matching PDF files found.")
             return
 
-        output_filename = filedialog.asksaveasfilename(
-            defaultextension=".pdf", filetypes=[("PDF files", "*.pdf")])
+        output_filename, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save merged DO PDF",
+            "",
+            "PDF files (*.pdf)",
+        )
         if not output_filename:
             return
+        if not output_filename.lower().endswith(".pdf"):
+            output_filename += ".pdf"
 
         self.run_in_background(merge_do_pdfs, pdf_files, output_filename)
 
@@ -220,24 +440,32 @@ class PDFExcelApp:
         try:
             func(*args)
             print("Conversion successful.")
-        except Exception as e:
-            print(f"Conversion failed: {e}")
+        except Exception as exc:
+            print(f"Conversion failed: {exc}")
 
     def run_in_background(self, func, *args):
-        # 在运行任务之前重新导入 win32com.client
-        import win32com.client as win32
-        thread = threading.Thread(target=func, args=args)
+        thread = threading.Thread(target=func, args=args, daemon=True)
         thread.start()
 
     def read_excel_files(self, directory):
         excel_files = []
+        if not os.path.isdir(directory):
+            QMessageBox.warning(self, "Error", f"Invalid folder path: {directory}")
+            return excel_files
         for filename in os.listdir(directory):
-            if (filename.endswith(".xlsx") or filename.endswith(".xls")) and not filename.startswith("~$"):
+            if (
+                filename.endswith(".xlsx") or filename.endswith(".xls")
+            ) and not filename.startswith("~$"):
                 excel_files.append(filename)
         return excel_files
 
 
 if __name__ == "__main__":
-    root = ttk.Window(themename="solar")
-    app = PDFExcelApp(root)
-    root.mainloop()
+    qt_app = QApplication(sys.argv)
+    qt_app.setStyle("Fusion")
+    qt_app.setFont(QFont("Segoe UI", 12))
+    qt_app.setStyleSheet(TOKYONIGHT_QSS)
+
+    window = PDFExcelApp()
+    window.show()
+    sys.exit(qt_app.exec())

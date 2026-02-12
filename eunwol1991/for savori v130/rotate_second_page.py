@@ -1,10 +1,39 @@
+import os
 from pathlib import Path
 import shutil
 import fitz  # PyMuPDF
 
+
+
+def _is_wsl() -> bool:
+    if os.name == "nt":
+        return False
+    if os.environ.get("WSL_DISTRO_NAME"):
+        return True
+    try:
+        with open("/proc/version", "r", encoding="utf-8") as f:
+            return "microsoft" in f.read().lower()
+    except OSError:
+        return False
+
+
+def _platform_drive_root() -> str:
+    if os.name == "nt":
+        return "c:/"
+    if _is_wsl():
+        return "/mnt/c"
+    return "/"
+
+
+def _from_c(path_tail: str) -> str:
+    tail = (path_tail or "").lstrip("/")
+    root = _platform_drive_root()
+    if root.endswith("/"):
+        return f"{root}{tail}"
+    return f"{root}/{tail}"
 # 目标文件夹（按你的路径填写，前面加 r 防止转义）
 ROOT = Path(
-    r"C:\Users\jhunj\Dropbox\Halal Update\Halal\4. Innofresh\[2025-2026] Halal certificate of Innofresh")
+    _from_c("Users/jhunj/Dropbox/Halal Update/Halal/4. Innofresh/[2025-2026] Halal certificate of Innofresh"))
 
 # 是否给原文件做 .bak 备份（True/False）
 MAKE_BACKUP = True
