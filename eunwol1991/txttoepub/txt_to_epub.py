@@ -7,6 +7,34 @@ import chardet
 from PIL import Image, ImageDraw, ImageFont
 
 
+
+
+def _is_wsl() -> bool:
+    if os.name == "nt":
+        return False
+    if os.environ.get("WSL_DISTRO_NAME"):
+        return True
+    try:
+        with open("/proc/version", "r", encoding="utf-8") as f:
+            return "microsoft" in f.read().lower()
+    except OSError:
+        return False
+
+
+def _platform_drive_root() -> str:
+    if os.name == "nt":
+        return "c:/"
+    if _is_wsl():
+        return "/mnt/c"
+    return "/"
+
+
+def _from_c(path_tail: str) -> str:
+    tail = (path_tail or "").lstrip("/")
+    root = _platform_drive_root()
+    if root.endswith("/"):
+        return f"{root}{tail}"
+    return f"{root}/{tail}"
 def txt_to_epub(txt_file, epub_output_dir):
     # 检查文件是否存在
     if not os.path.isfile(txt_file):
@@ -220,8 +248,8 @@ def generate_cover_image(title, author):
 
 if __name__ == '__main__':
     # 输入和输出目录
-    txt_input_dir = r'C:\Users\jhunj\Desktop\txt to epub\txt file'
-    epub_output_dir = r'C:\Users\jhunj\Desktop\txt to epub\epub file'
+    txt_input_dir = _from_c("Users/jhunj/Desktop/txt to epub/txt file")
+    epub_output_dir = _from_c("Users/jhunj/Desktop/txt to epub/epub file")
 
     # 处理路径中的中文字符
     txt_input_dir = os.path.abspath(txt_input_dir)

@@ -4,6 +4,34 @@ import shutil
 from pathlib import Path
 
 
+
+
+def _is_wsl() -> bool:
+    if os.name == "nt":
+        return False
+    if os.environ.get("WSL_DISTRO_NAME"):
+        return True
+    try:
+        with open("/proc/version", "r", encoding="utf-8") as f:
+            return "microsoft" in f.read().lower()
+    except OSError:
+        return False
+
+
+def _platform_drive_root() -> str:
+    if os.name == "nt":
+        return "c:/"
+    if _is_wsl():
+        return "/mnt/c"
+    return "/"
+
+
+def _from_c(path_tail: str) -> str:
+    tail = (path_tail or "").lstrip("/")
+    root = _platform_drive_root()
+    if root.endswith("/"):
+        return f"{root}{tail}"
+    return f"{root}/{tail}"
 def extract_and_cleanup(folder_path, src_encoding='cp437', target_encoding='gbk'):
     folder = Path(folder_path)
     temp_dir = folder / "_temp_extract"
@@ -54,6 +82,6 @@ def extract_and_cleanup(folder_path, src_encoding='cp437', target_encoding='gbk'
 
 
 if __name__ == "__main__":
-    target_folder = r"C:\Users\jhunj\Desktop\txt to epub\txt file"
+    target_folder = _from_c("Users/jhunj/Desktop/txt to epub/txt file")
     extract_and_cleanup(target_folder)
     print("全部zip文件已处理完毕，已清理临时文件。")
