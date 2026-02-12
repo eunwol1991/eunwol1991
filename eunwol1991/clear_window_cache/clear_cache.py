@@ -6,10 +6,38 @@ import tkinter as tk
 from tkinter import messagebox, scrolledtext
 import threading
 
+
+
+def _is_wsl() -> bool:
+    if os.name == "nt":
+        return False
+    if os.environ.get("WSL_DISTRO_NAME"):
+        return True
+    try:
+        with open("/proc/version", "r", encoding="utf-8") as f:
+            return "microsoft" in f.read().lower()
+    except OSError:
+        return False
+
+
+def _platform_drive_root() -> str:
+    if os.name == "nt":
+        return "c:/"
+    if _is_wsl():
+        return "/mnt/c"
+    return "/"
+
+
+def _from_c(path_tail: str) -> str:
+    tail = (path_tail or "").lstrip("/")
+    root = _platform_drive_root()
+    if root.endswith("/"):
+        return f"{root}{tail}"
+    return f"{root}/{tail}"
 # 要清理的临时路径
 TEMP_DIRS = [
     tempfile.gettempdir(),
-    r"C:\Windows\Temp",
+    _from_c("Windows/Temp"),
     str(Path.home() / "AppData" / "Local" / "Temp")
 ]
 

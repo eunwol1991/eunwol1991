@@ -3,13 +3,41 @@ import shutil
 from pathlib import Path
 from datetime import datetime
 
+
+
+def _is_wsl() -> bool:
+    if os.name == "nt":
+        return False
+    if os.environ.get("WSL_DISTRO_NAME"):
+        return True
+    try:
+        with open("/proc/version", "r", encoding="utf-8") as f:
+            return "microsoft" in f.read().lower()
+    except OSError:
+        return False
+
+
+def _platform_drive_root() -> str:
+    if os.name == "nt":
+        return "c:/"
+    if _is_wsl():
+        return "/mnt/c"
+    return "/"
+
+
+def _from_c(path_tail: str) -> str:
+    tail = (path_tail or "").lstrip("/")
+    root = _platform_drive_root()
+    if root.endswith("/"):
+        return f"{root}{tail}"
+    return f"{root}/{tail}"
 # 设置要清理的路径（名称: 路径）
 CLEANUP_PATHS = {
     "User Temp (AppData)": str(Path.home() / "AppData" / "Local" / "Temp"),
-    "System Temp": r"C:\Windows\Temp",
+    "System Temp": _from_c("Windows/Temp"),
     "Downloads": str(Path.home() / "Downloads"),
-    "Windows Update Cache": r"C:\Windows\SoftwareDistribution\Download",
-    "Recycle Bin": r"C:\$Recycle.Bin"
+    "Windows Update Cache": _from_c("Windows/SoftwareDistribution/Download"),
+    "Recycle Bin": _from_c("$Recycle.Bin")
 }
 
 # 将 byte 转为 MB 显示
