@@ -616,9 +616,6 @@ def main():
         current_source_dir[0] = source_dir
         last_directory[0] = os.path.dirname(source_dir)
 
-        with open("last_dir.txt", "w", encoding="utf-8") as f:
-            f.write(source_dir)
-
         file_info_list.clear()
         file_tree.delete(*file_tree.get_children())
         selected_files.clear()

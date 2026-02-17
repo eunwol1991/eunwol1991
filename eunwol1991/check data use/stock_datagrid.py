@@ -1,7 +1,5 @@
 import streamlit as st
-import streamlit.components.v1 as components
 from typing import Any, Optional, Tuple, List, Dict
-import json
 import datetime
 import math
 import pandas as pd
@@ -10,8 +8,6 @@ import os
 import sys
 import io
 import calendar
-import os
-import sys
 from pathlib import Path
 
 # 尝试检测当前是否已经在 streamlit 运行环境中
@@ -793,23 +789,74 @@ def split_by_expiry(
 # ----------------------------- 侧边栏筛选 -----------------------------
 
 
+def _desc_base_series(series: pd.Series) -> pd.Series:
+    return series.astype(str).str.replace(r"\s*\([^)]*\)", "", regex=True).str.strip()
+
+
+def _extract_remarks_from_desc(series: pd.Series) -> list:
+    vals = series.astype(str).str.findall(r"\(([^)]*)\)").dropna().tolist()
+    out = set()
+    for lst in vals:
+        for r in lst or []:
+            s = str(r).strip()
+            if s:
+                out.add(s)
+    return sorted(out)
+
+
+def _apply_filter_state(
+    df_in: pd.DataFrame, filter_state: Dict[str, Any], exclude: str = ""
+) -> pd.DataFrame:
+    d = df_in
+
+    def _include(series: pd.Series, selected: list):
+        if not selected:
+            return pd.Series(True, index=series.index)
+        return series.isin(selected)
+
+    if exclude != "warehouse" and "warehouse" in d.columns:
+        sel = list(filter_state.get("f_wh", []))
+        if sel:
+            d = d[_include(d["warehouse"], sel)]
+
+    if exclude != "supplier" and "supplier" in d.columns:
+        sel = list(filter_state.get("f_sup", []))
+        exm = bool(filter_state.get("f_sup_ex", False))
+        if sel:
+            m = d["supplier"].isin(sel)
+            d = d[~m] if exm else d[m]
+
+    if exclude != "brand" and "brand" in d.columns:
+        sel = list(filter_state.get("f_brand", []))
+        if sel:
+            d = d[_include(d["brand"], sel)]
+
+    if exclude != "desc" and "description" in d.columns:
+        base_ser = _desc_base_series(d["description"])
+        sel = list(filter_state.get("f_desc", []))
+        if sel:
+            d = d[base_ser.isin(sel)]
+
+    if exclude != "code" and "product_code" in d.columns:
+        sel = list(filter_state.get("f_code", []))
+        if sel:
+            d = d[_include(d["product_code"], sel)]
+
+    if exclude != "remark" and "description" in d.columns:
+        sel = list(filter_state.get("f_remark", []))
+        exm = bool(filter_state.get("f_remark_ex", False))
+        if sel:
+            matches = d["description"].astype(str).str.findall(r"\(([^)]*)\)")
+            has_any = matches.apply(
+                lambda lst: any((str(x).strip() in sel) for x in (lst or []))
+            )
+            d = d[~has_any] if exm else d[has_any]
+
+    return d
+
+
 def apply_filters_v2(df: pd.DataFrame):
     base = df.copy()
-
-    def get_desc_base(series: pd.Series) -> pd.Series:
-        return (
-            series.astype(str).str.replace(r"\s*\([^)]*\)", "", regex=True).str.strip()
-        )
-
-    def extract_remarks(series: pd.Series) -> list:
-        vals = series.astype(str).str.findall(r"\(([^)]*)\)").dropna().tolist()
-        out = set()
-        for lst in vals:
-            for r in lst or []:
-                s = str(r).strip()
-                if s:
-                    out.add(s)
-        return sorted(out)
 
     ss = st.session_state
 
@@ -832,55 +879,6 @@ def apply_filters_v2(df: pd.DataFrame):
     sel_code = list(ss.get("f_code", []))
     sel_remark = list(ss.get("f_remark", []))
 
-    def apply_all(df_in: pd.DataFrame, exclude: str = "") -> pd.DataFrame:
-        d = df_in
-
-        def _include(series: pd.Series, selected: list):
-            if not selected:
-                return pd.Series(True, index=series.index)
-            return series.isin(selected)
-
-        if exclude != "warehouse" and "warehouse" in d.columns:
-            sel = list(ss.get("f_wh", []))
-            if sel:
-                d = d[_include(d["warehouse"], sel)]
-
-        if exclude != "supplier" and "supplier" in d.columns:
-            sel = list(ss.get("f_sup", []))
-            exm = bool(ss.get("f_sup_ex", False))
-            if sel:
-                m = d["supplier"].isin(sel)
-                d = d[~m] if exm else d[m]
-
-        if exclude != "brand" and "brand" in d.columns:
-            sel = list(ss.get("f_brand", []))
-            if sel:
-                d = d[_include(d["brand"], sel)]
-
-        if exclude != "desc" and "description" in d.columns:
-            base_ser = get_desc_base(d["description"])
-            sel = list(ss.get("f_desc", []))
-            if sel:
-                m = base_ser.isin(sel)
-                d = d[m]
-
-        if exclude != "code" and "product_code" in d.columns:
-            sel = list(ss.get("f_code", []))
-            if sel:
-                d = d[_include(d["product_code"], sel)]
-
-        if exclude != "remark" and "description" in d.columns:
-            sel = list(ss.get("f_remark", []))
-            exm = bool(ss.get("f_remark_ex", False))
-            if sel:
-                matches = d["description"].astype(str).str.findall(r"\(([^)]*)\)")
-                has_any = matches.apply(
-                    lambda lst: any((str(x).strip() in sel) for x in (lst or []))
-                )
-                d = d[~has_any] if exm else d[has_any]
-
-        return d
-
     with st.sidebar:
         st.header("筛选条件")
 
@@ -898,7 +896,7 @@ def apply_filters_v2(df: pd.DataFrame):
         sig_changed = sig_wo_wh != prev_sig
 
         if "warehouse" in base.columns:
-            d = apply_all(base, exclude="warehouse")
+            d = _apply_filter_state(base, ss, exclude="warehouse")
             wh_options = [
                 x for x in d["warehouse"].dropna().astype(str).unique().tolist()
             ]
@@ -926,7 +924,7 @@ def apply_filters_v2(df: pd.DataFrame):
             ss["__sig_wo_wh"] = sig_wo_wh
 
         if "supplier" in base.columns:
-            d = apply_all(base, exclude="supplier")
+            d = _apply_filter_state(base, ss, exclude="supplier")
             sup_options = sorted([x for x in d["supplier"].dropna().unique().tolist()])
             _ensure_multiselect_key("f_sup", sup_options, [])
             st.multiselect(
@@ -936,7 +934,7 @@ def apply_filters_v2(df: pd.DataFrame):
             sel_sup = list(ss.get("f_sup", []))
 
         if "brand" in base.columns:
-            d = apply_all(base, exclude="brand")
+            d = _apply_filter_state(base, ss, exclude="brand")
             brand_options = sorted([x for x in d["brand"].dropna().unique().tolist()])
             _ensure_multiselect_key("f_brand", brand_options, [])
             st.multiselect(
@@ -945,9 +943,11 @@ def apply_filters_v2(df: pd.DataFrame):
             sel_brand = list(ss.get("f_brand", []))
 
         if "description" in base.columns:
-            d = apply_all(base, exclude="desc")
+            d = _apply_filter_state(base, ss, exclude="desc")
             base_ser = (
-                get_desc_base(d["description"]) if not d.empty else pd.Series(dtype=str)
+                _desc_base_series(d["description"])
+                if not d.empty
+                else pd.Series(dtype=str)
             )
             desc_options = sorted([x for x in base_ser.dropna().unique().tolist() if x])
             _ensure_multiselect_key("f_desc", desc_options, [])
@@ -962,7 +962,7 @@ def apply_filters_v2(df: pd.DataFrame):
             sel_desc = list(ss.get("f_desc", []))
 
         if "product_code" in base.columns:
-            d = apply_all(base, exclude="code")
+            d = _apply_filter_state(base, ss, exclude="code")
             code_options = sorted(
                 [x for x in d["product_code"].dropna().unique().tolist()]
             )
@@ -973,8 +973,10 @@ def apply_filters_v2(df: pd.DataFrame):
             sel_code = list(ss.get("f_code", []))
 
         if "description" in base.columns:
-            d = apply_all(base, exclude="remark")
-            remark_options = extract_remarks(d["description"]) if not d.empty else []
+            d = _apply_filter_state(base, ss, exclude="remark")
+            remark_options = (
+                _extract_remarks_from_desc(d["description"]) if not d.empty else []
+            )
             _ensure_multiselect_key("f_remark", remark_options, [])
             st.multiselect(
                 "Remark（来自描述括号）",
@@ -1036,57 +1038,10 @@ def apply_filters_v2(df: pd.DataFrame):
                     )
                     r_start, r_end = st.session_state.get("relabel_date_range")
 
-        focus_target = ss.get("__focus_target")
-        if focus_target in {"desc", "remark"}:
-            label_text = (
-                "Description（去括号后）"
-                if focus_target == "desc"
-                else "Remark（来自描述括号）"
-            )
-            target_json = json.dumps(label_text)
-            components.html(
-                f"""
-                <script>
-                (function() {{
-                    const targetLabel = {target_json};
-                    const focusByLabel = () => {{
-                        const widgets = window.parent.document.querySelectorAll('[data-testid="stWidget"]');
-                        for (const w of widgets) {{
-                            const label = w.querySelector('[data-testid="stWidgetLabel"]');
-                            if (!label) continue;
-                            const text = (label.textContent || '').trim();
-                            if (!text.startsWith(targetLabel)) continue;
-                            let input = w.querySelector('input[type="text"]');
-                            if (!input) {{
-                                input = w.querySelector('input');
-                            }}
-                            if (input) {{
-                                input.focus();
-                                if (input.setSelectionRange) {{
-                                    const end = input.value ? input.value.length : 0;
-                                    input.setSelectionRange(end, end);
-                                }}
-                                return true;
-                            }}
-                        }}
-                        return false;
-                    }};
-                    let attempts = 0;
-                    const handle = setInterval(() => {{
-                        attempts += 1;
-                        if (focusByLabel() || attempts >= 20) {{
-                            clearInterval(handle);
-                        }}
-                    }}, 100);
-                }})();
-                </script>
-                """,
-                height=0,
-                width=0,
-            )
+        if ss.get("__focus_target") in {"desc", "remark"}:
             ss["__focus_target"] = None
 
-    work = apply_all(base)
+    work = _apply_filter_state(base, ss)
     if use_date_filters and "expiry_date" in work.columns and start and end:
         mask_exp = (
             work["expiry_date"].notna()
@@ -1119,13 +1074,8 @@ def apply_filters_v2(df: pd.DataFrame):
 # ----------------------------- Excel 读入与规范化 -----------------------------
 
 
-@st.cache_data(show_spinner=False)
-def _find_sheet_name(file, desired: str) -> Optional[str]:
-    try:
-        xls = pd.ExcelFile(file, engine="openpyxl")
-    except Exception:
-        return None
-    names = xls.sheet_names
+def _find_sheet_name_in_list(sheet_names: List[str], desired: str) -> Optional[str]:
+    names = sheet_names or []
     for n in names:
         if n == desired:
             return n
@@ -1137,6 +1087,97 @@ def _find_sheet_name(file, desired: str) -> Optional[str]:
         if n.replace(" ", "").lower() == d_norm:
             return n
     return None
+
+
+def _find_sheet_name(file_like, desired: str) -> Optional[str]:
+    try:
+        xls = pd.ExcelFile(file_like, engine="openpyxl")
+    except Exception:
+        return None
+    return _find_sheet_name_in_list(xls.sheet_names, desired)
+
+
+@st.cache_data(show_spinner=False)
+def load_and_normalize_cached(file_bytes: bytes) -> Tuple[pd.DataFrame, list]:
+    warns = []
+    if not file_bytes:
+        return pd.DataFrame(), ["空文件内容，无法读取。"]
+
+    try:
+        xls = pd.ExcelFile(io.BytesIO(file_bytes), engine="openpyxl")
+    except Exception as e:
+        return pd.DataFrame(), [f"读取 Excel 失败：{e}"]
+
+    name_sr = _find_sheet_name_in_list(xls.sheet_names, "Stocks report")
+    name_lh = _find_sheet_name_in_list(xls.sheet_names, "Lai Hock Whse")
+
+    df_sr = None
+    df_lh = None
+    try:
+        if name_sr:
+            df_sr = xls.parse(name_sr, header=2, dtype=str).dropna(axis=0, how="all")
+    except Exception as e:
+        warns.append(f"读取工作表 '{name_sr}' 失败：{e}")
+    try:
+        if name_lh:
+            df_lh = xls.parse(name_lh, header=2, dtype=str).dropna(axis=0, how="all")
+    except Exception as e:
+        warns.append(f"读取工作表 '{name_lh}' 失败：{e}")
+
+    frames = []
+    if df_sr is not None:
+        n_sr, w_sr = _normalize_stocks_report(df_sr)
+        if w_sr:
+            warns.append(f"Stocks report: {w_sr}")
+        frames.append(n_sr)
+    else:
+        warns.append(
+            f"未找到工作表：Stocks report（实际存在：{name_sr if name_sr else '无'}）"
+        )
+
+    if df_lh is not None:
+        n_lh, w_lh = _normalize_lai_hock_whse(df_lh)
+        if w_lh:
+            warns.append(f"Lai Hock Whse: {w_lh}")
+        frames.append(n_lh)
+    else:
+        warns.append(
+            f"未找到工作表：Lai Hock Whse（实际存在：{name_lh if name_lh else '无'}）"
+        )
+
+    if frames:
+        cols = [
+            "supplier",
+            "brand",
+            "product_code",
+            "description",
+            "pack_size",
+            "unit",
+            "expiry_date",
+            "relabel_to_date",
+            "stock_qty",
+            "warehouse",
+        ]
+        valid_frames = [f for f in frames if f is not None and not f.empty]
+        combined = (
+            pd.concat(valid_frames, ignore_index=True, sort=False)
+            if valid_frames
+            else pd.DataFrame(columns=cols)
+        )
+        for c in cols:
+            if c not in combined.columns:
+                combined[c] = pd.NA
+        combined["stock_qty"] = pd.to_numeric(combined["stock_qty"], errors="coerce")
+        for col in ["expiry_date", "relabel_to_date"]:
+            combined[col] = pd.to_datetime(
+                combined[col], errors="coerce", format="mixed"
+            )
+        if "unit" in combined.columns:
+            combined["unit"] = combined["unit"].apply(_canonical_unit)
+        combined = combined[cols]
+        return combined, warns
+
+    return pd.DataFrame(), warns
 
 
 def _normalize_stocks_report(df: pd.DataFrame) -> Tuple[pd.DataFrame, Optional[str]]:
@@ -1272,81 +1313,13 @@ def _normalize_lai_hock_whse(df: pd.DataFrame) -> Tuple[pd.DataFrame, Optional[s
 
 
 def load_and_normalize(file) -> Tuple[pd.DataFrame, list]:
-    warns = []
-    name_sr = _find_sheet_name(file, "Stocks report")
-    name_lh = _find_sheet_name(file, "Lai Hock Whse")
-
-    df_sr = None
-    df_lh = None
+    if file is None:
+        return pd.DataFrame(), ["未提供文件。"]
     try:
-        if name_sr:
-            df_sr = pd.read_excel(
-                file, sheet_name=name_sr, header=2, dtype=str, engine="openpyxl"
-            ).dropna(axis=0, how="all")
+        file_bytes = file.getvalue() if hasattr(file, "getvalue") else file.read()
     except Exception as e:
-        warns.append(f"读取工作表 '{name_sr}' 失败：{e}")
-    try:
-        if name_lh:
-            df_lh = pd.read_excel(
-                file, sheet_name=name_lh, header=2, dtype=str, engine="openpyxl"
-            ).dropna(axis=0, how="all")
-    except Exception as e:
-        warns.append(f"读取工作表 '{name_lh}' 失败：{e}")
-
-    frames = []
-    if df_sr is not None:
-        n_sr, w_sr = _normalize_stocks_report(df_sr)
-        if w_sr:
-            warns.append(f"Stocks report: {w_sr}")
-        frames.append(n_sr)
-    else:
-        warns.append(
-            f"未找到工作表：Stocks report（实际存在：{name_sr if name_sr else '无'}）"
-        )
-
-    if df_lh is not None:
-        n_lh, w_lh = _normalize_lai_hock_whse(df_lh)
-        if w_lh:
-            warns.append(f"Lai Hock Whse: {w_lh}")
-        frames.append(n_lh)
-    else:
-        warns.append(
-            f"未找到工作表：Lai Hock Whse（实际存在：{name_lh if name_lh else '无'}）"
-        )
-
-    if frames:
-        cols = [
-            "supplier",
-            "brand",
-            "product_code",
-            "description",
-            "pack_size",
-            "unit",
-            "expiry_date",
-            "relabel_to_date",
-            "stock_qty",
-            "warehouse",
-        ]
-        valid_frames = [f for f in frames if f is not None and not f.empty]
-        combined = (
-            pd.concat(valid_frames, ignore_index=True, sort=False)
-            if valid_frames
-            else pd.DataFrame(columns=cols)
-        )
-        for c in cols:
-            if c not in combined.columns:
-                combined[c] = pd.NA
-        combined["stock_qty"] = pd.to_numeric(combined["stock_qty"], errors="coerce")
-        for col in ["expiry_date", "relabel_to_date"]:
-            combined[col] = pd.to_datetime(
-                combined[col], errors="coerce", format="mixed"
-            )
-        if "unit" in combined.columns:
-            combined["unit"] = combined["unit"].apply(_canonical_unit)
-        combined = combined[cols]
-        return combined, warns
-
-    return pd.DataFrame(), warns
+        return pd.DataFrame(), [f"读取文件内容失败：{e}"]
+    return load_and_normalize_cached(file_bytes)
 
 
 # ----------------------------- UI 状态回调 -----------------------------
@@ -1401,19 +1374,20 @@ def run_stock_page():
         "Upload Excel (.xlsx)", type=["xlsx"], key="stock_uploader"
     )
     if uploaded is not None:
-        # 把最近一次上传的文件对象存进 session_state，方便页面切换后复用
-        st.session_state["stock_file"] = uploaded
+        st.session_state["stock_file_name"] = getattr(uploaded, "name", "uploaded.xlsx")
+        st.session_state["stock_file_bytes"] = uploaded.getvalue()
 
-    stock_file = st.session_state.get("stock_file")
+    stock_file_bytes = st.session_state.get("stock_file_bytes")
+    stock_file_name = st.session_state.get("stock_file_name", "cached workbook")
 
-    if not stock_file:
+    if not stock_file_bytes:
         st.info("Upload a source workbook to begin.")
         return
 
-    st.caption(f"Using file: {getattr(stock_file, 'name', 'cached workbook')}")
+    st.caption(f"Using file: {stock_file_name}")
 
     try:
-        df, warns = load_and_normalize(stock_file)
+        df, warns = load_and_normalize_cached(stock_file_bytes)
     except Exception as e:
         st.error(f"Failed to read Excel: {e}")
         return
@@ -1745,7 +1719,10 @@ def run_stock_page():
         formatted = []
         for tag in tags:
             if tag == "Low-Stock" and reason:
-                formatted.append(f"{tag} ({reason})")
+                if str(reason).upper() == "ROP":
+                    formatted.append("Low-Stock(ROP)")
+                else:
+                    formatted.append("Low-Stock(Global)")
             else:
                 formatted.append(str(tag))
         return " • ".join(formatted) if formatted else "OK"
@@ -1798,6 +1775,49 @@ def run_stock_page():
                 st.dataframe(preview_df, width="stretch", hide_index=True)
 
     _render_stock_notifications(summary_df)
+
+    status_counts = {
+        s: int((summary_df["status_product"] == s).sum()) for s in status_options
+    }
+    quick_cols = st.columns([1.2, 1, 1.1, 1.1, 1, 1])
+    if quick_cols[0].button(
+        f"All ({len(summary_df)})", key="status_chip_all", width="stretch"
+    ):
+        st.session_state["status_filter_options"] = status_options.copy()
+        st.rerun()
+    if quick_cols[1].button(
+        f"Expired ({status_counts['Expired']})",
+        key="status_chip_expired",
+        width="stretch",
+    ):
+        st.session_state["status_filter_options"] = ["Expired"]
+        st.rerun()
+    if quick_cols[2].button(
+        f"Near ({status_counts['Near-Expiry']})",
+        key="status_chip_near",
+        width="stretch",
+    ):
+        st.session_state["status_filter_options"] = ["Near-Expiry"]
+        st.rerun()
+    if quick_cols[3].button(
+        f"Low ({status_counts['Low-Stock']})",
+        key="status_chip_low",
+        width="stretch",
+    ):
+        st.session_state["status_filter_options"] = ["Low-Stock"]
+        st.rerun()
+    if quick_cols[4].button(
+        f"Depleted ({status_counts['Depleted']})",
+        key="status_chip_depleted",
+        width="stretch",
+    ):
+        st.session_state["status_filter_options"] = ["Depleted"]
+        st.rerun()
+    if quick_cols[5].button(
+        f"OK ({status_counts['OK']})", key="status_chip_ok", width="stretch"
+    ):
+        st.session_state["status_filter_options"] = ["OK"]
+        st.rerun()
 
     view_df = summary_df.copy()
 
@@ -2087,36 +2107,46 @@ def run_stock_page():
         detail_export_df = pd.DataFrame()
 
     download_cols = st.columns([1, 1, 1, 1])
-    csv_buffer = io.StringIO()
     export_summary_clean = _strip_html_df(export_summary)
-    export_summary_clean.to_csv(csv_buffer, index=False)
+    expiry_export_clean = _strip_html_df(expiry_export_df)
 
-    download_cols[0].download_button(
-        "Export Summary CSV",
-        data=csv_buffer.getvalue(),
-        file_name="stock_summary.csv",
-        mime="text/csv",
+    issue_summary_df = (
+        view_df[view_df["status_product"].isin(["Expired", "Near-Expiry", "Low-Stock"])]
+        .groupby(["status_product"], dropna=False)
+        .agg(
+            Products=("Product", "count"),
+            Total_Ctn=("total_ctn", "sum"),
+            Total_Pkt=("total_pkt", "sum"),
+        )
+        .reset_index()
+        .rename(columns={"status_product": "Status"})
     )
 
-    excel_buffer = io.BytesIO()
-    with pd.ExcelWriter(excel_buffer) as writer:
-        export_summary_clean = _strip_html_df(export_summary)
-        expiry_export_clean = _strip_html_df(expiry_export_df)
+    mgmt_csv_buffer = io.StringIO()
+    export_summary_clean.to_csv(mgmt_csv_buffer, index=False)
+    download_cols[0].download_button(
+        "Mgmt CSV",
+        data=mgmt_csv_buffer.getvalue(),
+        file_name="stock_management_summary.csv",
+        mime="text/csv",
+        help="Management view: summarized stock with status labels.",
+    )
+
+    mgmt_excel_buffer = io.BytesIO()
+    with pd.ExcelWriter(mgmt_excel_buffer) as writer:
         export_summary_clean.to_excel(writer, sheet_name="Summary", index=False)
-        expiry_export_clean.to_excel(writer, sheet_name="Expiry Breakdown", index=False)
-
-        meta_rows = []
-        for k, v in (filter_state or {}).items():
-            meta_rows.append({"key": str(k), "value": str(v)})
-        meta_df = pd.DataFrame(meta_rows, columns=["key", "value"])
-        meta_df.to_excel(writer, sheet_name="Filters", index=False)
-
-    excel_buffer.seek(0)
+        issue_summary_df.to_excel(writer, sheet_name="Issue Summary", index=False)
+        pd.DataFrame(
+            [{"key": str(k), "value": str(v)} for k, v in (filter_state or {}).items()],
+            columns=["key", "value"],
+        ).to_excel(writer, sheet_name="Filters", index=False)
+    mgmt_excel_buffer.seek(0)
     download_cols[1].download_button(
-        "Export Excel",
-        data=excel_buffer.getvalue(),
-        file_name="stock_summary.xlsx",
+        "Mgmt Excel",
+        data=mgmt_excel_buffer.getvalue(),
+        file_name="stock_management_summary.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        help="Management workbook with summary, issue breakdown, and active filters.",
     )
     detail_csv_buffer = io.StringIO()
     detail_export_clean = (
@@ -2126,29 +2156,28 @@ def run_stock_page():
     )
     detail_export_clean.to_csv(detail_csv_buffer, index=False)
     download_cols[2].download_button(
-        "Export Filtered Detail CSV",
+        "Ops CSV",
         data=detail_csv_buffer.getvalue(),
-        file_name="stock_filtered_detail.csv",
+        file_name="stock_operations_detail.csv",
         mime="text/csv",
-        help="Download the raw rows that back the current table after all filters, quick search, and status filters.",
+        help="Operations view: filtered raw rows for execution and follow-up.",
     )
 
     detail_excel_buffer = io.BytesIO()
     with pd.ExcelWriter(detail_excel_buffer) as writer:
         detail_export_clean.to_excel(writer, sheet_name="Stock Report", index=False)
-        meta_rows = []
-        for k, v in (filter_state or {}).items():
-            meta_rows.append({"key": str(k), "value": str(v)})
-        pd.DataFrame(meta_rows, columns=["key", "value"]).to_excel(
-            writer, sheet_name="Filters", index=False
-        )
+        expiry_export_clean.to_excel(writer, sheet_name="Expiry Breakdown", index=False)
+        pd.DataFrame(
+            [{"key": str(k), "value": str(v)} for k, v in (filter_state or {}).items()],
+            columns=["key", "value"],
+        ).to_excel(writer, sheet_name="Filters", index=False)
     detail_excel_buffer.seek(0)
     download_cols[3].download_button(
-        "Export Stock Report Excel",
+        "Ops Excel",
         data=detail_excel_buffer.getvalue(),
-        file_name="stock_report.xlsx",
+        file_name="stock_operations_report.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        help="Export the filtered stock report as an Excel file.",
+        help="Operations workbook with filtered detail rows and expiry breakdown.",
     )
 
     for _, row in view_df.iterrows():
@@ -2177,6 +2206,7 @@ def run_stock_page():
                         "Lai Hock Whse",
                         "Subtotal",
                         "status_batch",
+                        "days_to_expiry",
                         "Info",
                     ]
                 elif batch_mode == "remark":
@@ -2186,6 +2216,7 @@ def run_stock_page():
                         "Lai Hock Whse",
                         "Subtotal",
                         "status_batch",
+                        "days_to_expiry",
                         "Info",
                     ]
                 else:
@@ -2196,22 +2227,55 @@ def run_stock_page():
                         "Lai Hock Whse",
                         "Subtotal",
                         "status_batch",
+                        "days_to_expiry",
                         "Info",
                     ]
 
                 table_display = expiry_table[display_cols2].rename(
-                    columns={"status_batch": "Batch Status"}
+                    columns={"status_batch": "Batch Status", "days_to_expiry": "DTE"}
                 )
+
+                def _format_dte(value):
+                    if pd.isna(value):
+                        return ""
+                    try:
+                        return f"D{int(float(value)):+d}"
+                    except (TypeError, ValueError):
+                        return str(value)
+
+                table_display["DTE"] = table_display["DTE"].apply(_format_dte)
 
                 def _style_expiry(r):
                     status = table_display.loc[r.name, "Batch Status"]
+                    styles = ["" for _ in r]
                     if status == "Expired":
-                        return ["background-color: rgba(220,20,60,0.16);"] * len(r)
-                    if status == "Near-Expiry":
-                        return ["background-color: rgba(255,165,0,0.18);"] * len(r)
-                    if status == "Depleted":
-                        return ["background-color: rgba(128,128,128,0.12);"] * len(r)
-                    return ["" for _ in r]
+                        styles = ["background-color: rgba(220,20,60,0.16);"] * len(r)
+                    elif status == "Near-Expiry":
+                        styles = ["background-color: rgba(255,165,0,0.18);"] * len(r)
+                    elif status == "Depleted":
+                        styles = ["background-color: rgba(128,128,128,0.12);"] * len(r)
+
+                    dte_text = table_display.loc[r.name, "DTE"]
+                    if isinstance(dte_text, str) and dte_text.startswith("D"):
+                        try:
+                            dte_num = int(dte_text[1:])
+                        except Exception:
+                            dte_num = None
+                        if dte_num is not None:
+                            dte_idx = list(table_display.columns).index("DTE")
+                            if dte_num < 0:
+                                styles[dte_idx] = (
+                                    "background-color: rgba(220,20,60,0.24); font-weight:700;"
+                                )
+                            elif dte_num <= 7:
+                                styles[dte_idx] = (
+                                    "background-color: rgba(255,140,0,0.22); font-weight:700;"
+                                )
+                            elif dte_num <= 30:
+                                styles[dte_idx] = (
+                                    "background-color: rgba(255,215,0,0.20);"
+                                )
+                    return styles
 
                 try:
                     styled_expiry = table_display.style.apply(_style_expiry, axis=1)
@@ -2238,17 +2302,17 @@ def run_stock_page():
 def _read_delivery_details_from_bytes(
     content: bytes, label: str
 ) -> Tuple[pd.DataFrame, Optional[str]]:
-    sheet_name = _find_sheet_name(io.BytesIO(content), "Delivery details")
+    try:
+        xls = pd.ExcelFile(io.BytesIO(content), engine="openpyxl")
+    except Exception as exc:
+        return pd.DataFrame(), f"{label}: 读取工作簿失败：{exc}"
+
+    sheet_name = _find_sheet_name_in_list(xls.sheet_names, "Delivery details")
     if not sheet_name:
         return pd.DataFrame(), f"{label}: 未找到 'Delivery details' 工作表。"
+
     try:
-        frame = pd.read_excel(
-            io.BytesIO(content),
-            sheet_name=sheet_name,
-            header=3,
-            dtype=str,
-            engine="openpyxl",
-        ).dropna(axis=0, how="all")
+        frame = xls.parse(sheet_name, header=3, dtype=str).dropna(axis=0, how="all")
         return frame, None
     except Exception as exc:
         return pd.DataFrame(), f"{label}: 读取 '{sheet_name}' 失败：{exc}"
@@ -3037,10 +3101,7 @@ def run_sales_page():
             st.info("No purchase records remain after the current filters.")
         else:
             st.caption("What they brought")
-            st.dataframe(
-                customer_breakdown,
-                width="stretch",
-            )
+            st.dataframe(customer_breakdown, width="stretch")
 
     view_cols = st.columns([1, 1, 1])
     group_by_outlet = view_cols[0].checkbox(
@@ -3254,10 +3315,7 @@ def run_sales_page():
         if summary_display.empty:
             st.info("当前筛选未产出任何汇总")
         else:
-            st.dataframe(
-                summary_display[display_cols],
-                width="stretch",
-            )
+            st.dataframe(summary_display[display_cols], width="stretch")
         usage_tab_month, usage_tab_customer, usage_tab_matrix = st.tabs(
             ["Usage by Month", "Usage by Customer", "Customer x Month"]
         )
@@ -3300,15 +3358,9 @@ def run_sales_page():
         else:
             try:
                 styled_detail = detail_display.style.map(_highlight_missing_cell)
-                st.dataframe(
-                    styled_detail,
-                    width="stretch",
-                )
+                st.dataframe(styled_detail, width="stretch")
             except Exception:
-                st.dataframe(
-                    detail_display,
-                    width="stretch",
-                )
+                st.dataframe(detail_display, width="stretch")
         download_cols = st.columns([1, 1])
         detail_export = _strip_html_df(filtered_df)
         csv_buffer = io.StringIO()
