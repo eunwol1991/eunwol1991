@@ -4,10 +4,20 @@ import sys
 import importlib.util
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
-SKIP_DIRS = {".venv", "venv", "__pycache__", ".git", ".idea", ".vscode", "build", "dist"}
+SKIP_DIRS = {
+    ".venv",
+    "venv",
+    "__pycache__",
+    ".git",
+    ".idea",
+    ".vscode",
+    "build",
+    "dist",
+}
 SKIP_FILES_RE = re.compile(r"(^test_|_test\.py$)")
+
 
 def read_text_best_effort(path: Path) -> str | None:
     # Try a few common encodings, then give up.
@@ -20,15 +30,21 @@ def read_text_best_effort(path: Path) -> str | None:
             return None
     return None
 
-IMPORT_RE = re.compile(r"^\s*(?:from\s+([a-zA-Z0-9_\.]+)\s+import|import\s+([a-zA-Z0-9_\.]+))", re.M)
+
+IMPORT_RE = re.compile(
+    r"^\s*(?:from\s+([a-zA-Z0-9_\.]+)\s+import|import\s+([a-zA-Z0-9_\.]+))", re.M
+)
+
 
 def top_level(mod: str) -> str:
     return mod.split(".")[0]
+
 
 def is_stdlib(name: str) -> bool:
     # Quick heuristic: if it's in stdlib modules list (py3.11 has sys.stdlib_module_names)
     std = getattr(sys, "stdlib_module_names", set())
     return name in std
+
 
 missing = {}
 skipped_files = []
@@ -69,4 +85,4 @@ print("\n=== Files skipped due to unreadable encoding/other issues ===")
 for f in skipped_files[:50]:
     print(f)
 if len(skipped_files) > 50:
-    print(f"... and {len(skipped_files)-50} more")
+    print(f"... and {len(skipped_files) - 50} more")

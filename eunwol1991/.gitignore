@@ -10,3 +10,4 @@ dist/
 # Misc
 *.log
 *.epub
+**/README.private.md
