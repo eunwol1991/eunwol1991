@@ -1,6 +1,7 @@
 import os
 import re
 import shlex
+import subprocess
 import threading
 import time
 import queue
@@ -9,7 +10,6 @@ from datetime import datetime, date
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from tkinter.scrolledtext import ScrolledText
-
 
 
 def _is_wsl() -> bool:
@@ -38,6 +38,55 @@ def _from_c(path_tail: str) -> str:
     if root.endswith("/"):
         return f"{root}{tail}"
     return f"{root}/{tail}"
+
+
+def _windows_path_to_wsl(path: str) -> str:
+    text = (path or "").strip().strip('"').strip("'")
+    m = re.match(r"^([A-Za-z]):[\\/](.*)$", text)
+    if not m:
+        return text
+    drive = m.group(1).lower()
+    rest = m.group(2).replace("\\", "/")
+    return f"/mnt/{drive}/{rest}"
+
+
+def _wsl_path_to_windows(path: str) -> str:
+    text = (path or "").strip().strip('"').strip("'")
+    m = re.match(r"^/mnt/([a-zA-Z])/(.*)$", text)
+    if not m:
+        return text
+    drive = m.group(1).upper()
+    rest = m.group(2).replace("/", "\\")
+    return f"{drive}:\\{rest}"
+
+
+def _open_windows_file_dialog(initial_dir: str, title: str) -> str:
+    start = _wsl_path_to_windows(initial_dir)
+    ps_script = (
+        "Add-Type -AssemblyName System.Windows.Forms | Out-Null;"
+        "$dlg = New-Object System.Windows.Forms.OpenFileDialog;"
+        "$dlg.Filter = 'Excel files (*.xlsx;*.xlsm)|*.xlsx;*.xlsm|All files (*.*)|*.*';"
+        f"$dlg.Title = '{title.replace("'", "''")}';"
+        f"$dlg.InitialDirectory = '{start.replace("'", "''")}';"
+        "if ($dlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { $dlg.FileName }"
+    )
+    try:
+        proc = subprocess.run(
+            ["powershell.exe", "-NoProfile", "-Command", ps_script],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+    except Exception:
+        return ""
+    if proc.returncode != 0:
+        return ""
+    selected = (proc.stdout or "").strip().splitlines()
+    if not selected:
+        return ""
+    return _windows_path_to_wsl(selected[-1].strip())
+
+
 try:
     import pandas as pd
 except Exception:  # pragma: no cover
@@ -55,6 +104,7 @@ HEADER_ROW_INDEX = 3  # A4 -> 0-based row index
 IGNORE_DIR_NAME = "Melvin - Stuff'd"
 SCAN_WARN_SECONDS = 20
 SCAN_WARN_FILES = 2000
+USE_WINDOWS_DIALOG_IN_WSL = os.environ.get("INV_USE_WINDOWS_DIALOG", "0").strip() == "1"
 
 AMOUNT_RE = re.compile(
     r"([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{2})?|[0-9]+(?:\.[0-9]{2})?)"
@@ -1245,6 +1295,11 @@ class InvoiceValidatorApp(tk.Tk):
 
     def _choose_excel(self):
         start_dir = BASE_DIR_DEFAULT if os.path.isdir(BASE_DIR_DEFAULT) else "/mnt/c"
+        if _is_wsl() and USE_WINDOWS_DIALOG_IN_WSL:
+            selected = _open_windows_file_dialog(start_dir, "Select Excel file")
+            if selected:
+                self.excel_path_var.set(selected)
+                return
         path = filedialog.askopenfilename(
             title="Select Excel file",
             initialdir=start_dir,

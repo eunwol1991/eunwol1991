@@ -27,6 +27,8 @@ def _from_c(path_tail: str) -> str:
     if root.endswith("/"):
         return f"{root}{tail}"
     return f"{root}/{tail}"
+
+
 """
 MOS / LTO Order → Excel 自动填表脚本（支持三行版 + 单行表格版）
 依赖：pip install pymupdf openpyxl regex
@@ -65,7 +67,9 @@ EXCEL_PATH = _pick_existing_path(
     [
         _from_c("Users/jhunj/Dropbox/for jj/mos order/Order Summary For MOS - JJ.xlsx"),
         _windows_path_to_wsl(
-            _from_c("Users/jhunj/Dropbox/for jj/mos order/Order Summary For MOS - JJ.xlsx")
+            _from_c(
+                "Users/jhunj/Dropbox/for jj/mos order/Order Summary For MOS - JJ.xlsx"
+            )
         ),
         _from_c("Users/jhunj/Dropbox/for jj/mos order/Order Summary For MOS - JJ.xlsx"),
     ]
@@ -152,14 +156,14 @@ ITEM_ALIAS = {
     "demi glace sauce": "Demi Glace Sauce (10 x 1kg)",
     "chilli crab sauce": "Chilli Crab Sauce (10 x 1kg)",
     "anchor minidish unsalted butter 7g": "Anchor Minidish Unsalted Butter (1 x 144 x 7g)",
-    "fried chicken tulip": "Fried Chicken Tulip (10 x 1kg)",
+    "avocado halves": "Avocado Halves (12 x 500g)",
     "tsukune japanese minced chicken with potato": "Tsukune Japanese Minced Chicken with Potato (20 x 480g)",
     "mini mantou, plain": "Mini Mantou Plain (24 x 180g)",
     "bobo sliced fish cake 1kg": "BoBo Sliced Fish Cake (1kg)",
     "chicken honey baked ham sliced": "Chicken Honey Baked Ham Sliced (12 x 1kg)",
     "mozzarella cheese 5g pearl iqf": "Mozzerella Cheese 5G Pearls IQF (8 x 1kg)",
     "premium smoked salmon sliced r trout": "Premium Smoked Salmon Sliced (R Trout) (10 x 1kg)",
-    "hard boiled egg 10pcs only": "Hard Boiled Egg (18 x 10pcs)",
+    "wasabi mayo": "Wasabi Mayo (12 x 1kg)",
     "fried shallot 1kg": "Fried Shallot (10 x 1kg)",
     "jalapenos nachos sliced": "Jalapeno Pepper Sliced (6 x 2.95kg)",
     "parsley flakes": "Parsley Leaves (6 x 5gm)",

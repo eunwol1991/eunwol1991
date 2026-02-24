@@ -1,9 +1,10 @@
 import os
+import re
 import threading
 import queue
+import subprocess
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
-
 
 
 def _is_wsl() -> bool:
@@ -32,6 +33,55 @@ def _from_c(path_tail: str) -> str:
     if root.endswith("/"):
         return f"{root}{tail}"
     return f"{root}/{tail}"
+
+
+def _windows_path_to_wsl(path: str) -> str:
+    text = (path or "").strip().strip('"').strip("'")
+    m = re.match(r"^([A-Za-z]):[\\/](.*)$", text)
+    if not m:
+        return text
+    drive = m.group(1).lower()
+    rest = m.group(2).replace("\\", "/")
+    return f"/mnt/{drive}/{rest}"
+
+
+def _wsl_path_to_windows(path: str) -> str:
+    text = (path or "").strip().strip('"').strip("'")
+    m = re.match(r"^/mnt/([a-zA-Z])/(.*)$", text)
+    if not m:
+        return text
+    drive = m.group(1).upper()
+    rest = m.group(2).replace("/", "\\")
+    return f"{drive}:\\{rest}"
+
+
+def _open_windows_file_dialog(initial_dir: str, title: str) -> str:
+    start = _wsl_path_to_windows(initial_dir)
+    ps_script = (
+        "Add-Type -AssemblyName System.Windows.Forms | Out-Null;"
+        "$dlg = New-Object System.Windows.Forms.OpenFileDialog;"
+        "$dlg.Filter = 'Excel files (*.xlsx;*.xlsm)|*.xlsx;*.xlsm|All files (*.*)|*.*';"
+        f"$dlg.Title = '{title.replace("'", "''")}';"
+        f"$dlg.InitialDirectory = '{start.replace("'", "''")}';"
+        "if ($dlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { $dlg.FileName }"
+    )
+    try:
+        proc = subprocess.run(
+            ["powershell.exe", "-NoProfile", "-Command", ps_script],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+    except Exception:
+        return ""
+    if proc.returncode != 0:
+        return ""
+    selected = (proc.stdout or "").strip().splitlines()
+    if not selected:
+        return ""
+    return _windows_path_to_wsl(selected[-1].strip())
+
+
 try:
     import openpyxl
 except Exception:  # pragma: no cover
@@ -44,6 +94,9 @@ COL_START = 1  # A
 COL_END = 7  # G
 KEY_SEPARATOR = "|||"
 BASE_DIR_DEFAULT = _from_c("Users/jhunj/Dropbox/DO & INV")
+USE_WINDOWS_DIALOG_IN_WSL = (
+    os.environ.get("AB_COMPARE_USE_WINDOWS_DIALOG", "0").strip() == "1"
+)
 
 
 def cell_is_empty(value) -> bool:
@@ -343,6 +396,11 @@ class FixedCompareApp(tk.Tk):
 
     def _choose_a(self):
         start_dir = BASE_DIR_DEFAULT if os.path.isdir(BASE_DIR_DEFAULT) else "/mnt/c"
+        if _is_wsl() and USE_WINDOWS_DIALOG_IN_WSL:
+            selected = _open_windows_file_dialog(start_dir, "Select A Excel")
+            if selected:
+                self.a_path_var.set(selected)
+                return
         path = filedialog.askopenfilename(
             title="Select A Excel",
             initialdir=start_dir,
@@ -353,6 +411,11 @@ class FixedCompareApp(tk.Tk):
 
     def _choose_b(self):
         start_dir = BASE_DIR_DEFAULT if os.path.isdir(BASE_DIR_DEFAULT) else "/mnt/c"
+        if _is_wsl() and USE_WINDOWS_DIALOG_IN_WSL:
+            selected = _open_windows_file_dialog(start_dir, "Select B Excel")
+            if selected:
+                self.b_path_var.set(selected)
+                return
         path = filedialog.askopenfilename(
             title="Select B Excel",
             initialdir=start_dir,

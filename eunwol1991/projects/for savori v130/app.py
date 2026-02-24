@@ -2,7 +2,12 @@ import os
 import sys
 import threading
 import importlib
+import json
+import re
+import shutil
+import subprocess
 
+from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import (
     QApplication,
@@ -13,6 +18,7 @@ from PyQt6.QtWidgets import (
     QLabel,
     QLineEdit,
     QMessageBox,
+    QProgressBar,
     QPushButton,
     QVBoxLayout,
     QWidget,
@@ -56,6 +62,38 @@ def _default_base_dir() -> str:
 
 
 BASE_DIR_DEFAULT = _default_base_dir()
+
+
+def _windows_path_to_wsl(path: str) -> str:
+    text = (path or "").strip().strip('"').strip("'")
+    m = re.match(r"^([A-Za-z]):[\\/](.*)$", text)
+    if not m:
+        return text
+    drive = m.group(1).lower()
+    rest = m.group(2).replace("\\", "/")
+    return f"/mnt/{drive}/{rest}"
+
+
+def _wsl_path_to_windows(path: str) -> str:
+    text = (path or "").strip().strip('"').strip("'")
+    m = re.match(r"^/mnt/([a-zA-Z])/(.*)$", text)
+    if not m:
+        drive_match = re.match(r"^([A-Za-z]):[\\/](.*)$", text)
+        if not drive_match:
+            return text
+        drive = drive_match.group(1).upper()
+        rest = drive_match.group(2).replace("/", "\\")
+        return f"{drive}:\\{rest}"
+    drive = m.group(1).upper()
+    rest = m.group(2).replace("/", "\\")
+    return f"{drive}:\\{rest}"
+
+
+def _normalize_user_path(path: str) -> str:
+    text = (path or "").strip().strip('"').strip("'")
+    if _is_wsl():
+        text = _windows_path_to_wsl(text)
+    return os.path.abspath(text)
 
 
 TOKYONIGHT_QSS = """
@@ -107,11 +145,14 @@ QPushButton:pressed {
 
 
 class PDFExcelApp(QWidget):
+    task_done = pyqtSignal(str, bool)
+
     def __init__(self):
         super().__init__()
         self.setWindowTitle("PDF and Excel Tool")
         self.resize(1080, 680)
         self.setup_ui()
+        self.task_done.connect(self._on_task_done)
 
     def _load_do_converter(self):
         try:
@@ -148,6 +189,124 @@ class PDFExcelApp(QWidget):
                 )
                 return None, None, None
             raise
+
+    def _find_windows_python(self) -> str | None:
+        env_override = os.environ.get("WIN_PYTHON_EXE", "").strip()
+        candidates = [
+            env_override,
+            "py",
+            "python.exe",
+            shutil.which("py.exe") or "",
+            shutil.which("py") or "",
+            shutil.which("python.exe") or "",
+            "/mnt/c/Windows/py.exe",
+            "/mnt/c/Windows/System32/py.exe",
+            "/mnt/c/Users/jhunj/AppData/Local/Programs/Python/Python313/python.exe",
+            "/mnt/c/Users/jhunj/AppData/Local/Programs/Python/Python312/python.exe",
+            "/mnt/c/Users/jhunj/AppData/Local/Programs/Python/Python311/python.exe",
+        ]
+        seen = set()
+        windows_only_candidates = []
+        for exe in candidates:
+            if not exe or exe in seen:
+                continue
+            seen.add(exe)
+            if not os.path.exists(exe) and not shutil.which(exe):
+                continue
+            cmd = [exe, "-c", "import sys; print(sys.platform)"]
+            exe_lower = exe.lower()
+            if exe_lower.endswith("py.exe") or exe_lower == "py":
+                cmd = [exe, "-3", "-c", "import sys; print(sys.platform)"]
+            try:
+                proc = subprocess.run(cmd, capture_output=True, text=True, timeout=8)
+            except Exception:
+                continue
+            if not (
+                proc.returncode == 0 and (proc.stdout or "").strip().startswith("win")
+            ):
+                continue
+
+            windows_only_candidates.append(exe)
+
+            check_cmd = [exe, "-c", "import win32com.client; print('ok')"]
+            if exe_lower.endswith("py.exe") or exe_lower == "py":
+                check_cmd = [exe, "-3", "-c", "import win32com.client; print('ok')"]
+            try:
+                check = subprocess.run(
+                    check_cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+            except Exception:
+                continue
+            if check.returncode == 0:
+                return exe
+
+        if windows_only_candidates:
+            return windows_only_candidates[0]
+        return None
+
+    def _run_windows_converter(self, module_name: str, function_name: str, args: list):
+        win_py = self._find_windows_python()
+        if not win_py:
+            raise RuntimeError(
+                "Cannot find Windows Python. Set WIN_PYTHON_EXE or ensure py.exe is accessible in WSL."
+            )
+
+        preflight_cmd = [win_py, "-c", "import win32com.client; print('ok')"]
+        if win_py.lower().endswith("py.exe") or win_py.lower() == "py":
+            preflight_cmd = [
+                win_py,
+                "-3",
+                "-c",
+                "import win32com.client; print('ok')",
+            ]
+        preflight = subprocess.run(preflight_cmd, capture_output=True, text=True)
+        if preflight.returncode != 0:
+            install_hint = (
+                f"{win_py} -m pip install pywin32"
+                if not (win_py.lower().endswith("py.exe") or win_py.lower() == "py")
+                else f"{win_py} -3 -m pip install pywin32"
+            )
+            raise RuntimeError(
+                "Windows Python is missing pywin32 (win32com). "
+                f"Install with: {install_hint}"
+            )
+
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        worker_dir = _wsl_path_to_windows(script_dir) if _is_wsl() else script_dir
+        payload = json.dumps(
+            {
+                "module": module_name,
+                "function": function_name,
+                "args": args,
+            },
+            ensure_ascii=True,
+        )
+        code = (
+            "import json, os, sys; "
+            "os.chdir(sys.argv[1]); "
+            "p=json.loads(sys.argv[2]); "
+            "m=__import__(p['module']); "
+            "f=getattr(m,p['function']); "
+            "f(*p['args'])"
+        )
+
+        cmd = [win_py, "-c", code, worker_dir, payload]
+        if win_py.lower().endswith("py.exe") or win_py.lower() == "py":
+            cmd = [win_py, "-3", "-c", code, worker_dir, payload]
+
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+        if proc.returncode != 0:
+            message = (proc.stderr or proc.stdout or "Windows converter failed").strip()
+            raise RuntimeError(message)
+
+    def _source_directory(self) -> str:
+        return _normalize_user_path(self.file_path_entry.text())
+
+    def _output_directory(self) -> str:
+        return _normalize_user_path(self.output_path_entry.text())
 
     def setup_ui(self):
         main_layout = QVBoxLayout(self)
@@ -232,6 +391,28 @@ class PDFExcelApp(QWidget):
         button_row_2.addWidget(merge_do_btn)
         main_layout.addLayout(button_row_2)
 
+        self.status_label = QLabel("Ready")
+        main_layout.addWidget(self.status_label)
+
+        self.progress = QProgressBar()
+        self.progress.setVisible(False)
+        self.progress.setTextVisible(False)
+        main_layout.addWidget(self.progress)
+
+    def _set_busy(self, note: str):
+        self.progress.setVisible(True)
+        self.progress.setRange(0, 0)
+        self.status_label.setText(note)
+        QApplication.processEvents()
+
+    def _on_task_done(self, message: str, is_error: bool):
+        self.progress.setRange(0, 1)
+        self.progress.setValue(0)
+        self.progress.setVisible(False)
+        self.status_label.setText(message)
+        if is_error:
+            QMessageBox.critical(self, "Task failed", message)
+
     def browse_directory(self):
         default_dir = (
             BASE_DIR_DEFAULT
@@ -267,26 +448,56 @@ class PDFExcelApp(QWidget):
             return None
 
     def run_convert_do(self):
-        directory = os.path.abspath(self.file_path_entry.text().strip())
-        output_directory = os.path.abspath(self.output_path_entry.text().strip())
+        directory = self._source_directory()
+        output_directory = self._output_directory()
         excel_files = self.read_excel_files(directory)
         choice = self._choice()
 
         if choice == "1":
+            if _is_wsl():
+                self._set_busy("Converting DO files...")
+                self.run_in_background(
+                    self._run_windows_converter,
+                    "convert_do_pdf",
+                    "convert_all_excels",
+                    [
+                        _wsl_path_to_windows(directory),
+                        _wsl_path_to_windows(output_directory),
+                        excel_files,
+                    ],
+                )
+                return
             convert_all_do_excels, _ = self._load_do_converter()
             if not convert_all_do_excels:
                 return
+            self._set_busy("Converting DO files...")
             self.run_in_background(
                 convert_all_do_excels, directory, output_directory, excel_files
             )
         elif choice == "2":
-            _, convert_range_do_excels = self._load_do_converter()
-            if not convert_range_do_excels:
-                return
             start_num = self._parse_int(self.start_num_entry.text(), "Start number")
             end_num = self._parse_int(self.end_num_entry.text(), "End number")
             if start_num is None or end_num is None:
                 return
+            if _is_wsl():
+                self._set_busy("Converting DO files by range...")
+                self.run_in_background(
+                    self._run_windows_converter,
+                    "convert_do_pdf",
+                    "convert_range_excels",
+                    [
+                        _wsl_path_to_windows(directory),
+                        _wsl_path_to_windows(output_directory),
+                        start_num,
+                        end_num,
+                        excel_files,
+                    ],
+                )
+                return
+            _, convert_range_do_excels = self._load_do_converter()
+            if not convert_range_do_excels:
+                return
+            self._set_busy("Converting DO files by range...")
             self.run_in_background(
                 convert_range_do_excels,
                 directory,
@@ -299,15 +510,29 @@ class PDFExcelApp(QWidget):
             QMessageBox.warning(self, "Error", "Invalid option")
 
     def run_convert_inv(self):
-        directory = os.path.abspath(self.file_path_entry.text().strip())
-        output_directory = os.path.abspath(self.output_path_entry.text().strip())
+        directory = self._source_directory()
+        output_directory = self._output_directory()
         excel_files = self.read_excel_files(directory)
         choice = self._choice()
 
         if choice == "1":
+            if _is_wsl():
+                self._set_busy("Converting INV files...")
+                self.run_in_background(
+                    self._run_windows_converter,
+                    "convert_inv_pdf",
+                    "convert_all_excels",
+                    [
+                        _wsl_path_to_windows(directory),
+                        _wsl_path_to_windows(output_directory),
+                        excel_files,
+                    ],
+                )
+                return
             convert_all_inv_excels, _, _ = self._load_inv_converter()
             if not convert_all_inv_excels:
                 return
+            self._set_busy("Converting INV files...")
             self.run_in_background(
                 self.convert_inv_with_debug,
                 convert_all_inv_excels,
@@ -316,13 +541,29 @@ class PDFExcelApp(QWidget):
                 excel_files,
             )
         elif choice == "2":
-            _, convert_range_inv_excels, _ = self._load_inv_converter()
-            if not convert_range_inv_excels:
-                return
             start_num = self._parse_int(self.start_num_entry.text(), "Start number")
             end_num = self._parse_int(self.end_num_entry.text(), "End number")
             if start_num is None or end_num is None:
                 return
+            if _is_wsl():
+                self._set_busy("Converting INV files by range...")
+                self.run_in_background(
+                    self._run_windows_converter,
+                    "convert_inv_pdf",
+                    "convert_range_excels",
+                    [
+                        _wsl_path_to_windows(directory),
+                        _wsl_path_to_windows(output_directory),
+                        start_num,
+                        end_num,
+                        excel_files,
+                    ],
+                )
+                return
+            _, convert_range_inv_excels, _ = self._load_inv_converter()
+            if not convert_range_inv_excels:
+                return
+            self._set_busy("Converting INV files by range...")
             self.run_in_background(
                 self.convert_inv_with_debug,
                 convert_range_inv_excels,
@@ -333,10 +574,25 @@ class PDFExcelApp(QWidget):
                 excel_files,
             )
         elif choice == "3":
+            keyword = self.keyword_entry.text()
+            if _is_wsl():
+                self._set_busy("Converting INV files by keyword...")
+                self.run_in_background(
+                    self._run_windows_converter,
+                    "convert_inv_pdf",
+                    "convert_keyword_excels",
+                    [
+                        _wsl_path_to_windows(directory),
+                        _wsl_path_to_windows(output_directory),
+                        keyword,
+                        excel_files,
+                    ],
+                )
+                return
             _, _, convert_keyword_inv_excels = self._load_inv_converter()
             if not convert_keyword_inv_excels:
                 return
-            keyword = self.keyword_entry.text()
+            self._set_busy("Converting INV files by keyword...")
             self.run_in_background(
                 self.convert_inv_with_debug,
                 convert_keyword_inv_excels,
@@ -349,7 +605,7 @@ class PDFExcelApp(QWidget):
             QMessageBox.warning(self, "Error", "Invalid option")
 
     def run_merge_inv(self):
-        directory = os.path.abspath(self.file_path_entry.text().strip())
+        directory = self._source_directory()
         choice = self._choice()
 
         if choice == "2":
@@ -391,10 +647,11 @@ class PDFExcelApp(QWidget):
         if not output_filename.lower().endswith(".pdf"):
             output_filename += ".pdf"
 
+        self._set_busy("Merging INV PDFs...")
         self.run_in_background(merge_inv_pdfs, pdf_files, output_filename)
 
     def run_merge_do(self):
-        directory = os.path.abspath(self.file_path_entry.text().strip())
+        directory = self._source_directory()
         choice = self._choice()
 
         if choice == "2":
@@ -434,6 +691,7 @@ class PDFExcelApp(QWidget):
         if not output_filename.lower().endswith(".pdf"):
             output_filename += ".pdf"
 
+        self._set_busy("Merging DO PDFs...")
         self.run_in_background(merge_do_pdfs, pdf_files, output_filename)
 
     def convert_inv_with_debug(self, func, *args):
@@ -442,9 +700,19 @@ class PDFExcelApp(QWidget):
             print("Conversion successful.")
         except Exception as exc:
             print(f"Conversion failed: {exc}")
+            raise
 
     def run_in_background(self, func, *args):
-        thread = threading.Thread(target=func, args=args, daemon=True)
+        def runner():
+            try:
+                func(*args)
+                self.task_done.emit("Done", False)
+            except Exception as exc:
+                error_text = str(exc).strip() or repr(exc)
+                print(f"Background task failed: {error_text}")
+                self.task_done.emit(error_text, True)
+
+        thread = threading.Thread(target=runner, daemon=True)
         thread.start()
 
     def read_excel_files(self, directory):
