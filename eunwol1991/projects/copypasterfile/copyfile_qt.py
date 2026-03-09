@@ -187,6 +187,40 @@ def extract_wef_date_from_path(path: str) -> date | None:
     return latest
 
 
+def scan_source_files(
+    source_dir: str, ref_date: date | None = None
+) -> tuple[list[dict], int]:
+    ref = ref_date or date.today()
+    cutoff = get_activation_cutoff(ref)
+    hidden_future = 0
+    rows: list[dict] = []
+
+    for root_dir, dirs, files in os.walk(source_dir):
+        dirs[:] = [d for d in dirs if d.lower() != "history"]
+        for name in files:
+            no_ext = os.path.splitext(name)[0]
+            m = FILE_PATTERN.match(no_ext)
+            if not m:
+                continue
+
+            full_path = os.path.join(root_dir, name)
+            wef_date = extract_wef_date_from_path(full_path)
+            status = classify_wef_status(wef_date, ref, cutoff)
+            if status == "future":
+                hidden_future += 1
+                continue
+
+            friendly = (m.group("name") or m.group("prefix")).strip()
+            if wef_date:
+                friendly = f"{friendly} [WEF {wef_date:%d-%m-%Y} | {status.upper()}]"
+            else:
+                friendly = f"{friendly} [NO WEF]"
+
+            rows.append({"display_name": friendly, "file_path": full_path})
+
+    return rows, hidden_future
+
+
 def get_next_invoice_number(search_dir: str, invoice_prefix: str) -> int:
     pattern = re.compile(
         rf"(?<!\d){re.escape(invoice_prefix)}\s*-\s*(\d{{3}})(?!\d)", re.IGNORECASE
@@ -499,35 +533,7 @@ class MainWindow(QMainWindow):
         self.file_list.clear()
         self.selected_list.clear()
 
-        ref = date.today()
-        cutoff = get_activation_cutoff(ref)
-        hidden_future = 0
-        for root_dir, _, files in os.walk(source_dir):
-            if "history" in root_dir.lower():
-                continue
-            for name in files:
-                full_path = os.path.join(root_dir, name)
-                if not os.path.isfile(full_path):
-                    continue
-                no_ext = os.path.splitext(name)[0]
-                m = FILE_PATTERN.match(no_ext)
-                if not m:
-                    continue
-                wef_date = extract_wef_date_from_path(full_path)
-                status = classify_wef_status(wef_date, ref, cutoff)
-                if status == "future":
-                    hidden_future += 1
-                    continue
-                friendly = (m.group("name") or m.group("prefix")).strip()
-                if wef_date:
-                    friendly = (
-                        f"{friendly} [WEF {wef_date:%d-%m-%Y} | {status.upper()}]"
-                    )
-                else:
-                    friendly = f"{friendly} [NO WEF]"
-                self.file_info_list.append(
-                    {"display_name": friendly, "file_path": full_path}
-                )
+        self.file_info_list, hidden_future = scan_source_files(source_dir)
         self.apply_file_filter()
         self.status.setText(
             f"Loaded {len(self.file_info_list)} file(s). Hidden FUTURE: {hidden_future}."

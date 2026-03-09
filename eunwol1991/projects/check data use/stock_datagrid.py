@@ -8,6 +8,7 @@ import os
 import sys
 import io
 import calendar
+import platform
 from pathlib import Path
 
 # 尝试检测当前是否已经在 streamlit 运行环境中
@@ -37,14 +38,71 @@ def _short_path(p: str) -> str:
         return p
 
 
+def _is_wsl(
+    env: Optional[Dict[str, str]] = None,
+    *,
+    platform_name: Optional[str] = None,
+    proc_version: Optional[str] = None,
+) -> bool:
+    env = env or dict(os.environ)
+    platform_name = platform_name or sys.platform
+    if not str(platform_name).startswith("linux"):
+        return False
+    if env.get("WSL_INTEROP") or env.get("WSL_DISTRO_NAME"):
+        return True
+    text = (proc_version if proc_version is not None else platform.version()).lower()
+    return ("microsoft" in text) or ("wsl" in text)
+
+
+def _should_force_streamlit_headless(
+    env: Optional[Dict[str, str]] = None,
+    *,
+    platform_name: Optional[str] = None,
+    proc_version: Optional[str] = None,
+) -> bool:
+    env = env or dict(os.environ)
+    platform_name = platform_name or sys.platform
+    if not str(platform_name).startswith("linux"):
+        return False
+    if _is_wsl(env, platform_name=platform_name, proc_version=proc_version):
+        return True
+    return not bool(env.get("DISPLAY") or env.get("WAYLAND_DISPLAY"))
+
+
+def _build_streamlit_command(
+    *,
+    python_executable: str,
+    script_path: str,
+    passthrough_args: List[str],
+    force_headless: bool,
+) -> List[str]:
+    cmd: List[str] = [python_executable, "-m", "streamlit", "run"]
+    if force_headless:
+        cmd.append("--server.headless=true")
+    cmd.append(script_path)
+    if passthrough_args:
+        cmd += ["--"] + passthrough_args
+    return cmd
+
+
+def _run_streamlit_command(cmd: List[str], runner=None) -> int:
+    if runner is None:
+        import subprocess
+
+        runner = subprocess.run
+    try:
+        result = runner(cmd, check=False)
+    except KeyboardInterrupt:
+        return 130
+    return int(getattr(result, "returncode", 0))
+
+
 # 如果是直接 python xxx.py 启动，并且当前不在 streamlit 环境里，就自动帮你转成 streamlit run
 if (
     __name__ == "__main__"
     and os.environ.get("ST_REDIRECTED", "0") != "1"
     and (get_script_run_ctx() is None)
 ):
-    import subprocess
-
     os.environ["ST_REDIRECTED"] = "1"
 
     script_path = str(Path(__file__).resolve())
@@ -54,17 +112,18 @@ if (
     if script_path.lower().endswith(".py"):
         script_path = script_path[:-3] + ".py"
 
-    cmd = [sys.executable, "-m", "streamlit", "run", script_path]
-
-    # 把原本 python xxx.py 后面的参数透传给 streamlit
-    if len(sys.argv) > 1:
-        cmd += ["--"] + sys.argv[1:]
+    cmd = _build_streamlit_command(
+        python_executable=sys.executable,
+        script_path=script_path,
+        passthrough_args=sys.argv[1:],
+        force_headless=_should_force_streamlit_headless(),
+    )
 
     if os.environ.get("ST_DEBUG_REDIRECT") == "1":
         print("[streamlit-redirect] ", cmd)
 
-    subprocess.run(cmd, check=False)
-    sys.exit(0)
+    exit_code = _run_streamlit_command(cmd)
+    sys.exit(exit_code)
 
 
 st.set_page_config(page_title="Warehouse Suite", layout="wide")
@@ -913,6 +972,21 @@ def apply_filters_v2(df: pd.DataFrame):
     with st.sidebar:
         st.header("筛选条件")
 
+        if st.button("清除 Stock 筛选", key="stock_clear_filters_button"):
+            ss["f_wh"] = []
+            ss["f_sup"] = []
+            ss["f_sup_ex"] = False
+            ss["f_brand"] = []
+            ss["f_desc"] = []
+            ss["f_code"] = []
+            ss["f_remark"] = []
+            ss["f_remark_ex"] = False
+            ss["use_date_filters"] = False
+            ss["expiry_range"] = None
+            ss["relabel_date_range"] = None
+            ss["__sig_wo_wh"] = None
+            ss["__focus_target"] = None
+
         sig_wo_wh = (
             tuple(ss.get("f_sup", [])),
             tuple(ss.get("f_brand", [])),
@@ -1284,6 +1358,37 @@ def _normalize_stocks_report(df: pd.DataFrame) -> Tuple[pd.DataFrame, Optional[s
 
 
 def _normalize_lai_hock_whse(df: pd.DataFrame) -> Tuple[pd.DataFrame, Optional[str]]:
+    col_texts = [str(c).strip().lower() for c in df.columns]
+
+    idx_stock_qty = next(
+        (
+            idx
+            for idx, text in enumerate(col_texts)
+            if ("stock" in text) and (("qty" in text) or ("quantity" in text))
+        ),
+        None,
+    )
+    if idx_stock_qty is None:
+        if df.shape[1] > 10:
+            idx_stock_qty = 10
+        elif df.shape[1] > 9:
+            idx_stock_qty = 9
+
+    idx_stocks_balance = next(
+        (
+            idx
+            for idx, text in enumerate(col_texts)
+            if ("stock" in text) and ("balance" in text)
+        ),
+        None,
+    )
+    if (
+        idx_stocks_balance is None
+        and df.shape[1] > 9
+        and (idx_stock_qty is None or idx_stock_qty != 9)
+    ):
+        idx_stocks_balance = 9
+
     expected_map = {
         0: "supplier",
         1: "brand",
@@ -1293,9 +1398,11 @@ def _normalize_lai_hock_whse(df: pd.DataFrame) -> Tuple[pd.DataFrame, Optional[s
         6: "unit",
         7: "expiry_date",
         8: "relabel_to_date",
-        9: "stocks_balance",
-        10: "stock_qty",
     }
+    if idx_stocks_balance is not None:
+        expected_map[idx_stocks_balance] = "stocks_balance"
+    if idx_stock_qty is not None:
+        expected_map[idx_stock_qty] = "stock_qty"
 
     warn_msgs = []
     pos_renames = {}
@@ -1398,6 +1505,16 @@ def on_toggle_low_stock() -> None:
     )
 
 
+def _clear_text_input_on_backspace(input_key: str, tracker_key: str) -> str:
+    current = str(st.session_state.get(input_key, "") or "")
+    previous = str(st.session_state.get(tracker_key, "") or "")
+    if previous and current and len(current) < len(previous) and previous.startswith(current):
+        st.session_state[input_key] = ""
+        current = ""
+    st.session_state[tracker_key] = current
+    return current
+
+
 _STOCK_PERSIST_KEYS = [
     "stock_file_name",
     "stock_file_bytes",
@@ -1450,6 +1567,7 @@ _SALES_PERSIST_KEYS = [
     "sales_basic_mode",
     "sales_date_preset",
     "sales_download_package",
+    "sales_price_list_account",
 ]
 
 
@@ -1668,6 +1786,9 @@ def run_stock_page():
             key="product_quick_filter",
             placeholder="Filter by supplier / brand / product / code",
             help="Client-side filter that applies to Supplier, Brand, Product, and Product Code.",
+        )
+        product_query_raw = _clear_text_input_on_backspace(
+            "product_quick_filter", "__prev_product_quick_filter"
         )
         status_selected = st.multiselect(
             "Status filter",
@@ -2802,12 +2923,20 @@ def apply_sales_filters(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, str]]
 
     ss.setdefault(session_keys["Year"], [])
     ss.setdefault(session_keys["Month"], [])
+    ss.setdefault("sales_basic_mode", True)
+
+    if st.button("Clear sales filters", key="sales_clear_filters_button"):
+        for key in session_keys.values():
+            ss[key] = []
+        ss[customer_exclude_key] = []
+        ss["sales_filter_invoice"] = ""
+        ss["sales_filter_date_from"] = None
+        ss["sales_filter_date_to"] = None
 
     with st.form("sales_filters_form"):
         basic_sales_mode = st.toggle(
             "Basic mode",
             key="sales_basic_mode",
-            value=True,
             help="Show only core sales filters. Turn off to access advanced filters.",
         )
 
@@ -2880,11 +3009,32 @@ def apply_sales_filters(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, str]]
             ss[customer_exclude_key] = []
             ss[session_keys["Supplier"]] = []
             ss[session_keys["Brand/Category"]] = []
-            ss[session_keys["Product Code"]] = []
-            ss[session_keys["Account"]] = []
             ss["sales_filter_invoice"] = ""
             ss["sales_filter_date_from"] = None
             ss["sales_filter_date_to"] = None
+
+            product_code_options = _options_for("Product Code")
+            _ensure_multiselect_key_state(
+                session_keys["Product Code"], product_code_options, default=[]
+            )
+            account_options = _options_for("Account")
+            _ensure_multiselect_key_state(
+                session_keys["Account"], account_options, default=[]
+            )
+
+            basic_extra_cols = st.columns(2)
+            with basic_extra_cols[0]:
+                st.multiselect(
+                    "Product Code",
+                    product_code_options,
+                    key=session_keys["Product Code"],
+                )
+            with basic_extra_cols[1]:
+                st.multiselect(
+                    "Account",
+                    account_options,
+                    key=session_keys["Account"],
+                )
         else:
             _ensure_multiselect_key_state(
                 customer_exclude_key, customer_options, default=[]
@@ -2998,6 +3148,8 @@ def apply_sales_filters(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, str]]
                     )
 
         submitted = st.form_submit_button("Apply sales filters")
+
+    _clear_text_input_on_backspace("sales_filter_invoice", "__prev_sales_filter_invoice")
 
     filtered_df = df.loc[_mask()].reset_index(drop=True)
     selection_values = {
@@ -3442,6 +3594,140 @@ def build_sales_usage_views(
     return monthly_usage, customer_usage, customer_month_matrix
 
 
+def build_product_monthly_summary(df: pd.DataFrame) -> pd.DataFrame:
+    columns = ["年月", "供应商", "产品描述", "产品编码", "箱规", "总销量", "总销售额"]
+    if df is None or df.empty:
+        return pd.DataFrame(columns=columns)
+
+    work = df.copy()
+    for col in ["Qty in Ctns", "Qty in Pcs", "Total Value", "carton_packing_numeric"]:
+        if col not in work.columns:
+            work[col] = 0.0
+        work[col] = pd.to_numeric(work[col], errors="coerce").fillna(0.0)
+
+    if "YearMonth" not in work.columns:
+        if "Date" in work.columns:
+            date_series = pd.to_datetime(work["Date"], errors="coerce")
+            work["YearMonth"] = date_series.dt.strftime("%Y-%b")
+            work.loc[date_series.isna(), "YearMonth"] = "未知"
+        else:
+            work["YearMonth"] = "未知"
+
+    for col in ["Supplier", "Product Description", "Product Code", "Carton Packing"]:
+        if col not in work.columns:
+            work[col] = ""
+        work[col] = work[col].astype("string").fillna("").str.strip()
+
+    def _pack_signature(series: pd.Series) -> Tuple[float, ...]:
+        values = pd.to_numeric(series, errors="coerce").dropna()
+        values = values[values > 0]
+        if values.empty:
+            return tuple()
+        return tuple(sorted({float(v) for v in values.tolist()}))
+
+    def _qty_text(ctn: float, pcs: float, packs: Tuple[float, ...]) -> str:
+        if packs and len(packs) == 1:
+            size = int(round(float(packs[0])))
+            if size > 0:
+                total_packets = int(round(float(ctn) * size + float(pcs)))
+                return _format_total_qty_text(total_packets, size)
+        return _format_quantity_pair(float(ctn), float(pcs))
+
+    grouped = (
+        work.groupby(
+            [
+                "YearMonth",
+                "Supplier",
+                "Product Description",
+                "Product Code",
+                "Carton Packing",
+            ],
+            dropna=False,
+            as_index=False,
+        )
+        .agg(
+            {
+                "Qty in Ctns": "sum",
+                "Qty in Pcs": "sum",
+                "Total Value": "sum",
+                "carton_packing_numeric": _pack_signature,
+            }
+        )
+        .copy()
+    )
+
+    month_sort = pd.to_datetime(grouped["YearMonth"], format="%Y-%b", errors="coerce")
+    grouped["_month_sort"] = month_sort.fillna(pd.Timestamp.max)
+    grouped["总销量"] = grouped.apply(
+        lambda row: _qty_text(
+            row.get("Qty in Ctns", 0.0),
+            row.get("Qty in Pcs", 0.0),
+            row.get("carton_packing_numeric", tuple()),
+        ),
+        axis=1,
+    )
+    grouped["总销售额"] = grouped["Total Value"].apply(_format_price_display)
+
+    result = (
+        grouped.sort_values(
+            [
+                "_month_sort",
+                "YearMonth",
+                "Supplier",
+                "Product Description",
+                "Product Code",
+                "Carton Packing",
+            ],
+            kind="stable",
+        )
+        .rename(
+            columns={
+                "YearMonth": "年月",
+                "Supplier": "供应商",
+                "Product Description": "产品描述",
+                "Product Code": "产品编码",
+                "Carton Packing": "箱规",
+            }
+        )
+        .loc[:, columns]
+        .reset_index(drop=True)
+    )
+    return result
+
+
+def compute_sales_amount_kpis(df: pd.DataFrame) -> Tuple[float, float]:
+    if df is None or df.empty:
+        return 0.0, 0.0
+
+    work = df.copy()
+    if "Date" in work.columns:
+        work["Date"] = pd.to_datetime(work["Date"], errors="coerce")
+    else:
+        work["Date"] = pd.NaT
+
+    latest_date = work["Date"].dropna().max()
+    if pd.isna(latest_date):
+        return 0.0, 0.0
+
+    value_col = (
+        "Total Value Inclusive GST"
+        if "Total Value Inclusive GST" in work.columns
+        else "Total Value"
+    )
+    if value_col not in work.columns:
+        work[value_col] = 0.0
+    values = pd.to_numeric(work[value_col], errors="coerce").fillna(0.0)
+
+    this_month_mask = (work["Date"].dt.year == latest_date.year) & (
+        work["Date"].dt.month == latest_date.month
+    )
+    this_year_mask = work["Date"].dt.year == latest_date.year
+
+    month_total = float(values[this_month_mask].sum())
+    year_total = float(values[this_year_mask].sum())
+    return month_total, year_total
+
+
 def _render_sales_business_dashboard(filtered_df: pd.DataFrame) -> None:
     if filtered_df is None or filtered_df.empty:
         st.info("当前筛选未产出任何销售数据。")
@@ -3502,11 +3788,10 @@ def _render_sales_business_dashboard(filtered_df: pd.DataFrame) -> None:
 
     month_ctn = float(work.loc[this_month_mask, "Qty in Ctns"].sum())
     month_pcs = float(work.loc[this_month_mask, "Qty in Pcs"].sum())
-    month_val = float(work.loc[this_month_mask, "Total Value"].sum())
+    month_val, year_val = compute_sales_amount_kpis(work)
 
     year_ctn = float(work.loc[this_year_mask, "Qty in Ctns"].sum())
     year_pcs = float(work.loc[this_year_mask, "Qty in Pcs"].sum())
-    year_val = float(work.loc[this_year_mask, "Total Value"].sum())
 
     def _kpi_qty_text(scope_df: pd.DataFrame) -> str:
         if scope_df is None or scope_df.empty:
@@ -3569,11 +3854,15 @@ def _render_sales_business_dashboard(filtered_df: pd.DataFrame) -> None:
 
     kpi_cols = st.columns(6)
     kpi_cols[0].metric("本月销量", month_qty_text)
-    kpi_cols[1].metric("本月销售额", _format_price_display(month_val))
+    kpi_cols[1].metric("本月销售额(含GST)", _format_price_display(month_val))
     kpi_cols[2].metric("本年销量", year_qty_text)
-    kpi_cols[3].metric("本年销售额", _format_price_display(year_val))
+    kpi_cols[3].metric("本年销售额(含GST)", _format_price_display(year_val))
     kpi_cols[4].metric("周均销量(包)", _format_qty_display(avg_week_packets))
     kpi_cols[5].metric("月均销量(包)", _format_qty_display(avg_month_packets))
+
+    product_monthly_view = build_product_monthly_summary(work)
+    st.subheader("产品月度销量（不分客户）")
+    st.dataframe(product_monthly_view, width="stretch", hide_index=True)
 
     strict_key_cols = [
         "Customer",
@@ -3949,7 +4238,175 @@ def run_sales_page():
             mime=sales_payload["mime"],
         )
 
+        st.markdown("### Price List by Account")
+        account_options = sorted(
+            [
+                x
+                for x in sales_df.get("Account", pd.Series(dtype="string"))
+                .astype("string")
+                .fillna("")
+                .str.strip()
+                .unique()
+                .tolist()
+                if x
+            ]
+        )
+        if not account_options:
+            st.info("当前数据没有可用 Account，无法生成 Price List。")
+        else:
+            selected_account = st.selectbox(
+                "选择 Account",
+                options=account_options,
+                key="sales_price_list_account",
+            )
+            price_list_df = build_account_price_list(sales_df, selected_account)
+            if price_list_df.empty:
+                st.info("该 Account 暂无可用于计算 price/kg 的最新记录。")
+            else:
+                price_list_display = price_list_df.copy()
+                price_list_display["Selling Price by kg"] = price_list_display[
+                    "Selling Price by kg"
+                ].apply(_format_price_display)
+                st.dataframe(price_list_display, width="stretch", hide_index=True)
+
+                price_csv = io.StringIO()
+                price_list_df.to_csv(price_csv, index=False)
+
+                price_excel = io.BytesIO()
+                with pd.ExcelWriter(price_excel, engine="openpyxl") as writer:
+                    price_list_df.to_excel(writer, sheet_name="Price List", index=False)
+                price_excel.seek(0)
+
+                dl_cols = st.columns(2)
+                dl_cols[0].download_button(
+                    "下载 Price List CSV",
+                    data=price_csv.getvalue(),
+                    file_name=f"price_list_{selected_account}.csv",
+                    mime="text/csv",
+                )
+                dl_cols[1].download_button(
+                    "下载 Price List Excel",
+                    data=price_excel.getvalue(),
+                    file_name=f"price_list_{selected_account}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                )
+
     return
+
+
+def _infer_weight_kg_per_packet(value: Any) -> Optional[float]:
+    if pd.isna(value):
+        return None
+    text = str(value).strip().lower()
+    if not text:
+        return None
+    match = re.search(r"(\d+(?:\.\d+)?)\s*(kg|kgs|g|gm|gram|grams)", text)
+    if not match:
+        return None
+    number = float(match.group(1))
+    unit = match.group(2)
+    if unit in {"g", "gm", "gram", "grams"}:
+        return number / 1000.0
+    return number
+
+
+def build_account_price_list(df: pd.DataFrame, account: str) -> pd.DataFrame:
+    columns = [
+        "Customer",
+        "Product Code",
+        "Product Description",
+        "Pack Size",
+        "Last Selling Date",
+        "Selling Price by kg",
+    ]
+    if df is None or df.empty or not account:
+        return pd.DataFrame(columns=columns)
+
+    work = df.copy()
+    for required_col in [
+        "Account",
+        "Date",
+        "Customer",
+        "Product Code",
+        "Product Description",
+        "Carton Packing",
+        "Qty in Pcs",
+        "Qty in Ctns",
+        "Total Value",
+    ]:
+        if required_col not in work.columns:
+            work[required_col] = pd.NA
+
+    work["_account"] = work["Account"].astype("string").fillna("").str.strip()
+    work = work[work["_account"] == str(account).strip()]
+    if work.empty:
+        return pd.DataFrame(columns=columns)
+
+    work["_date"] = pd.to_datetime(work["Date"], errors="coerce")
+    work = work[work["_date"].notna()]
+    if work.empty:
+        return pd.DataFrame(columns=columns)
+
+    work["_customer"] = work["Customer"].astype("string").fillna("").str.strip()
+    work["_product_code"] = work["Product Code"].astype("string").fillna("").str.strip()
+    work["_product_desc"] = (
+        work["Product Description"].astype("string").fillna("").str.strip()
+    )
+    work["_pack_size"] = work["Carton Packing"].astype("string").fillna("").str.strip()
+
+    work["_carton_pack_size"] = work["Carton Packing"].map(_infer_carton_pack_size)
+    work["_weight_kg_per_pkt"] = work["Carton Packing"].map(_infer_weight_kg_per_packet)
+    work["_qty_pcs"] = pd.to_numeric(work["Qty in Pcs"], errors="coerce").fillna(0.0)
+    work["_qty_ctn"] = pd.to_numeric(work["Qty in Ctns"], errors="coerce").fillna(0.0)
+    work["_total_value"] = pd.to_numeric(work["Total Value"], errors="coerce").fillna(
+        0.0
+    )
+
+    work["_total_packets"] = work["_qty_pcs"] + (
+        work["_qty_ctn"]
+        * pd.to_numeric(work["_carton_pack_size"], errors="coerce").fillna(0.0)
+    )
+    work["_total_kg"] = work["_total_packets"] * pd.to_numeric(
+        work["_weight_kg_per_pkt"], errors="coerce"
+    )
+
+    group_cols = ["_customer", "_product_code", "_product_desc", "_pack_size"]
+    latest_date = work.groupby(group_cols, dropna=False)["_date"].transform("max")
+    latest = work[work["_date"] == latest_date].copy()
+    if latest.empty:
+        return pd.DataFrame(columns=columns)
+
+    summary = (
+        latest.groupby(group_cols, dropna=False, as_index=False)
+        .agg(
+            _total_value=("_total_value", "sum"),
+            _total_kg=("_total_kg", "sum"),
+            _last_selling_date=("_date", "max"),
+        )
+        .rename(
+            columns={
+                "_customer": "Customer",
+                "_product_code": "Product Code",
+                "_product_desc": "Product Description",
+                "_pack_size": "Pack Size",
+            }
+        )
+    )
+    summary["Selling Price by kg"] = _safe_divide_series(
+        summary["_total_value"], summary["_total_kg"]
+    )
+    summary["Last Selling Date"] = pd.to_datetime(
+        summary["_last_selling_date"], errors="coerce"
+    ).dt.strftime("%Y-%m-%d").fillna("")
+    summary = summary.drop(
+        columns=["_total_value", "_total_kg", "_last_selling_date"], errors="ignore"
+    )
+    summary = summary[columns].sort_values(
+        by=["Customer", "Product Code", "Product Description", "Pack Size"],
+        kind="stable",
+    )
+    summary = summary.reset_index(drop=True)
+    return summary
 
 
 # ----------------------------- 主入口：使用 tabs 让两个界面独立运行 -----------------------------

@@ -312,16 +312,31 @@ def _fuzzy_match_item(item_desc: str, item_norm_map: dict[str, str]) -> dict | N
 def _prompt_use_item_suggestion(
     pdf_name: str, store: str | None, po: str | None, desc: str, suggestions: list[str]
 ) -> bool:
-    print("\n[匹配建议] 发现可能的 Excel 列名，请确认是否自动匹配：")
-    print(f"- PDF: {pdf_name}, 门店: {store}, PO: {po}, 品名: {desc}")
-    print(f"  可能列名: {', '.join(suggestions)}")
+    print("\n" + "=" * 72)
+    print("[匹配建议] 发现可能的 Excel 列名，请确认是否自动匹配")
+    print("-" * 72)
+    print(f"PDF : {pdf_name}")
+    print(f"门店: {store or '-'}")
+    print(f"PO  : {po or '-'}")
+    print(f"品名: {desc}")
+    print("可选列名:")
+    for idx, name in enumerate(suggestions, start=1):
+        marker = " <- 默认候选" if idx == 1 else ""
+        print(f"  {idx:>2}. {name}{marker}")
+    print("-" * 72)
     while True:
-        ans = input("  是否使用第 1 个候选列并临时加入别名? (y/n): ").strip().lower()
+        ans = (
+            input("请选择: y=使用第1个候选列并临时加入别名, n=本次不使用 (y/n): ")
+            .strip()
+            .lower()
+        )
         if ans in {"y", "yes"}:
+            print("已选择: 使用第1个候选列。")
             return True
         if ans in {"n", "no"}:
+            print("已选择: 不使用自动匹配。")
             return False
-        print("  请输入 y 或 n。")
+        print("输入无效，请输入 y 或 n。")
 
 
 def _collect_item_hint_lines(lines: list[str], limit: int = 5) -> list[str]:

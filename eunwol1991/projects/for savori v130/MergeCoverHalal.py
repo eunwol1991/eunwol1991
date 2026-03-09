@@ -1,5 +1,6 @@
 import os
-from PyPDF2 import PdfMerger
+import importlib
+import importlib.util
 
 
 def _is_wsl() -> bool:
@@ -30,42 +31,130 @@ def _from_c(path_tail: str) -> str:
     return f"{root}/{tail}"
 
 
-def merge_cover_to_all(input_folder, output_folder, cover_filename):
-    # 获取封面完整路径
-    cover_path = os.path.join(input_folder, cover_filename)
-
-    # 检查封面是否存在
-    if not os.path.exists(cover_path):
-        print(f"❌ 找不到封面文件：{cover_path}")
+def merge_cover_with_file(
+    cover_pdf_path: str, target_pdf_path: str, output_pdf_path: str
+):
+    pypdf_spec = importlib.util.find_spec("pypdf")
+    if pypdf_spec is None:
+        print("❌ 缺少 PDF 库，请先安装：pip install pypdf")
         return
 
-    # 创建输出文件夹（如不存在）
+    pypdf_module = importlib.import_module("pypdf")
+    writer_cls = getattr(pypdf_module, "PdfWriter", None)
+    if writer_cls is None:
+        print("❌ 当前 pypdf 不包含 PdfWriter，请升级：pip install -U pypdf")
+        return
+
+    if not os.path.exists(cover_pdf_path):
+        print(f"❌ 找不到封面文件：{cover_pdf_path}")
+        return
+    if not os.path.exists(target_pdf_path):
+        print(f"❌ 找不到目标文件：{target_pdf_path}")
+        return
+
+    output_dir = os.path.dirname(output_pdf_path)
+    if output_dir and not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    try:
+        cover_real = os.path.realpath(cover_pdf_path)
+        target_real = os.path.realpath(target_pdf_path)
+        output_real = os.path.realpath(output_pdf_path)
+    except OSError as e:
+        print(f"❌ 路径解析失败，错误：{e}")
+        return
+
+    if output_real in {cover_real, target_real}:
+        print("❌ 输出文件不能和封面/目标文件相同")
+        return
+
+    try:
+        writer = writer_cls()
+        writer.append(cover_pdf_path)
+        writer.append(target_pdf_path)
+        _ = writer.write(output_pdf_path)
+        print(f"✅ 已合并 → {output_pdf_path}")
+    except Exception as e:
+        print(f"❌ 合并失败，错误：{e}")
+
+
+def merge_cover_with_each_page(
+    cover_pdf_path: str,
+    target_pdf_path: str,
+    output_folder: str,
+    output_prefix: str,
+):
+    pypdf_spec = importlib.util.find_spec("pypdf")
+    if pypdf_spec is None:
+        print("❌ 缺少 PDF 库，请先安装：pip install pypdf")
+        return []
+
+    pypdf_module = importlib.import_module("pypdf")
+    writer_cls = getattr(pypdf_module, "PdfWriter", None)
+    reader_cls = getattr(pypdf_module, "PdfReader", None)
+    if writer_cls is None or reader_cls is None:
+        print("❌ 当前 pypdf 不包含 PdfWriter/PdfReader，请升级：pip install -U pypdf")
+        return []
+
+    if not os.path.exists(cover_pdf_path):
+        print(f"❌ 找不到封面文件：{cover_pdf_path}")
+        return []
+    if not os.path.exists(target_pdf_path):
+        print(f"❌ 找不到目标文件：{target_pdf_path}")
+        return []
+
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
 
-    # 遍历所有 PDF
-    for filename in os.listdir(input_folder):
-        if filename.endswith(".pdf") and filename != cover_filename:
-            target_path = os.path.join(input_folder, filename)
-            output_path = os.path.join(output_folder, filename)
+    try:
+        cover_reader = reader_cls(cover_pdf_path)
+        target_reader = reader_cls(target_pdf_path)
+    except Exception as e:
+        print(f"❌ 读取 PDF 失败，错误：{e}")
+        return []
 
-            try:
-                merger = PdfMerger()
-                merger.append(cover_path)
-                merger.append(target_path)
-                merger.write(output_path)
-                merger.close()
-                print(f"✅ 已合并 → {output_path}")
-            except Exception as e:
-                print(f"❌ 合并失败 → {filename}，错误：{e}")
+    target_page_count = len(target_reader.pages)
+    if target_page_count == 0:
+        print(f"⚠️ 目标文件没有页面：{target_pdf_path}")
+        return []
+
+    output_paths = []
+    for idx in range(target_page_count):
+        page_no = idx + 1
+        output_path = os.path.join(output_folder, f"{output_prefix}_p{page_no:03d}.pdf")
+
+        try:
+            writer = writer_cls()
+            for cover_page in cover_reader.pages:
+                writer.add_page(cover_page)
+            writer.add_page(target_reader.pages[idx])
+            _ = writer.write(output_path)
+            output_paths.append(output_path)
+            print(f"✅ 已生成 → {output_path}")
+        except Exception as e:
+            print(f"❌ 生成失败（第 {page_no} 页），错误：{e}")
+
+    return output_paths
 
 
 # === 参数设置 ===
-input_path = _from_c(
-    "Users/jhunj/Downloads/Re_ Innofrsh_Savori request for updated Halal cert (Exp_ May & Jun'25)"
+cover_pdf_path = _from_c(
+    "Users/jhunj/Dropbox/for jj/Halal/A477_ Innofresh_cover exp.30-05-2027 EN.pdf"
 )
-output_path = _from_c("Users/jhunj/Downloads/halal cert")
-cover_pdf_name = "Halal A477-2548 valid 05.08.2026 EN cover.pdf"
+target_pdf_path = _from_c(
+    "Users/jhunj/Dropbox/for jj/Halal/A477_ Innofresh_total list exp.30-05-2027.pdf"
+)
+output_pdf_path = _from_c(
+    "Users/jhunj/Dropbox/for jj/Halal/merged/A477_ Innofresh_total list exp.30-05-2027 (with cover).pdf"
+)
+output_folder = _from_c("Users/jhunj/Dropbox/for jj/Halal/merged/pages")
+output_prefix = "A477_ Innofresh_total list exp.30-05-2027"
 
 # === 执行函数 ===
-merge_cover_to_all(input_path, output_path, cover_pdf_name)
+if __name__ == "__main__":
+    merge_cover_with_each_page(
+        cover_pdf_path=cover_pdf_path,
+        target_pdf_path=target_pdf_path,
+        output_folder=output_folder,
+        output_prefix=output_prefix,
+    )

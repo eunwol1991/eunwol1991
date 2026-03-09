@@ -1,5 +1,7 @@
 import os
+import re
 from openpyxl import load_workbook
+
 
 def replace_in_cell(cell):
     if cell.value is None:
@@ -41,11 +43,31 @@ def rename_file_if_needed(file_path):
     return file_path
 
 
+def normalize_input_dir(raw_path):
+    path = raw_path.strip().strip('"').strip("'")
+    if not path:
+        return path
+
+    path = os.path.expanduser(os.path.expandvars(path))
+    candidates = [path]
+
+    if re.match(r"^[A-Za-z]:[\\/]", path):
+        drive = path[0].lower()
+        rest = path[2:].replace("\\", "/").lstrip("/")
+        candidates.append(f"/mnt/{drive}/{rest}")
+
+    for candidate in candidates:
+        if os.path.isdir(candidate):
+            return candidate
+
+    return candidates[0]
+
+
 def main():
-    root_dir = input("请输入要处理的文件夹路径: ").strip()
+    root_dir = normalize_input_dir(input("请输入要处理的文件夹路径: "))
 
     if not os.path.isdir(root_dir):
-        print("路径无效")
+        print(f"路径无效: {root_dir}")
         return
 
     for root, _, files in os.walk(root_dir):
