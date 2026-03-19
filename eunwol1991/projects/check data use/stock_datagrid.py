@@ -1,9 +1,11 @@
 import streamlit as st
+import streamlit.components.v1 as components
 from typing import Any, Optional, Tuple, List, Dict
 import datetime
 import math
 import pandas as pd
 import re
+import json
 import os
 import sys
 import io
@@ -130,9 +132,166 @@ st.set_page_config(page_title="Warehouse Suite", layout="wide")
 
 PRIMARY_WAREHOUSES = ["Savori Whse", "Lai Hock Whse"]
 
+_HOTKEY_ACTION_PARAM = "__hotkey_action"
+_HOTKEY_ACTION_CLEAR_STOCK = "clear_stock_filters"
+_HOTKEY_ACTION_CLEAR_SALES = "clear_sales_filters"
+
 # ==== 新增：预编译正则 ====
 HTML_TAG_RE = re.compile(r"<.*?>")
 PAREN_CONTENT_RE = re.compile(r"\s*\([^)]*\)")
+
+
+def _inject_delete_hotkey_listener(action: str) -> None:
+    script = """
+<script>
+(function() {
+  const action = __ACTION__;
+  const actionParam = "__hotkey_action";
+  function resolveHostWindow() {
+    try {
+      if (window.parent && window.parent !== window) {
+        void window.parent.location.href;
+        return window.parent;
+      }
+    } catch (e) {
+      // Ignore cross-origin parent access and fall back to current window.
+    }
+    return window;
+  }
+
+  const hostWindow = resolveHostWindow();
+  hostWindow.__savoriDeleteHotkeyAction = action;
+
+  if (hostWindow.__savoriDeleteHotkeyBound) {
+    return;
+  }
+  hostWindow.__savoriDeleteHotkeyBound = true;
+
+  let hostDocument = null;
+  try {
+    hostDocument = hostWindow.document || document;
+  } catch (e) {
+    hostDocument = document;
+  }
+
+  function isEditable(target) {
+    if (!target) {
+      return false;
+    }
+    const tag = String(target.tagName || "").toUpperCase();
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") {
+      return true;
+    }
+    return Boolean(target.isContentEditable);
+  }
+
+  function isDeleteKey(event) {
+    const key = String(event.key || "");
+    const code = String(event.code || "");
+    return key === "Delete" || key === "Del" || code === "Delete";
+  }
+
+  function triggerClear(currentAction) {
+    try {
+      const currentHref = String(hostWindow.location.href || "");
+      const url = new URL(currentHref, window.location.origin);
+      if (url.searchParams.get(actionParam) === currentAction) {
+        return;
+      }
+      url.searchParams.set(actionParam, currentAction);
+      hostWindow.location.assign(url.toString());
+    } catch (e) {
+      try {
+        const fallbackUrl = new URL(window.location.href);
+        if (fallbackUrl.searchParams.get(actionParam) === currentAction) {
+          return;
+        }
+        fallbackUrl.searchParams.set(actionParam, currentAction);
+        window.location.assign(fallbackUrl.toString());
+      } catch (err) {
+        // No-op fallback.
+      }
+    }
+  }
+
+  function onKeydown(event) {
+    const currentAction = hostWindow.__savoriDeleteHotkeyAction || action;
+    if (!isDeleteKey(event) || event.repeat) {
+      return;
+    }
+    const activeEl = hostDocument ? hostDocument.activeElement : null;
+    if (isEditable(event.target) || isEditable(activeEl)) {
+      return;
+    }
+    triggerClear(currentAction);
+  }
+
+  hostWindow.addEventListener("keydown", onKeydown, true);
+  if (hostDocument) {
+    hostDocument.addEventListener("keydown", onKeydown, true);
+  }
+})();
+</script>
+"""
+    components.html(
+        script.replace("__ACTION__", json.dumps(action)),
+        height=0,
+    )
+
+
+def _consume_hotkey_action() -> Optional[str]:
+    action: Optional[str] = None
+    if hasattr(st, "query_params"):
+        raw = st.query_params.get(_HOTKEY_ACTION_PARAM)
+        if isinstance(raw, list):
+            action = raw[0] if raw else None
+        else:
+            action = raw
+    else:
+        get_query_params = getattr(st, "experimental_get_query_params", None)
+        params_raw = get_query_params() if callable(get_query_params) else {}
+        params = params_raw if isinstance(params_raw, dict) else {}
+        raw = params.get(_HOTKEY_ACTION_PARAM)
+        if isinstance(raw, list):
+            action = raw[0] if raw else None
+        else:
+            action = raw
+
+    if not action:
+        return None
+
+    if hasattr(st, "query_params"):
+        try:
+            del st.query_params[_HOTKEY_ACTION_PARAM]
+        except Exception:
+            pass
+    else:
+        get_query_params = getattr(st, "experimental_get_query_params", None)
+        set_query_params = getattr(st, "experimental_set_query_params", None)
+        params_raw = get_query_params() if callable(get_query_params) else {}
+        params = params_raw if isinstance(params_raw, dict) else {}
+        params.pop(_HOTKEY_ACTION_PARAM, None)
+        if callable(set_query_params):
+            set_query_params(**params)
+
+    return str(action)
+
+
+def _clear_stock_filters_state(ss: Dict[str, Any]) -> None:
+    ss["f_wh"] = []
+    ss["f_sup"] = []
+    ss["f_sup_ex"] = False
+    ss["f_brand"] = []
+    ss["f_brand_ex"] = False
+    ss["f_desc"] = []
+    ss["f_code"] = []
+    ss["f_remark"] = []
+    ss["f_remark_ex"] = False
+    ss["use_date_filters"] = False
+    ss["expiry_range"] = None
+    ss["relabel_date_range"] = None
+    ss["__sig_wo_wh"] = None
+    ss["__focus_target"] = None
 
 
 # ----------------------------- 基础工具函数 -----------------------------
@@ -355,6 +514,29 @@ SALES_NUMERIC_COLUMNS = [
 ]
 
 SALES_DATE_COLUMNS = ["Date"]
+
+SALES_FILTER_SESSION_KEYS = {
+    "Year": "sales_filter_year",
+    "Month": "sales_filter_month",
+    "Customer": "sales_filter_customer",
+    "Outlet": "sales_filter_outlet",
+    "Product Description": "sales_filter_product_description",
+    "Supplier": "sales_filter_supplier",
+    "Brand/Category": "sales_filter_brand",
+    "Product Code": "sales_filter_product_code",
+    "Account": "sales_filter_account",
+}
+
+SALES_FILTER_CUSTOMER_EXCLUDE_KEY = "sales_filter_customer_exclude"
+
+
+def _clear_sales_filters_state(ss: Dict[str, Any]) -> None:
+    for key in SALES_FILTER_SESSION_KEYS.values():
+        ss[key] = []
+    ss[SALES_FILTER_CUSTOMER_EXCLUDE_KEY] = []
+    ss["sales_filter_invoice"] = ""
+    ss["sales_filter_date_from"] = None
+    ss["sales_filter_date_to"] = None
 
 
 def _safe_divide_series(numerator, denominator) -> pd.Series:
@@ -894,6 +1076,38 @@ def _extract_remarks_from_desc(series: pd.Series) -> list:
     return sorted(out)
 
 
+def _parse_text_query_terms(value: Any) -> List[str]:
+    parts = re.split(r"[,;\n]", str(value or ""))
+    return [part.strip().lower() for part in parts if part and part.strip()]
+
+
+def _build_stock_description_suggestion_options(df: pd.DataFrame) -> List[str]:
+    if df is None or df.empty or "description" not in df.columns:
+        return []
+    base_values = _desc_base_series(df["description"])
+    unique_values = {
+        str(value).strip() for value in base_values.tolist() if str(value).strip()
+    }
+    return sorted(unique_values)
+
+
+def _build_stock_product_code_suggestion_options(df: pd.DataFrame) -> List[str]:
+    if df is None or df.empty or "product_code" not in df.columns:
+        return []
+    unique_values = {
+        str(value).strip()
+        for value in df["product_code"].dropna().astype(str).tolist()
+        if str(value).strip()
+    }
+    return sorted(unique_values)
+
+
+def _build_stock_remark_suggestion_options(df: pd.DataFrame) -> List[str]:
+    if df is None or df.empty or "description" not in df.columns:
+        return []
+    return _extract_remarks_from_desc(df["description"])
+
+
 def _apply_filter_state(
     df_in: pd.DataFrame, filter_state: Dict[str, Any], exclude: str = ""
 ) -> pd.DataFrame:
@@ -918,8 +1132,10 @@ def _apply_filter_state(
 
     if exclude != "brand" and "brand" in d.columns:
         sel = list(filter_state.get("f_brand", []))
+        exm = bool(filter_state.get("f_brand_ex", False))
         if sel:
-            d = d[_include(d["brand"], sel)]
+            m = d["brand"].isin(sel)
+            d = d[~m] if exm else d[m]
 
     if exclude != "desc" and "description" in d.columns:
         base_ser = _desc_base_series(d["description"])
@@ -973,26 +1189,17 @@ def apply_filters_v2(df: pd.DataFrame):
         st.header("筛选条件")
 
         if st.button("清除 Stock 筛选", key="stock_clear_filters_button"):
-            ss["f_wh"] = []
-            ss["f_sup"] = []
-            ss["f_sup_ex"] = False
-            ss["f_brand"] = []
-            ss["f_desc"] = []
-            ss["f_code"] = []
-            ss["f_remark"] = []
-            ss["f_remark_ex"] = False
-            ss["use_date_filters"] = False
-            ss["expiry_range"] = None
-            ss["relabel_date_range"] = None
-            ss["__sig_wo_wh"] = None
-            ss["__focus_target"] = None
+            _clear_stock_filters_state(ss)
 
         sig_wo_wh = (
             tuple(ss.get("f_sup", [])),
+            bool(ss.get("f_sup_ex", False)),
             tuple(ss.get("f_brand", [])),
+            bool(ss.get("f_brand_ex", False)),
             tuple(ss.get("f_desc", [])),
             tuple(ss.get("f_code", [])),
             tuple(ss.get("f_remark", [])),
+            bool(ss.get("f_remark_ex", False)),
             bool(ss.get("use_date_filters", False)),
             ss.get("expiry_range"),
             ss.get("relabel_date_range"),
@@ -1046,32 +1253,24 @@ def apply_filters_v2(df: pd.DataFrame):
             st.multiselect(
                 "Brand", brand_options, key="f_brand", placeholder="选择品牌"
             )
+            st.checkbox("Exclude selected (Brand)", key="f_brand_ex", value=False)
             sel_brand = list(ss.get("f_brand", []))
 
         if "description" in base.columns:
             d = _apply_filter_state(base, ss, exclude="desc")
-            base_ser = (
-                _desc_base_series(d["description"])
-                if not d.empty
-                else pd.Series(dtype=str)
-            )
-            desc_options = sorted([x for x in base_ser.dropna().unique().tolist() if x])
+            desc_options = _build_stock_description_suggestion_options(d)
             _ensure_multiselect_key("f_desc", desc_options, [])
             st.multiselect(
                 "Description（去括号后）",
                 desc_options,
                 key="f_desc",
                 placeholder="选择描述",
-                on_change=_set_focus_target,
-                args=("desc",),
             )
             sel_desc = list(ss.get("f_desc", []))
 
         if "product_code" in base.columns:
             d = _apply_filter_state(base, ss, exclude="code")
-            code_options = sorted(
-                [x for x in d["product_code"].dropna().unique().tolist()]
-            )
+            code_options = _build_stock_product_code_suggestion_options(d)
             _ensure_multiselect_key("f_code", code_options, [])
             st.multiselect(
                 "Product Code",
@@ -1083,20 +1282,16 @@ def apply_filters_v2(df: pd.DataFrame):
 
         if "description" in base.columns:
             d = _apply_filter_state(base, ss, exclude="remark")
-            remark_options = (
-                _extract_remarks_from_desc(d["description"]) if not d.empty else []
-            )
+            remark_options = _build_stock_remark_suggestion_options(d)
             _ensure_multiselect_key("f_remark", remark_options, [])
             st.multiselect(
                 "Remark（来自描述括号）",
                 remark_options,
                 key="f_remark",
                 placeholder="选择 Remark",
-                on_change=_set_focus_target,
-                args=("remark",),
             )
-            st.checkbox("Exclude selected (Remark)", key="f_remark_ex", value=False)
             sel_remark = list(ss.get("f_remark", []))
+            st.checkbox("Exclude matches (Remark)", key="f_remark_ex", value=False)
 
         use_date_filters = st.checkbox(
             "启用日期范围筛选",
@@ -1508,7 +1703,12 @@ def on_toggle_low_stock() -> None:
 def _clear_text_input_on_backspace(input_key: str, tracker_key: str) -> str:
     current = str(st.session_state.get(input_key, "") or "")
     previous = str(st.session_state.get(tracker_key, "") or "")
-    if previous and current and len(current) < len(previous) and previous.startswith(current):
+    if (
+        previous
+        and current
+        and len(current) < len(previous)
+        and previous.startswith(current)
+    ):
         st.session_state[input_key] = ""
         current = ""
     st.session_state[tracker_key] = current
@@ -1522,6 +1722,7 @@ _STOCK_PERSIST_KEYS = [
     "f_sup",
     "f_sup_ex",
     "f_brand",
+    "f_brand_ex",
     "f_desc",
     "f_code",
     "f_remark",
@@ -2836,18 +3037,8 @@ def apply_sales_filters(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, str]]
         return df, {}
 
     ss = st.session_state
-    session_keys = {
-        "Year": "sales_filter_year",
-        "Month": "sales_filter_month",
-        "Customer": "sales_filter_customer",
-        "Outlet": "sales_filter_outlet",
-        "Product Description": "sales_filter_product_description",
-        "Supplier": "sales_filter_supplier",
-        "Brand/Category": "sales_filter_brand",
-        "Product Code": "sales_filter_product_code",
-        "Account": "sales_filter_account",
-    }
-    customer_exclude_key = "sales_filter_customer_exclude"
+    session_keys = SALES_FILTER_SESSION_KEYS
+    customer_exclude_key = SALES_FILTER_CUSTOMER_EXCLUDE_KEY
 
     def _series(name: str) -> pd.Series:
         if name not in df.columns:
@@ -2926,12 +3117,7 @@ def apply_sales_filters(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, str]]
     ss.setdefault("sales_basic_mode", True)
 
     if st.button("Clear sales filters", key="sales_clear_filters_button"):
-        for key in session_keys.values():
-            ss[key] = []
-        ss[customer_exclude_key] = []
-        ss["sales_filter_invoice"] = ""
-        ss["sales_filter_date_from"] = None
-        ss["sales_filter_date_to"] = None
+        _clear_sales_filters_state(ss)
 
     with st.form("sales_filters_form"):
         basic_sales_mode = st.toggle(
@@ -3149,7 +3335,9 @@ def apply_sales_filters(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, str]]
 
         submitted = st.form_submit_button("Apply sales filters")
 
-    _clear_text_input_on_backspace("sales_filter_invoice", "__prev_sales_filter_invoice")
+    _clear_text_input_on_backspace(
+        "sales_filter_invoice", "__prev_sales_filter_invoice"
+    )
 
     filtered_df = df.loc[_mask()].reset_index(drop=True)
     selection_values = {
@@ -4395,9 +4583,11 @@ def build_account_price_list(df: pd.DataFrame, account: str) -> pd.DataFrame:
     summary["Selling Price by kg"] = _safe_divide_series(
         summary["_total_value"], summary["_total_kg"]
     )
-    summary["Last Selling Date"] = pd.to_datetime(
-        summary["_last_selling_date"], errors="coerce"
-    ).dt.strftime("%Y-%m-%d").fillna("")
+    summary["Last Selling Date"] = (
+        pd.to_datetime(summary["_last_selling_date"], errors="coerce")
+        .dt.strftime("%Y-%m-%d")
+        .fillna("")
+    )
     summary = summary.drop(
         columns=["_total_value", "_total_kg", "_last_selling_date"], errors="ignore"
     )
@@ -4416,6 +4606,21 @@ def main():
     st.sidebar.title("导航")
     st.sidebar.write("选择页面运行 Sales 或 Stock。")
     current_page = st.sidebar.radio("Page", ["Sales", "Stock"], index=0)
+
+    action_for_page = (
+        _HOTKEY_ACTION_CLEAR_SALES
+        if current_page == "Sales"
+        else _HOTKEY_ACTION_CLEAR_STOCK
+    )
+    _inject_delete_hotkey_listener(action_for_page)
+
+    hotkey_action = _consume_hotkey_action()
+    if hotkey_action == _HOTKEY_ACTION_CLEAR_SALES and current_page == "Sales":
+        _clear_sales_filters_state(st.session_state)
+        st.rerun()
+    if hotkey_action == _HOTKEY_ACTION_CLEAR_STOCK and current_page == "Stock":
+        _clear_stock_filters_state(st.session_state)
+        st.rerun()
 
     if current_page == "Sales":
         _restore_persisted_state("__sales_persist_state")
