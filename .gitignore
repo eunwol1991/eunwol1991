@@ -1,4 +1,8 @@
 .uv-venv
+.venv/
+venv/
+**/.venv/
+**/venv/
 *logs*
 temp_out.txt
 eunwol1991/temp_out.txt
