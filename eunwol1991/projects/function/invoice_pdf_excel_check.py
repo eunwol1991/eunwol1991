@@ -276,6 +276,18 @@ def find_customer_col(columns: list[str]) -> str | None:
     return None
 
 
+def find_account_col(columns: list[str]) -> str | None:
+    exact = {"account", "accountname", "salesaccount"}
+    for col in columns:
+        if normalize_col_name(col) in exact:
+            return col
+    for col in columns:
+        norm = normalize_col_name(col)
+        if norm == "account" or norm.endswith("account"):
+            return col
+    return None
+
+
 def find_outlet_col(columns: list[str]) -> str | None:
     exact = {"outlet", "outletname", "deliver", "deliverto", "shipto", "shiptoaddress"}
     for col in columns:
@@ -740,6 +752,7 @@ def load_excel_records(path: str, month_code: str) -> dict:
     date_col = find_date_col(columns)
     total_col = find_total_col(columns)
     customer_col = find_customer_col(columns)
+    account_col = find_account_col(columns)
     outlet_col = find_outlet_col(columns)
 
     if not invoice_col or not date_col or not total_col:
@@ -754,6 +767,8 @@ def load_excel_records(path: str, month_code: str) -> dict:
 
     records: dict[str, dict] = {}
     month_code_lower = month_code.lower()
+    month_customer_accounts: dict[tuple[str, str], set[str]] = {}
+    month_customer_invoices: dict[tuple[str, str], set[str]] = {}
 
     for _, row in df.iterrows():
         inv_raw = row.get(invoice_col)
@@ -776,6 +791,7 @@ def load_excel_records(path: str, month_code: str) -> dict:
                 "invoice_no": inv,
                 "date_values": set(),
                 "customer_values": set(),
+                "account_values": set(),
                 "outlet_values": set(),
                 "excel_total": Decimal("0"),
                 "line_count": 0,
@@ -789,12 +805,35 @@ def load_excel_records(path: str, month_code: str) -> dict:
             cust_val = normalize_text_value(row.get(customer_col))
             if cust_val:
                 rec["customer_values"].add(cust_val)
+        else:
+            cust_val = ""
+        if account_col:
+            account_val = normalize_text_value(row.get(account_col))
+            if account_val:
+                rec["account_values"].add(account_val)
+        else:
+            account_val = ""
         if outlet_col:
             outlet_val = normalize_text_value(row.get(outlet_col))
             if outlet_val:
                 rec["outlet_values"].add(outlet_val)
+
+        if cust_val:
+            month_customer_key = (month_code_lower, cust_val)
+            month_customer_invoices.setdefault(month_customer_key, set()).add(inv)
+            if account_val:
+                month_customer_accounts.setdefault(month_customer_key, set()).add(
+                    account_val
+                )
         rec["excel_total"] += excel_total
         rec["line_count"] += 1
+
+    month_customer_conflict_invoices = set()
+    for month_customer_key, accounts in month_customer_accounts.items():
+        if len(accounts) > 1:
+            month_customer_conflict_invoices.update(
+                month_customer_invoices.get(month_customer_key, set())
+            )
 
     for inv, rec in records.items():
         date_values = sorted(rec["date_values"])
@@ -803,6 +842,7 @@ def load_excel_records(path: str, month_code: str) -> dict:
 
         has_date_mismatch = len(date_values) > 1
         has_customer_mismatch = len(rec["customer_values"]) > 1
+        has_account_month_mismatch = inv in month_customer_conflict_invoices
         has_outlet_mismatch = len(rec["outlet_values"]) > 1
         has_inconsistent = (
             has_date_mismatch or has_customer_mismatch or has_outlet_mismatch
@@ -819,11 +859,14 @@ def load_excel_records(path: str, month_code: str) -> dict:
 
         if has_inconsistent:
             rec["excel_status"] = "Excel invoice duplicated but inconsistent fields"
+        elif has_account_month_mismatch:
+            rec["excel_status"] = "Customer-Account mismatch within month"
         elif has_invoice_date_mismatch:
             rec["excel_status"] = "Invoice-Date month/year mismatch"
         else:
             rec["excel_status"] = "OK"
         rec["excel_customers"] = sorted(rec["customer_values"])
+        rec["excel_accounts"] = sorted(rec["account_values"])
         rec["excel_outlets"] = sorted(rec["outlet_values"])
 
     return records
@@ -922,6 +965,7 @@ def infer_issue_side(status: str, multiple_candidates: bool = False) -> tuple[st
         return "None", ""
     if status in (
         "Excel invoice duplicated but inconsistent fields",
+        "Customer-Account mismatch within month",
         "Invoice-Date month/year mismatch",
     ):
         return "Excel", "Excel rows for this invoice are inconsistent."
@@ -953,6 +997,7 @@ STATUS_ERROR_FIELDS: dict[str, set[str]] = {
     "Missing Excel record (PDF -> Excel)": {"excel_invoice"},
     "PDF parse fail": {"pdf_invoice", "pdf_date", "pdf_total"},
     "Excel invoice duplicated but inconsistent fields": {"excel_invoice", "excel_date"},
+    "Customer-Account mismatch within month": {"excel_invoice"},
     "Invoice-Date month/year mismatch": {"excel_invoice", "excel_date"},
 }
 
@@ -1731,6 +1776,8 @@ class InvoiceValidatorApp(tk.Tk):
             lines.append(
                 f"Excel Customers: {', '.join(rec.get('excel_customers', []))}"
             )
+        if rec.get("excel_accounts"):
+            lines.append(f"Excel Accounts: {', '.join(rec.get('excel_accounts', []))}")
         if rec.get("excel_outlets"):
             lines.append(f"Excel Outlets: {', '.join(rec.get('excel_outlets', []))}")
         lines.append("")
