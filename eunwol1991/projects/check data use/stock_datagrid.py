@@ -325,6 +325,7 @@ def _canonical_unit(u: Optional[str]) -> str:
     synonyms = {
         "ctn": {"ctn", "ctns", "carton", "cartons"},
         "pkt": {"pkt", "pkts", "pack", "packs", "package", "packages"},
+        "btl": {"btl", "btls", "bottle", "bottles"},
         "box": {"box", "boxes"},
         "tin": {"tin", "tins"},
         "can": {"can", "cans"},
@@ -335,6 +336,76 @@ def _canonical_unit(u: Optional[str]) -> str:
         if s in vals:
             return key
     return s
+
+
+def _summary_qty_bucket(unit: Optional[str]) -> str:
+    canonical = _canonical_unit(unit)
+    if canonical == "ctn":
+        return "ctn"
+    if canonical in {"pkt", "btl", "box", "tin", "can", "bag", "pc"}:
+        return "pkt"
+    return ""
+
+
+_DISPLAY_UNIT_ORDER = ["ctn", "pkt", "btl", "box", "tin", "can", "bag", "pc"]
+
+
+def _add_quantity_to_breakdown(
+    breakdown: Optional[Dict[str, float]], unit: Optional[str], qty: Optional[float]
+) -> Dict[str, float]:
+    result = dict(breakdown or {})
+    canonical = _canonical_unit(unit)
+    if not canonical:
+        return result
+    if qty is None or pd.isna(qty):
+        return result
+    qty_value = float(qty)
+    if math.isclose(qty_value, 0.0, abs_tol=1e-9):
+        return result
+    result[canonical] = float(result.get(canonical, 0.0)) + qty_value
+    return result
+
+
+def _merge_quantity_breakdowns(items: Any) -> Dict[str, float]:
+    merged: Dict[str, float] = {}
+    if items is None:
+        return merged
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        for unit, qty in item.items():
+            merged = _add_quantity_to_breakdown(merged, unit, qty)
+    return merged
+
+
+def _format_quantity_breakdown(breakdown: Optional[Dict[str, float]]) -> str:
+    data = {
+        _canonical_unit(unit): float(qty)
+        for unit, qty in dict(breakdown or {}).items()
+        if _canonical_unit(unit)
+        and qty is not None
+        and not pd.isna(qty)
+        and not math.isclose(float(qty), 0.0, abs_tol=1e-9)
+    }
+    if not data:
+        return "0"
+
+    ordered_units = [unit for unit in _DISPLAY_UNIT_ORDER if unit in data]
+    ordered_units += sorted(unit for unit in data.keys() if unit not in ordered_units)
+
+    parts: List[str] = []
+    for unit in ordered_units:
+        qty_text = _format_qty_number(data[unit])
+        if not qty_text:
+            continue
+        if unit == "ctn":
+            label = "ctn" if math.isclose(data[unit], 1.0, abs_tol=1e-9) else "ctns"
+        elif unit == "pkt":
+            label = "pkt" if math.isclose(data[unit], 1.0, abs_tol=1e-9) else "pkts"
+        else:
+            label = unit
+        parts.append(f"{qty_text} {label}")
+    return " ".join(parts) if parts else "0"
 
 
 def _format_qty_number(value: Optional[float]) -> Optional[str]:
@@ -423,6 +494,13 @@ def _format_month_label(value: Any) -> str:
         num = MONTH_MAP[lower[:3]]
         return calendar.month_abbr[num] if num else text
     return text
+
+
+def _format_date_with_month_label(value: Any, pattern: str = "%d-%b-%Y") -> str:
+    parsed = pd.to_datetime(value, errors="coerce")
+    if pd.isna(parsed):
+        return ""
+    return parsed.strftime(pattern)
 
 
 def _format_qty_display(value) -> str:
@@ -535,6 +613,8 @@ def _clear_sales_filters_state(ss: Dict[str, Any]) -> None:
         ss[key] = []
     ss[SALES_FILTER_CUSTOMER_EXCLUDE_KEY] = []
     ss["sales_filter_invoice"] = ""
+    ss["sales_filter_use_exact_date"] = False
+    ss["sales_filter_exact_date"] = None
     ss["sales_filter_date_from"] = None
     ss["sales_filter_date_to"] = None
 
@@ -663,6 +743,38 @@ def _format_summary_total_qty(ctn_value, pkt_value, pack_size_value) -> str:
     return f"{cartons} ctns {packets} pkts"
 
 
+def _format_stock_scope_total_qty(scope_df: pd.DataFrame) -> str:
+    if scope_df is None or scope_df.empty:
+        return "0"
+
+    total_ctns = pd.to_numeric(
+        scope_df.get("total_ctn", pd.Series(0.0, index=scope_df.index)),
+        errors="coerce",
+    ).fillna(0.0)
+    total_pkts = pd.to_numeric(
+        scope_df.get("total_pkt", pd.Series(0.0, index=scope_df.index)),
+        errors="coerce",
+    ).fillna(0.0)
+
+    pack_sizes = {
+        int(round(float(pack_size)))
+        for pack_size in scope_df.get("Pack Size", pd.Series(dtype="object"))
+        .map(_infer_carton_pack_size)
+        .dropna()
+        .tolist()
+        if float(pack_size) > 0
+    }
+
+    if len(pack_sizes) == 1:
+        pack_size = next(iter(pack_sizes))
+        total_packets = float((total_ctns * pack_size + total_pkts).sum())
+        return _format_total_qty_text(total_packets, pack_size)
+
+    return _format_quantity_breakdown(
+        _merge_quantity_breakdowns(scope_df.get("total_qty_breakdown", []))
+    )
+
+
 def build_norm_desc(df: pd.DataFrame) -> pd.Series:
     if df is None or df.empty:
         return pd.Series(dtype="string", name="norm_desc")
@@ -744,6 +856,9 @@ def aggregate_summary(
         "lai_hock_pkt",
         "total_ctn",
         "total_pkt",
+        "savori_qty_breakdown",
+        "lai_hock_qty_breakdown",
+        "total_qty_breakdown",
         "reorder_point_ctn",
         "reorder_point_pkt",
         "group_key",
@@ -835,6 +950,7 @@ def aggregate_summary(
         detail_map[group_key] = grp.copy()
 
         wh_totals = {wh: {"ctn": 0.0, "pkt": 0.0} for wh in warehouses}
+        wh_qty_breakdowns = {wh: {} for wh in warehouses}
         wh_unit = (
             grp.groupby(["_warehouse_norm", "_unit_norm"], dropna=False)["_qty"]
             .sum()
@@ -842,13 +958,19 @@ def aggregate_summary(
         )
         for _, r in wh_unit.iterrows():
             wh = r["_warehouse_norm"]
-            unit = r["_unit_norm"]
+            unit_raw = _canonical_unit(r["_unit_norm"])
+            unit = _summary_qty_bucket(unit_raw)
             qty = float(r["_qty"])
+            if wh in wh_qty_breakdowns:
+                wh_qty_breakdowns[wh] = _add_quantity_to_breakdown(
+                    wh_qty_breakdowns[wh], unit_raw, qty
+                )
             if wh in wh_totals and unit in ("ctn", "pkt"):
                 wh_totals[wh][unit] += qty
 
         total_ctn = sum(wh_totals.get(wh, {}).get("ctn", 0.0) for wh in warehouses)
         total_pkt = sum(wh_totals.get(wh, {}).get("pkt", 0.0) for wh in warehouses)
+        total_qty_breakdown = _merge_quantity_breakdowns(wh_qty_breakdowns.values())
 
         reorder_points = _extract_reorder_points(grp)
 
@@ -865,6 +987,11 @@ def aggregate_summary(
                 "lai_hock_pkt": wh_totals.get("Lai Hock Whse", {}).get("pkt", 0.0),
                 "total_ctn": total_ctn,
                 "total_pkt": total_pkt,
+                "savori_qty_breakdown": dict(wh_qty_breakdowns.get("Savori Whse", {})),
+                "lai_hock_qty_breakdown": dict(
+                    wh_qty_breakdowns.get("Lai Hock Whse", {})
+                ),
+                "total_qty_breakdown": dict(total_qty_breakdown),
                 "reorder_point_ctn": reorder_points.get("ctn"),
                 "reorder_point_pkt": reorder_points.get("pkt"),
                 "group_key": group_key,
@@ -924,6 +1051,7 @@ def split_by_expiry(
         "Subtotal",
         "subtotal_ctn",
         "subtotal_pkt",
+        "subtotal_qty_breakdown",
         "expiry_date",
         "status_batch",
         "days_to_expiry",
@@ -991,6 +1119,7 @@ def split_by_expiry(
         expiry_val = grp["_expiry_norm"].dropna().min()
 
         per_wh = {wh: {"ctn": 0.0, "pkt": 0.0} for wh in warehouses}
+        per_wh_breakdown = {wh: {} for wh in warehouses}
         wh_unit = (
             grp.groupby(["_warehouse_norm", "_unit_norm"], dropna=False)["_qty"]
             .sum()
@@ -998,13 +1127,19 @@ def split_by_expiry(
         )
         for _, r in wh_unit.iterrows():
             wh = r["_warehouse_norm"]
-            unit = r["_unit_norm"]
+            unit_raw = _canonical_unit(r["_unit_norm"])
+            unit = _summary_qty_bucket(unit_raw)
             qty = float(r["_qty"])
+            if wh in per_wh_breakdown:
+                per_wh_breakdown[wh] = _add_quantity_to_breakdown(
+                    per_wh_breakdown[wh], unit_raw, qty
+                )
             if wh in per_wh and unit in ("ctn", "pkt"):
                 per_wh[wh][unit] += qty
 
         subtotal_ctn = sum(per_wh.get(wh, {}).get("ctn", 0.0) for wh in warehouses)
         subtotal_pkt = sum(per_wh.get(wh, {}).get("pkt", 0.0) for wh in warehouses)
+        subtotal_qty_breakdown = _merge_quantity_breakdowns(per_wh_breakdown.values())
 
         exp_date = expiry_val.date() if pd.notna(expiry_val) else None
         status_batch, d2e = classify_batch_status(
@@ -1014,7 +1149,7 @@ def split_by_expiry(
         if (status_batch == "Depleted") and (not show_depleted):
             continue
 
-        qty_text = _format_quantity_pair(subtotal_ctn, subtotal_pkt)
+        qty_text = _format_quantity_breakdown(subtotal_qty_breakdown)
         info = ""
         if status_batch == "Expired":
             info = f"已过期 {abs(d2e)} 天，数量 {qty_text}"
@@ -1027,17 +1162,16 @@ def split_by_expiry(
             {
                 "Expiry": exp_label if exp_label is not None else "",
                 "Remark": remark_label if remark_label is not None else "",
-                "Savori Whse": _format_quantity_pair(
-                    per_wh.get("Savori Whse", {}).get("ctn", 0.0),
-                    per_wh.get("Savori Whse", {}).get("pkt", 0.0),
+                "Savori Whse": _format_quantity_breakdown(
+                    per_wh_breakdown.get("Savori Whse", {})
                 ),
-                "Lai Hock Whse": _format_quantity_pair(
-                    per_wh.get("Lai Hock Whse", {}).get("ctn", 0.0),
-                    per_wh.get("Lai Hock Whse", {}).get("pkt", 0.0),
+                "Lai Hock Whse": _format_quantity_breakdown(
+                    per_wh_breakdown.get("Lai Hock Whse", {})
                 ),
                 "Subtotal": qty_text,
                 "subtotal_ctn": subtotal_ctn,
                 "subtotal_pkt": subtotal_pkt,
+                "subtotal_qty_breakdown": dict(subtotal_qty_breakdown),
                 "expiry_date": exp_date,
                 "status_batch": status_batch,
                 "days_to_expiry": d2e,
@@ -1718,6 +1852,7 @@ def _clear_text_input_on_backspace(input_key: str, tracker_key: str) -> str:
 _STOCK_PERSIST_KEYS = [
     "stock_file_name",
     "stock_file_bytes",
+    "stock_file_browsed_at",
     "f_wh",
     "f_sup",
     "f_sup_ex",
@@ -1751,6 +1886,7 @@ _STOCK_PERSIST_KEYS = [
 
 _SALES_PERSIST_KEYS = [
     "sales_files_payload",
+    "sales_files_browsed_at",
     "sales_filter_year",
     "sales_filter_month",
     "sales_filter_customer",
@@ -1762,6 +1898,8 @@ _SALES_PERSIST_KEYS = [
     "sales_filter_product_code",
     "sales_filter_account",
     "sales_filter_invoice",
+    "sales_filter_use_exact_date",
+    "sales_filter_exact_date",
     "sales_filter_date_from",
     "sales_filter_date_to",
     "sales_filter_apply_count",
@@ -1789,6 +1927,72 @@ def _snapshot_persisted_state(persist_key: str, keys: List[str]) -> None:
     st.session_state[persist_key] = snapshot
 
 
+def _format_browse_timestamp(value: Optional[datetime.datetime]) -> str:
+    if value is None:
+        return ""
+    return value.strftime("%I:%M %p %d/%m/%Y")
+
+
+def _cache_stock_upload(
+    uploaded: Any,
+    session_state: Optional[Dict[str, Any]] = None,
+    *,
+    now: Optional[datetime.datetime] = None,
+) -> None:
+    if uploaded is None:
+        return
+    state = session_state if session_state is not None else st.session_state
+    state["stock_file_name"] = getattr(uploaded, "name", "uploaded.xlsx")
+    state["stock_file_bytes"] = uploaded.getvalue()
+    browse_time = now if now is not None else datetime.datetime.now()
+    state["stock_file_browsed_at"] = _format_browse_timestamp(browse_time)
+
+
+def _clear_stock_upload_cache(session_state: Optional[Dict[str, Any]] = None) -> None:
+    state = session_state if session_state is not None else st.session_state
+    for key in ["stock_file_name", "stock_file_bytes", "stock_file_browsed_at"]:
+        state.pop(key, None)
+
+
+def _handle_stock_uploader_change() -> None:
+    uploaded = st.session_state.get("stock_uploader")
+    if uploaded is None:
+        _clear_stock_upload_cache()
+        return
+    _cache_stock_upload(uploaded)
+
+
+def _cache_sales_upload(
+    uploaded_files: Any,
+    session_state: Optional[Dict[str, Any]] = None,
+    *,
+    now: Optional[datetime.datetime] = None,
+) -> None:
+    files = [uploaded for uploaded in (uploaded_files or []) if uploaded is not None]
+    if not files:
+        return
+    state = session_state if session_state is not None else st.session_state
+    state["sales_files_payload"] = [
+        {"name": uploaded.name, "bytes": uploaded.getvalue()} for uploaded in files
+    ]
+    browse_time = now if now is not None else datetime.datetime.now()
+    state["sales_files_browsed_at"] = _format_browse_timestamp(browse_time)
+
+
+def _clear_sales_upload_cache(session_state: Optional[Dict[str, Any]] = None) -> None:
+    state = session_state if session_state is not None else st.session_state
+    for key in ["sales_files_payload", "sales_files_browsed_at"]:
+        state.pop(key, None)
+
+
+def _handle_sales_uploader_change() -> None:
+    uploaded_files = st.session_state.get("sales_uploader")
+    if not uploaded_files:
+        _clear_sales_upload_cache()
+        return
+    _cache_sales_upload(uploaded_files)
+
+
 # ----------------------------- 主程序：Stock 页 -----------------------------
 
 
@@ -1800,20 +2004,25 @@ def run_stock_page():
 
     # 朴实无华的文件上传 + 缓存
     uploaded = st.file_uploader(
-        "Upload Excel (.xlsx)", type=["xlsx"], key="stock_uploader"
+        "Upload Excel (.xlsx)",
+        type=["xlsx"],
+        key="stock_uploader",
+        on_change=_handle_stock_uploader_change,
     )
-    if uploaded is not None:
-        st.session_state["stock_file_name"] = getattr(uploaded, "name", "uploaded.xlsx")
-        st.session_state["stock_file_bytes"] = uploaded.getvalue()
+    if uploaded is not None and not st.session_state.get("stock_file_bytes"):
+        _cache_stock_upload(uploaded)
 
     stock_file_bytes = st.session_state.get("stock_file_bytes")
     stock_file_name = st.session_state.get("stock_file_name", "cached workbook")
+    stock_file_browsed_at = st.session_state.get("stock_file_browsed_at", "")
 
     if not stock_file_bytes:
         st.info("Upload a source workbook to begin.")
         return
 
     st.caption(f"Using file: {stock_file_name}")
+    if stock_file_browsed_at:
+        st.caption(f"Last browsed: {stock_file_browsed_at}")
 
     try:
         df, warns = load_and_normalize_cached(stock_file_bytes)
@@ -2104,6 +2313,8 @@ def run_stock_page():
     summary_df["expired_qty_pkt"] = 0.0
     summary_df["near_qty_ctn"] = 0.0
     summary_df["near_qty_pkt"] = 0.0
+    summary_df["expired_qty_breakdown"] = [{} for _ in range(len(summary_df))]
+    summary_df["near_qty_breakdown"] = [{} for _ in range(len(summary_df))]
     for i, r in summary_df.iterrows():
         tuple_key = (
             tuple(r["group_key"])
@@ -2130,11 +2341,17 @@ def run_stock_page():
             summary_df.at[i, "expired_qty_pkt"] = float(
                 expired_sub["subtotal_pkt"].sum()
             )
+            summary_df.at[i, "expired_qty_breakdown"] = _merge_quantity_breakdowns(
+                expired_sub.get("subtotal_qty_breakdown", [])
+            )
 
         if not near_sub.empty:
             summary_df.at[i, "has_near_batch"] = True
             summary_df.at[i, "near_qty_ctn"] = float(near_sub["subtotal_ctn"].sum())
             summary_df.at[i, "near_qty_pkt"] = float(near_sub["subtotal_pkt"].sum())
+            summary_df.at[i, "near_qty_breakdown"] = _merge_quantity_breakdowns(
+                near_sub.get("subtotal_qty_breakdown", [])
+            )
 
     summary_df["is_depleted"] = (
         summary_df["total_ctn"].fillna(0) + summary_df["total_pkt"].fillna(0)
@@ -2181,23 +2398,28 @@ def run_stock_page():
         summary_df = summary_df[summary_df["status_product"] != "Depleted"]
 
     summary_df["Savori Whse"] = [
-        _format_quantity_pair(r.savori_ctn, r.savori_pkt)
+        _format_quantity_breakdown(r.savori_qty_breakdown)
         for r in summary_df.itertuples()
     ]
     summary_df["Lai Hock Whse"] = [
-        _format_quantity_pair(r.lai_hock_ctn, r.lai_hock_pkt)
+        _format_quantity_breakdown(r.lai_hock_qty_breakdown)
         for r in summary_df.itertuples()
     ]
-    summary_df["Total"] = [
-        _format_quantity_pair(r.total_ctn, r.total_pkt) for r in summary_df.itertuples()
-    ]
+    summary_df["Total"] = summary_df.apply(
+        lambda row: _format_summary_total_qty(
+            row.get("total_ctn"),
+            row.get("total_pkt"),
+            _infer_carton_pack_size(row.get("Pack Size")),
+        ),
+        axis=1,
+    )
 
-    def _format_status(tags, reason, near_ctn, near_pkt, expired_ctn, expired_pkt):
+    def _format_status(tags, reason, near_breakdown, expired_breakdown):
         if not isinstance(tags, (list, tuple)):
             return str(tags)
         formatted = []
-        near_qty_text = _format_quantity_pair(near_ctn, near_pkt)
-        expired_qty_text = _format_quantity_pair(expired_ctn, expired_pkt)
+        near_qty_text = _format_quantity_breakdown(near_breakdown)
+        expired_qty_text = _format_quantity_breakdown(expired_breakdown)
         for tag in tags:
             if tag == "Low-Stock" and reason:
                 if str(reason).upper() == "ROP":
@@ -2213,23 +2435,21 @@ def run_stock_page():
         return " • ".join(formatted) if formatted else "OK"
 
     summary_df["Status"] = [
-        _format_status(tags, reason, near_ctn, near_pkt, expired_ctn, expired_pkt)
-        for tags, reason, near_ctn, near_pkt, expired_ctn, expired_pkt in zip(
+        _format_status(tags, reason, near_breakdown, expired_breakdown)
+        for tags, reason, near_breakdown, expired_breakdown in zip(
             summary_df["Status Tags"],
             summary_df["low_stock_reason"],
-            summary_df["near_qty_ctn"],
-            summary_df["near_qty_pkt"],
-            summary_df["expired_qty_ctn"],
-            summary_df["expired_qty_pkt"],
+            summary_df["near_qty_breakdown"],
+            summary_df["expired_qty_breakdown"],
         )
     ]
 
     summary_df["Near-Expiry Qty"] = [
-        _format_quantity_pair(r.near_qty_ctn, r.near_qty_pkt)
+        _format_quantity_breakdown(r.near_qty_breakdown)
         for r in summary_df.itertuples()
     ]
     summary_df["Expired Qty"] = [
-        _format_quantity_pair(r.expired_qty_ctn, r.expired_qty_pkt)
+        _format_quantity_breakdown(r.expired_qty_breakdown)
         for r in summary_df.itertuples()
     ]
 
@@ -2438,9 +2658,7 @@ def run_stock_page():
         )
         return
 
-    total_ctn_all = float(view_df["total_ctn"].sum()) if not view_df.empty else 0.0
-    total_pkt_all = float(view_df["total_pkt"].sum()) if not view_df.empty else 0.0
-    totals_display = _format_quantity_pair(total_ctn_all, total_pkt_all)
+    totals_display = _format_stock_scope_total_qty(view_df)
 
     near_count = int(
         view_df["Status Tags"]
@@ -3072,6 +3290,7 @@ def apply_sales_filters(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, str]]
 
     date_from: Optional[datetime.date] = None
     date_to: Optional[datetime.date] = None
+    exact_date: Optional[datetime.date] = None
 
     def _mask(
         exclude: Optional[str] = None,
@@ -3094,9 +3313,13 @@ def apply_sales_filters(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, str]]
             if invoice_query:
                 mask &= invoice_series.str.contains(invoice_query, case=False, na=False)
         if date_series_raw is not None:
-            if date_from:
+            if exact_date:
+                mask &= date_series_raw.dt.date == exact_date
+            elif date_from:
                 mask &= date_series_raw >= pd.Timestamp(date_from)
-            if date_to:
+                if date_to:
+                    mask &= date_series_raw <= pd.Timestamp(date_to)
+            elif date_to:
                 mask &= date_series_raw <= pd.Timestamp(date_to)
         return mask
 
@@ -3221,10 +3444,30 @@ def apply_sales_filters(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, str]]
                     account_options,
                     key=session_keys["Account"],
                 )
+
+            use_exact_date = st.toggle(
+                "指定日期",
+                key="sales_filter_use_exact_date",
+                help="开启后只显示所选当天的销售记录。",
+            )
+            if use_exact_date:
+                exact_date_default = ss.get(
+                    "sales_filter_exact_date",
+                    default_date_to or default_date_from or datetime.date.today(),
+                )
+                exact_date = st.date_input(
+                    "Sales date",
+                    value=exact_date_default,
+                    key="sales_filter_exact_date",
+                )
+            else:
+                ss["sales_filter_exact_date"] = None
         else:
             _ensure_multiselect_key_state(
                 customer_exclude_key, customer_options, default=[]
             )
+            ss["sales_filter_use_exact_date"] = False
+            ss["sales_filter_exact_date"] = None
 
             with st.expander("高级筛选", expanded=False):
                 st.multiselect(
@@ -3357,6 +3600,10 @@ def apply_sales_filters(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, str]]
         filter_state[key] = ", ".join(vals) if vals else "All"
     invoice_query = ss.get("sales_filter_invoice", "")
     filter_state["Invoice contains"] = invoice_query if invoice_query else "All"
+    exact_date_state = ss.get("sales_filter_exact_date")
+    filter_state["Exact date"] = (
+        exact_date_state.isoformat() if exact_date_state else "All"
+    )
     date_from_state = ss.get("sales_filter_date_from")
     date_to_state = ss.get("sales_filter_date_to")
     filter_state["Date from"] = (
@@ -3805,6 +4052,9 @@ def build_product_monthly_summary(df: pd.DataFrame) -> pd.DataFrame:
         if col not in work.columns:
             work[col] = ""
         work[col] = work[col].astype("string").fillna("").str.strip()
+    work["_sales_pack_group_key"] = work["Carton Packing"].map(
+        _normalize_sales_pack_group_key
+    )
 
     def _pack_signature(series: pd.Series) -> Tuple[float, ...]:
         values = pd.to_numeric(series, errors="coerce").dropna()
@@ -3828,13 +4078,14 @@ def build_product_monthly_summary(df: pd.DataFrame) -> pd.DataFrame:
                 "Supplier",
                 "Product Description",
                 "Product Code",
-                "Carton Packing",
+                "_sales_pack_group_key",
             ],
             dropna=False,
             as_index=False,
         )
         .agg(
             {
+                "Carton Packing": "last",
                 "Qty in Ctns": "sum",
                 "Qty in Pcs": "sum",
                 "Total Value": "sum",
@@ -3864,6 +4115,7 @@ def build_product_monthly_summary(df: pd.DataFrame) -> pd.DataFrame:
                 "Supplier",
                 "Product Description",
                 "Product Code",
+                "_sales_pack_group_key",
                 "Carton Packing",
             ],
             kind="stable",
@@ -3881,6 +4133,84 @@ def build_product_monthly_summary(df: pd.DataFrame) -> pd.DataFrame:
         .reset_index(drop=True)
     )
     return result
+
+
+def build_daily_sales_timeline(df: pd.DataFrame) -> pd.DataFrame:
+    columns = ["年月", "日期", "总销量", "总销售额"]
+    if df is None or df.empty:
+        return pd.DataFrame(columns=columns)
+
+    work = df.copy()
+    for col in ["Qty in Ctns", "Qty in Pcs", "Total Value", "carton_packing_numeric"]:
+        if col not in work.columns:
+            work[col] = 0.0
+        work[col] = pd.to_numeric(work[col], errors="coerce").fillna(0.0)
+
+    if "Date" in work.columns:
+        work["Date"] = pd.to_datetime(work["Date"], errors="coerce", format="mixed")
+    else:
+        work["Date"] = pd.NaT
+
+    work = work.dropna(subset=["Date"]).copy()
+    if work.empty:
+        return pd.DataFrame(columns=columns)
+
+    work["SaleDay"] = work["Date"].dt.normalize()
+    work["YearMonth"] = work["Date"].dt.strftime("%Y-%b")
+    work["YearMonthPeriod"] = work["Date"].dt.to_period("M")
+    work["__daily_total_packets"] = (
+        work["Qty in Ctns"] * work["carton_packing_numeric"] + work["Qty in Pcs"]
+    )
+
+    def _pack_signature(series: pd.Series) -> Tuple[float, ...]:
+        values = pd.to_numeric(series, errors="coerce").dropna()
+        values = values[values > 0]
+        if values.empty:
+            return tuple()
+        return tuple(sorted({float(v) for v in values.tolist()}))
+
+    def _qty_text(
+        ctn: float, pcs: float, packs: Tuple[float, ...], total_packets_value: float
+    ) -> str:
+        if packs and len(packs) == 1:
+            size = int(round(float(packs[0])))
+            if size > 0:
+                total_packets = int(round(float(total_packets_value)))
+                return _format_total_qty_text(total_packets, size)
+        return f"{_format_qty_display(total_packets_value)} pkts"
+
+    grouped = (
+        work.groupby(
+            ["YearMonthPeriod", "YearMonth", "SaleDay"], dropna=False, as_index=False
+        )
+        .agg(
+            {
+                "Qty in Ctns": "sum",
+                "Qty in Pcs": "sum",
+                "Total Value": "sum",
+                "carton_packing_numeric": _pack_signature,
+                "__daily_total_packets": "sum",
+            }
+        )
+        .sort_values(["YearMonthPeriod", "SaleDay"], kind="stable")
+        .reset_index(drop=True)
+    )
+
+    grouped["总销量"] = grouped.apply(
+        lambda row: _qty_text(
+            row.get("Qty in Ctns", 0.0),
+            row.get("Qty in Pcs", 0.0),
+            row.get("carton_packing_numeric", tuple()),
+            row.get("__daily_total_packets", 0.0),
+        ),
+        axis=1,
+    )
+    grouped["总销售额"] = grouped["Total Value"].apply(_format_price_display)
+    grouped["日期"] = grouped["SaleDay"].apply(_format_date_with_month_label)
+
+    return grouped.loc[:, ["YearMonth", "日期", "总销量", "总销售额"]].rename(
+        columns={"YearMonth": "年月"}
+    )
 
 
 def compute_sales_amount_kpis(df: pd.DataFrame) -> Tuple[float, float]:
@@ -3943,6 +4273,9 @@ def _render_sales_business_dashboard(filtered_df: pd.DataFrame) -> None:
         if col not in work.columns:
             work[col] = ""
         work[col] = work[col].astype("string").fillna("").str.strip()
+    work["_sales_pack_group_key"] = work["Carton Packing"].map(
+        _normalize_sales_pack_group_key
+    )
 
     work["YearMonth"] = work["Date"].dt.strftime("%Y-%b")
     work["YearMonthPeriod"] = work["Date"].dt.to_period("M")
@@ -4052,20 +4385,25 @@ def _render_sales_business_dashboard(filtered_df: pd.DataFrame) -> None:
     st.subheader("产品月度销量（不分客户）")
     st.dataframe(product_monthly_view, width="stretch", hide_index=True)
 
+    daily_sales_timeline = build_daily_sales_timeline(work)
+    st.subheader("每日销量时间线（不分客户）")
+    st.dataframe(daily_sales_timeline, width="stretch", hide_index=True)
+
     strict_key_cols = [
         "Customer",
         "Account",
         "Supplier",
         "Product Description",
         "Product Code",
-        "Carton Packing",
+        "_sales_pack_group_key",
     ]
 
     # Which customer bought how much in which month (strictly split by product/account keys)
     by_customer_month = (
-        work.groupby(["YearMonth"] + strict_key_cols, dropna=False)
+        work.groupby(["YearMonthPeriod", "YearMonth"] + strict_key_cols, dropna=False)
         .agg(
             {
+                "Carton Packing": "last",
                 "Qty in Ctns": "sum",
                 "Qty in Pcs": "sum",
                 "Total Value": "sum",
@@ -4073,6 +4411,20 @@ def _render_sales_business_dashboard(filtered_df: pd.DataFrame) -> None:
             }
         )
         .reset_index()
+        .sort_values(
+            [
+                "YearMonthPeriod",
+                "YearMonth",
+                "Customer",
+                "Account",
+                "Supplier",
+                "Product Description",
+                "Product Code",
+                "_sales_pack_group_key",
+                "Carton Packing",
+            ],
+            kind="stable",
+        )
     )
     by_customer_month["Total Qty"] = by_customer_month.apply(
         lambda r: _qty_text(
@@ -4082,6 +4434,13 @@ def _render_sales_business_dashboard(filtered_df: pd.DataFrame) -> None:
         ),
         axis=1,
     )
+    by_customer_month = _add_sales_price_metrics(by_customer_month)
+    by_customer_month["Base Selling Price"] = by_customer_month[
+        "Base Selling Price"
+    ].apply(_format_price_display)
+    by_customer_month["Unit Price per kg"] = by_customer_month[
+        "Unit Price per kg"
+    ].apply(_format_price_display)
     by_customer_month["Total Value"] = by_customer_month["Total Value"].apply(
         _format_price_display
     )
@@ -4096,7 +4455,8 @@ def _render_sales_business_dashboard(filtered_df: pd.DataFrame) -> None:
             "Product Code",
             "Carton Packing",
             "Total Qty",
-            "Total Value",
+            "Base Selling Price",
+            "Unit Price per kg",
         ]
     ].rename(
         columns={
@@ -4108,7 +4468,8 @@ def _render_sales_business_dashboard(filtered_df: pd.DataFrame) -> None:
             "Product Code": "产品编码",
             "Carton Packing": "箱规",
             "Total Qty": "总销量",
-            "Total Value": "总销售额",
+            "Base Selling Price": "基础卖价",
+            "Unit Price per kg": "每公斤卖价",
         }
     )
     st.dataframe(month_view, width="stretch", hide_index=True)
@@ -4119,6 +4480,7 @@ def _render_sales_business_dashboard(filtered_df: pd.DataFrame) -> None:
         .groupby(["Date"] + strict_key_cols, dropna=False)
         .agg(
             {
+                "Carton Packing": "last",
                 "Qty in Ctns": "sum",
                 "Qty in Pcs": "sum",
                 "Total Value": "sum",
@@ -4129,7 +4491,9 @@ def _render_sales_business_dashboard(filtered_df: pd.DataFrame) -> None:
         .sort_values(["Date", "Customer"], kind="stable")
     )
     if not by_customer_date.empty:
-        by_customer_date["Date"] = by_customer_date["Date"].dt.strftime("%d-%b-%Y")
+        by_customer_date["Date"] = by_customer_date["Date"].apply(
+            _format_date_with_month_label
+        )
         by_customer_date["Qty"] = by_customer_date.apply(
             lambda r: _qty_text(
                 r.get("Qty in Ctns", 0.0),
@@ -4137,6 +4501,13 @@ def _render_sales_business_dashboard(filtered_df: pd.DataFrame) -> None:
                 r.get("carton_packing_numeric", tuple()),
             ),
             axis=1,
+        )
+        by_customer_date = _add_sales_price_metrics(by_customer_date)
+        by_customer_date["Base Price"] = by_customer_date["Base Selling Price"].apply(
+            _format_price_display
+        )
+        by_customer_date["Unit Price/kg"] = by_customer_date["Unit Price per kg"].apply(
+            _format_price_display
         )
         by_customer_date["Value"] = by_customer_date["Total Value"].apply(
             _format_price_display
@@ -4153,7 +4524,8 @@ def _render_sales_business_dashboard(filtered_df: pd.DataFrame) -> None:
                 "Product Code",
                 "Carton Packing",
                 "Qty",
-                "Value",
+                "Base Price",
+                "Unit Price/kg",
             ]
         ]
         if not by_customer_date.empty
@@ -4167,7 +4539,8 @@ def _render_sales_business_dashboard(filtered_df: pd.DataFrame) -> None:
                 "Product Code",
                 "Carton Packing",
                 "Qty",
-                "Value",
+                "Base Price",
+                "Unit Price/kg",
             ]
         )
     ).rename(
@@ -4180,7 +4553,8 @@ def _render_sales_business_dashboard(filtered_df: pd.DataFrame) -> None:
             "Product Code": "产品编码",
             "Carton Packing": "箱规",
             "Qty": "销量",
-            "Value": "销售额",
+            "Base Price": "基础卖价",
+            "Unit Price/kg": "每公斤卖价",
         }
     )
     st.dataframe(date_view, width="stretch", hide_index=True)
@@ -4191,7 +4565,7 @@ def _render_sales_business_dashboard(filtered_df: pd.DataFrame) -> None:
         "Account",
         "Product Description",
         "Product Code",
-        "Carton Packing",
+        "_sales_pack_group_key",
     ]
     forecast_source = work[work["YearMonthPeriod"].notna()].copy()
     latest_supplier_df = (
@@ -4210,6 +4584,7 @@ def _render_sales_business_dashboard(filtered_df: pd.DataFrame) -> None:
         )
         .agg(
             {
+                "Carton Packing": "last",
                 "total_packets": "sum",
                 "Total Value": "sum",
                 "Qty in Ctns": "sum",
@@ -4233,7 +4608,8 @@ def _render_sales_business_dashboard(filtered_df: pd.DataFrame) -> None:
             continue
         avg_packets = float(last3["total_packets"].mean())
         avg_value = float(last3["Total Value"].mean())
-        pack_size = _infer_carton_pack_size(identity["Carton Packing"])
+        pack_label = str(last3["Carton Packing"].iloc[-1]).strip()
+        pack_size = _infer_carton_pack_size(pack_label)
         latest_supplier = latest_supplier_map.get(key_tuple, "")
         if pack_size and pack_size > 0:
             qty_text = _format_total_qty_text(
@@ -4248,16 +4624,26 @@ def _render_sales_business_dashboard(filtered_df: pd.DataFrame) -> None:
                 "供应商": latest_supplier,
                 "产品描述": identity["Product Description"],
                 "产品编码": identity["Product Code"],
-                "箱规": identity["Carton Packing"],
+                "箱规": pack_label,
                 "下月预测销量": qty_text,
                 "下月预测销售额": _format_price_display(avg_value),
+                "_forecast_packets": avg_packets,
+                "_forecast_value": avg_value,
             }
         )
 
-    forecast_df = pd.DataFrame(forecast_rows)
+    forecast_df = _append_sales_forecast_total_row(pd.DataFrame(forecast_rows))
+    if not forecast_df.empty:
+        forecast_df = forecast_df.sort_values(
+            by=["客户", "产品描述", "产品编码"],
+            kind="stable",
+            key=lambda series: series.where(series != "Total", "ZZZ_Total"),
+        ).reset_index(drop=True)
     st.subheader("下月预测（近3个月均值基线）")
     st.dataframe(
-        forecast_df.sort_values(["客户", "产品描述", "产品编码"], kind="stable")
+        forecast_df.drop(
+            columns=["_forecast_packets", "_forecast_value"], errors="ignore"
+        )
         if not forecast_df.empty
         else pd.DataFrame(
             columns=[
@@ -4290,19 +4676,22 @@ def run_sales_page():
         type=["xlsx"],
         accept_multiple_files=True,
         key="sales_uploader",
+        on_change=_handle_sales_uploader_change,
     )
 
     # 朴实无华缓存：以 bytes 持久化，避免页面切换后对象失效/重置
-    if uploaded:
-        st.session_state["sales_files_payload"] = [
-            {"name": f.name, "bytes": f.getvalue()} for f in uploaded if f is not None
-        ]
+    if uploaded and not st.session_state.get("sales_files_payload"):
+        _cache_sales_upload(uploaded)
 
     sales_payload = st.session_state.get("sales_files_payload", [])
+    sales_files_browsed_at = st.session_state.get("sales_files_browsed_at", "")
 
     if not sales_payload:
         st.info("请至少上传一个 Delivery details 工作簿后继续。")
         return
+
+    if sales_files_browsed_at:
+        st.caption(f"Last browsed: {sales_files_browsed_at}")
 
     try:
         sales_df, warns = load_sales_data_from_payload(sales_payload)
@@ -4330,6 +4719,7 @@ def run_sales_page():
         "Product Code",
         "Account",
         "Invoice contains",
+        "Exact date",
         "Date from",
         "Date to",
     ]
@@ -4488,14 +4878,118 @@ def _infer_weight_kg_per_packet(value: Any) -> Optional[float]:
     text = str(value).strip().lower()
     if not text:
         return None
-    match = re.search(r"(\d+(?:\.\d+)?)\s*(kg|kgs|g|gm|gram|grams)", text)
+    match = re.search(
+        r"(\d+(?:\.\d+)?)\s*(kg|kgs|g|gm|gram|grams|l|lt|ltr|liter|litre|ml)", text
+    )
     if not match:
         return None
     number = float(match.group(1))
     unit = match.group(2)
-    if unit in {"g", "gm", "gram", "grams"}:
+    if unit in {"g", "gm", "gram", "grams", "ml"}:
         return number / 1000.0
     return number
+
+
+def _normalize_sales_pack_group_key(value: Any) -> tuple:
+    if pd.isna(value):
+        return ("raw", "")
+    text = str(value).strip()
+    if not text:
+        return ("raw", "")
+    pack_count = _infer_carton_pack_size(text)
+    weight_kg = _infer_weight_kg_per_packet(text)
+    if (
+        pack_count is not None
+        and weight_kg is not None
+        and pack_count > 0
+        and weight_kg > 0
+    ):
+        return ("mass", int(round(float(pack_count))), round(float(weight_kg), 4))
+    if pack_count is not None and pack_count > 0:
+        return ("count", int(round(float(pack_count))))
+    return ("raw", text.lower())
+
+
+def _add_sales_price_metrics(df: pd.DataFrame) -> pd.DataFrame:
+    if df is None:
+        return pd.DataFrame()
+    result = df.copy()
+    if result.empty:
+        result["Base Selling Price"] = pd.Series(dtype="float")
+        result["Unit Price per kg"] = pd.Series(dtype="float")
+        return result
+
+    pack_size = result.get("Carton Packing", pd.Series(dtype="string")).map(
+        _infer_carton_pack_size
+    )
+    weight_kg_per_pkt = result.get("Carton Packing", pd.Series(dtype="string")).map(
+        _infer_weight_kg_per_packet
+    )
+    qty_ctn = pd.to_numeric(result.get("Qty in Ctns", 0.0), errors="coerce").fillna(0.0)
+    qty_pcs = pd.to_numeric(result.get("Qty in Pcs", 0.0), errors="coerce").fillna(0.0)
+    total_value = pd.to_numeric(result.get("Total Value", 0.0), errors="coerce").fillna(
+        0.0
+    )
+
+    total_ctn_equivalent = qty_ctn + _safe_divide_series(qty_pcs, pack_size)
+    total_packets = (
+        qty_ctn * pd.to_numeric(pack_size, errors="coerce").fillna(0.0) + qty_pcs
+    )
+    total_kg = total_packets * pd.to_numeric(weight_kg_per_pkt, errors="coerce")
+
+    result["Base Selling Price"] = _safe_divide_series(
+        total_value, total_ctn_equivalent
+    )
+    result["Unit Price per kg"] = _safe_divide_series(total_value, total_kg)
+    return result
+
+
+def _append_sales_forecast_total_row(df: pd.DataFrame) -> pd.DataFrame:
+    if df is None or df.empty:
+        return df if df is not None else pd.DataFrame()
+
+    result = df.copy()
+    total_packets = float(
+        pd.to_numeric(result.get("_forecast_packets"), errors="coerce")
+        .fillna(0.0)
+        .sum()
+    )
+    total_value = float(
+        pd.to_numeric(result.get("_forecast_value"), errors="coerce").fillna(0.0).sum()
+    )
+    pack_labels = (
+        result.get("箱规", pd.Series(dtype="string")).astype("string").fillna("")
+    )
+    normalized_pack_keys = {
+        _normalize_sales_pack_group_key(value)
+        for value in pack_labels.tolist()
+        if str(value).strip()
+    }
+    total_qty_text = f"{_format_qty_display(total_packets)} pkts"
+    if len(normalized_pack_keys) == 1:
+        first_pack_label = next(
+            (
+                str(value).strip()
+                for value in pack_labels.tolist()
+                if str(value).strip()
+            ),
+            "",
+        )
+        pack_size = _infer_carton_pack_size(first_pack_label)
+        if pack_size and pack_size > 0:
+            total_qty_text = _format_total_qty_text(
+                int(round(total_packets)), int(round(pack_size))
+            )
+
+    total_row: Dict[str, Any] = {col: "" for col in result.columns}
+    total_row["客户"] = "Total"
+    total_row["下月预测销量"] = total_qty_text
+    total_row["下月预测销售额"] = _format_price_display(total_value)
+    if "_forecast_packets" in result.columns:
+        total_row["_forecast_packets"] = total_packets
+    if "_forecast_value" in result.columns:
+        total_row["_forecast_value"] = total_value
+    return pd.concat([result, pd.DataFrame([total_row])], ignore_index=True)
 
 
 def build_account_price_list(df: pd.DataFrame, account: str) -> pd.DataFrame:
@@ -4541,6 +5035,9 @@ def build_account_price_list(df: pd.DataFrame, account: str) -> pd.DataFrame:
         work["Product Description"].astype("string").fillna("").str.strip()
     )
     work["_pack_size"] = work["Carton Packing"].astype("string").fillna("").str.strip()
+    work["_sales_pack_group_key"] = work["Carton Packing"].map(
+        _normalize_sales_pack_group_key
+    )
 
     work["_carton_pack_size"] = work["Carton Packing"].map(_infer_carton_pack_size)
     work["_weight_kg_per_pkt"] = work["Carton Packing"].map(_infer_weight_kg_per_packet)
@@ -4558,7 +5055,12 @@ def build_account_price_list(df: pd.DataFrame, account: str) -> pd.DataFrame:
         work["_weight_kg_per_pkt"], errors="coerce"
     )
 
-    group_cols = ["_customer", "_product_code", "_product_desc", "_pack_size"]
+    group_cols = [
+        "_customer",
+        "_product_code",
+        "_product_desc",
+        "_sales_pack_group_key",
+    ]
     latest_date = work.groupby(group_cols, dropna=False)["_date"].transform("max")
     latest = work[work["_date"] == latest_date].copy()
     if latest.empty:
@@ -4567,6 +5069,7 @@ def build_account_price_list(df: pd.DataFrame, account: str) -> pd.DataFrame:
     summary = (
         latest.groupby(group_cols, dropna=False, as_index=False)
         .agg(
+            _pack_size=("_pack_size", "last"),
             _total_value=("_total_value", "sum"),
             _total_kg=("_total_kg", "sum"),
             _last_selling_date=("_date", "max"),

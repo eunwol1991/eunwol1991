@@ -1,6 +1,7 @@
 import importlib.util
 import sys
 import unittest
+import datetime
 from pathlib import Path
 
 import pandas as pd
@@ -19,7 +20,171 @@ def _load_module():
     return module
 
 
+class _DummyContext:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+
+class _FakeStreamlit:
+    def __init__(self, session_state=None):
+        self.session_state = session_state if session_state is not None else {}
+
+    def button(self, *args, **kwargs):
+        return False
+
+    def form(self, *args, **kwargs):
+        return _DummyContext()
+
+    def toggle(self, label, key=None, value=False, **kwargs):
+        if key is None:
+            return value
+        return self.session_state.setdefault(key, value)
+
+    def multiselect(self, label, options, key=None, **kwargs):
+        if key is not None:
+            self.session_state.setdefault(key, [])
+            return self.session_state[key]
+        return []
+
+    def columns(self, count):
+        return [_DummyContext() for _ in range(count)]
+
+    def expander(self, *args, **kwargs):
+        return _DummyContext()
+
+    def text_input(self, label, key=None, value="", **kwargs):
+        if key is not None:
+            return self.session_state.setdefault(key, value)
+        return value
+
+    def selectbox(self, label, options, key=None, **kwargs):
+        default = options[0] if options else None
+        if key is not None:
+            return self.session_state.setdefault(key, default)
+        return default
+
+    def date_input(self, label, value=None, key=None, **kwargs):
+        if key is not None:
+            if key not in self.session_state:
+                self.session_state[key] = value
+            return self.session_state[key]
+        return value
+
+    def form_submit_button(self, *args, **kwargs):
+        return False
+
+
 class StockFilterQueryTests(unittest.TestCase):
+    def test_format_quantity_breakdown_preserves_original_unit_labels(self):
+        module = _load_module()
+
+        text = module._format_quantity_breakdown(
+            {
+                "ctn": 2.0,
+                "btl": 4.0,
+                "box": 3.0,
+                "tin": 1.0,
+            }
+        )
+
+        self.assertEqual(text, "2 ctns 4 btl 3 box 1 tin")
+
+    def test_aggregate_summary_counts_box_btl_and_tin_quantities_in_packet_totals(self):
+        module = _load_module()
+        df = pd.DataFrame(
+            [
+                {
+                    "supplier": "Supplier Alpha",
+                    "brand": "Brand A",
+                    "product_code": "SKU-01",
+                    "description": "Chili Sauce",
+                    "pack_size": "12 x 500ml",
+                    "warehouse": "Savori Whse",
+                    "unit": "btl",
+                    "stock_qty": 4,
+                },
+                {
+                    "supplier": "Supplier Alpha",
+                    "brand": "Brand A",
+                    "product_code": "SKU-01",
+                    "description": "Chili Sauce",
+                    "pack_size": "12 x 500ml",
+                    "warehouse": "Savori Whse",
+                    "unit": "box",
+                    "stock_qty": 3,
+                },
+                {
+                    "supplier": "Supplier Alpha",
+                    "brand": "Brand A",
+                    "product_code": "SKU-01",
+                    "description": "Chili Sauce",
+                    "pack_size": "12 x 500ml",
+                    "warehouse": "Lai Hock Whse",
+                    "unit": "tin",
+                    "stock_qty": 2,
+                },
+            ]
+        )
+
+        summary_df, _detail_map = module.aggregate_summary(df)
+
+        self.assertEqual(len(summary_df), 1)
+        self.assertEqual(
+            summary_df.loc[0, "savori_qty_breakdown"],
+            {"btl": 4.0, "box": 3.0},
+        )
+        self.assertEqual(summary_df.loc[0, "lai_hock_qty_breakdown"], {"tin": 2.0})
+        self.assertEqual(
+            summary_df.loc[0, "total_qty_breakdown"],
+            {"btl": 4.0, "box": 3.0, "tin": 2.0},
+        )
+        self.assertEqual(summary_df.loc[0, "savori_pkt"], 7.0)
+        self.assertEqual(summary_df.loc[0, "lai_hock_pkt"], 2.0)
+        self.assertEqual(summary_df.loc[0, "total_pkt"], 9.0)
+
+    def test_split_by_expiry_counts_box_btl_and_tin_quantities_in_subtotals(self):
+        module = _load_module()
+        df = pd.DataFrame(
+            [
+                {
+                    "warehouse": "Savori Whse",
+                    "unit": "btl",
+                    "stock_qty": 4,
+                    "expiry_date": "2026-05-01",
+                    "description": "Chili Sauce (Cold)",
+                },
+                {
+                    "warehouse": "Savori Whse",
+                    "unit": "box",
+                    "stock_qty": 3,
+                    "expiry_date": "2026-05-01",
+                    "description": "Chili Sauce (Cold)",
+                },
+                {
+                    "warehouse": "Lai Hock Whse",
+                    "unit": "tin",
+                    "stock_qty": 2,
+                    "expiry_date": "2026-05-01",
+                    "description": "Chili Sauce (Cold)",
+                },
+            ]
+        )
+
+        result = module.split_by_expiry(df)
+
+        self.assertEqual(len(result), 1)
+        self.assertEqual(
+            result.loc[0, "subtotal_qty_breakdown"],
+            {"btl": 4.0, "box": 3.0, "tin": 2.0},
+        )
+        self.assertEqual(result.loc[0, "subtotal_pkt"], 9.0)
+        self.assertEqual(result.loc[0, "Savori Whse"], "4 btl 3 box")
+        self.assertEqual(result.loc[0, "Lai Hock Whse"], "2 tin")
+        self.assertEqual(result.loc[0, "Subtotal"], "4 btl 3 box 2 tin")
+
     def test_description_selection_filters_by_base_description(self):
         module = _load_module()
         df = pd.DataFrame(
@@ -80,6 +245,655 @@ class StockFilterQueryTests(unittest.TestCase):
         )
 
         self.assertEqual(filtered["brand"].tolist(), ["Alpha", "Gamma"])
+
+    def test_normalize_sales_pack_group_key_treats_1l_and_1kg_as_equivalent(self):
+        module = _load_module()
+
+        self.assertEqual(
+            module._normalize_sales_pack_group_key("10 x 1l"),
+            module._normalize_sales_pack_group_key("10 x 1kg"),
+        )
+
+    def test_normalize_sales_pack_group_key_keeps_different_gram_sizes_separate(self):
+        module = _load_module()
+
+        self.assertNotEqual(
+            module._normalize_sales_pack_group_key("6 x 850g"),
+            module._normalize_sales_pack_group_key("6 x 900g"),
+        )
+
+    def test_build_product_monthly_summary_merges_equivalent_pack_sizes(self):
+        module = _load_module()
+        df = pd.DataFrame(
+            [
+                {
+                    "Date": "2026-01-05",
+                    "Supplier": "Supplier Alpha",
+                    "Product Description": "Hickory BBQ Sauce",
+                    "Product Code": "HBQ-01",
+                    "Carton Packing": "10 x 1l",
+                    "Qty in Ctns": 1,
+                    "Qty in Pcs": 0,
+                    "Total Value": 100,
+                    "carton_packing_numeric": 10,
+                },
+                {
+                    "Date": "2026-01-20",
+                    "Supplier": "Supplier Alpha",
+                    "Product Description": "Hickory BBQ Sauce",
+                    "Product Code": "HBQ-01",
+                    "Carton Packing": "10 x 1kg",
+                    "Qty in Ctns": 0,
+                    "Qty in Pcs": 5,
+                    "Total Value": 50,
+                    "carton_packing_numeric": 10,
+                },
+            ]
+        )
+
+        result = module.build_product_monthly_summary(df)
+
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result.loc[0, "年月"], "2026-Jan")
+        self.assertEqual(result.loc[0, "总销量"], "1 ctn 5 pkts")
+
+    def test_build_sales_usage_views_formats_month_as_year_mon(self):
+        module = _load_module()
+        df = pd.DataFrame(
+            [
+                {
+                    "Year": "2026",
+                    "Month": "January",
+                    "Customer": "Customer One",
+                    "Qty in Ctns": 1,
+                    "Qty in Pcs": 2,
+                    "Total Value": 30,
+                    "carton_packing_numeric": 10,
+                    "total_ctn_equivalent": 1.2,
+                }
+            ]
+        )
+
+        monthly_usage, _customer_usage, customer_month_matrix = (
+            module.build_sales_usage_views(df)
+        )
+
+        self.assertEqual(monthly_usage.loc[0, "Month"], "2026-Jan")
+        self.assertIn("2026-Jan", customer_month_matrix.columns.tolist())
+
+    def test_build_daily_sales_timeline_aggregates_by_date_not_customer(self):
+        module = _load_module()
+        df = pd.DataFrame(
+            [
+                {
+                    "Date": "2026-01-05 09:00:00",
+                    "Customer": "Customer One",
+                    "Qty in Ctns": 1,
+                    "Qty in Pcs": 2,
+                    "Total Value": 30,
+                    "carton_packing_numeric": 10,
+                },
+                {
+                    "Date": "2026-01-05 15:30:00",
+                    "Customer": "Customer Two",
+                    "Qty in Ctns": 0,
+                    "Qty in Pcs": 3,
+                    "Total Value": 15,
+                    "carton_packing_numeric": 10,
+                },
+                {
+                    "Date": "2026-01-06",
+                    "Customer": "Customer One",
+                    "Qty in Ctns": 0,
+                    "Qty in Pcs": 4,
+                    "Total Value": 20,
+                    "carton_packing_numeric": 10,
+                },
+            ]
+        )
+
+        result = module.build_daily_sales_timeline(df)
+
+        self.assertEqual(result["年月"].tolist(), ["2026-Jan", "2026-Jan"])
+        self.assertEqual(result["日期"].tolist(), ["05-Jan-2026", "06-Jan-2026"])
+        self.assertEqual(result["总销量"].tolist(), ["1 ctn 5 pkts", "4 pkts"])
+        self.assertEqual(result["总销售额"].tolist(), ["45.00", "20.00"])
+
+    def test_build_daily_sales_timeline_uses_packet_total_for_mixed_pack_sizes(self):
+        module = _load_module()
+        df = pd.DataFrame(
+            [
+                {
+                    "Date": "2026-01-05",
+                    "Customer": "Customer One",
+                    "Qty in Ctns": 1,
+                    "Qty in Pcs": 0,
+                    "Total Value": 100,
+                    "carton_packing_numeric": 10,
+                },
+                {
+                    "Date": "2026-01-05",
+                    "Customer": "Customer Two",
+                    "Qty in Ctns": 1,
+                    "Qty in Pcs": 0,
+                    "Total Value": 80,
+                    "carton_packing_numeric": 12,
+                },
+            ]
+        )
+
+        result = module.build_daily_sales_timeline(df)
+
+        self.assertEqual(result.loc[0, "日期"], "05-Jan-2026")
+        self.assertEqual(result.loc[0, "总销量"], "22 pkts")
+
+    def test_render_sales_business_dashboard_sorts_customer_month_detail_chronologically(
+        self,
+    ):
+        module = _load_module()
+
+        class _FakeMetric:
+            def metric(self, *_args, **_kwargs):
+                return None
+
+        class _FakeStreamlit:
+            def __init__(self):
+                self._current_subheader = None
+                self.month_view = None
+
+            def info(self, *_args, **_kwargs):
+                return None
+
+            def columns(self, spec):
+                count = spec if isinstance(spec, int) else len(spec)
+                return [_FakeMetric() for _ in range(count)]
+
+            def subheader(self, label):
+                self._current_subheader = label
+
+            def dataframe(self, df, **_kwargs):
+                if self._current_subheader == "客户月度采购明细":
+                    self.month_view = df.copy()
+
+        fake_st = _FakeStreamlit()
+        original_st = getattr(module, "st")
+        setattr(module, "st", fake_st)
+        try:
+            df = pd.DataFrame(
+                [
+                    {
+                        "Date": "2026-03-05",
+                        "Customer": "Customer One",
+                        "Account": "Account A",
+                        "Supplier": "Supplier Alpha",
+                        "Product Description": "Hickory BBQ Sauce",
+                        "Product Code": "HBQ-01",
+                        "Carton Packing": "10 x 1kg",
+                        "Qty in Ctns": 1,
+                        "Qty in Pcs": 0,
+                        "Total Value": 100,
+                        "carton_packing_numeric": 10,
+                        "total_packets": 10,
+                    },
+                    {
+                        "Date": "2026-01-05",
+                        "Customer": "Customer One",
+                        "Account": "Account A",
+                        "Supplier": "Supplier Alpha",
+                        "Product Description": "Hickory BBQ Sauce",
+                        "Product Code": "HBQ-01",
+                        "Carton Packing": "10 x 1kg",
+                        "Qty in Ctns": 1,
+                        "Qty in Pcs": 0,
+                        "Total Value": 100,
+                        "carton_packing_numeric": 10,
+                        "total_packets": 10,
+                    },
+                    {
+                        "Date": "2026-02-05",
+                        "Customer": "Customer One",
+                        "Account": "Account A",
+                        "Supplier": "Supplier Alpha",
+                        "Product Description": "Hickory BBQ Sauce",
+                        "Product Code": "HBQ-01",
+                        "Carton Packing": "10 x 1kg",
+                        "Qty in Ctns": 1,
+                        "Qty in Pcs": 0,
+                        "Total Value": 100,
+                        "carton_packing_numeric": 10,
+                        "total_packets": 10,
+                    },
+                ]
+            )
+
+            module._render_sales_business_dashboard(df)
+        finally:
+            setattr(module, "st", original_st)
+
+        month_view = fake_st.month_view
+        if month_view is None:
+            self.fail("Expected 客户月度采购明细 dataframe to be rendered")
+        self.assertEqual(
+            month_view["年月"].tolist(),
+            ["2026-Jan", "2026-Feb", "2026-Mar"],
+        )
+
+    def test_render_sales_business_dashboard_shows_non_customer_daily_timeline(self):
+        module = _load_module()
+
+        class _FakeMetric:
+            def metric(self, *_args, **_kwargs):
+                return None
+
+        class _FakeStreamlit:
+            def __init__(self):
+                self._current_subheader = None
+                self.daily_timeline_view = None
+
+            def info(self, *_args, **_kwargs):
+                return None
+
+            def columns(self, spec):
+                count = spec if isinstance(spec, int) else len(spec)
+                return [_FakeMetric() for _ in range(count)]
+
+            def subheader(self, label):
+                self._current_subheader = label
+
+            def dataframe(self, df, **_kwargs):
+                if self._current_subheader == "每日销量时间线（不分客户）":
+                    self.daily_timeline_view = df.copy()
+
+        fake_st = _FakeStreamlit()
+        original_st = getattr(module, "st")
+        setattr(module, "st", fake_st)
+        try:
+            df = pd.DataFrame(
+                [
+                    {
+                        "Date": "2026-01-05",
+                        "Customer": "Customer One",
+                        "Account": "Account A",
+                        "Supplier": "Supplier Alpha",
+                        "Product Description": "Hickory BBQ Sauce",
+                        "Product Code": "HBQ-01",
+                        "Carton Packing": "10 x 1kg",
+                        "Qty in Ctns": 1,
+                        "Qty in Pcs": 0,
+                        "Total Value": 100,
+                        "carton_packing_numeric": 10,
+                        "total_packets": 10,
+                    },
+                    {
+                        "Date": "2026-01-05",
+                        "Customer": "Customer Two",
+                        "Account": "Account B",
+                        "Supplier": "Supplier Alpha",
+                        "Product Description": "Hickory BBQ Sauce",
+                        "Product Code": "HBQ-01",
+                        "Carton Packing": "10 x 1kg",
+                        "Qty in Ctns": 0,
+                        "Qty in Pcs": 5,
+                        "Total Value": 50,
+                        "carton_packing_numeric": 10,
+                        "total_packets": 5,
+                    },
+                ]
+            )
+
+            module._render_sales_business_dashboard(df)
+        finally:
+            setattr(module, "st", original_st)
+
+        timeline_view = fake_st.daily_timeline_view
+        if timeline_view is None:
+            self.fail("Expected 每日销量时间线（不分客户） dataframe to be rendered")
+
+        self.assertEqual(timeline_view["日期"].tolist(), ["05-Jan-2026"])
+        self.assertEqual(timeline_view["总销量"].tolist(), ["1 ctn 5 pkts"])
+
+    def test_render_sales_business_dashboard_shows_base_price_and_price_per_kg(self):
+        module = _load_module()
+
+        class _FakeMetric:
+            def metric(self, *_args, **_kwargs):
+                return None
+
+        class _FakeStreamlit:
+            def __init__(self):
+                self._current_subheader = None
+                self.month_view = None
+                self.date_view = None
+
+            def info(self, *_args, **_kwargs):
+                return None
+
+            def columns(self, spec):
+                count = spec if isinstance(spec, int) else len(spec)
+                return [_FakeMetric() for _ in range(count)]
+
+            def subheader(self, label):
+                self._current_subheader = label
+
+            def dataframe(self, df, **_kwargs):
+                if self._current_subheader == "客户月度采购明细":
+                    self.month_view = df.copy()
+                if self._current_subheader == "客户采购时间线":
+                    self.date_view = df.copy()
+
+        fake_st = _FakeStreamlit()
+        original_st = getattr(module, "st")
+        setattr(module, "st", fake_st)
+        try:
+            df = pd.DataFrame(
+                [
+                    {
+                        "Date": "2026-01-05",
+                        "Customer": "Customer One",
+                        "Account": "Account A",
+                        "Supplier": "Supplier Alpha",
+                        "Product Description": "Hickory BBQ Sauce",
+                        "Product Code": "HBQ-01",
+                        "Carton Packing": "10 x 1kg",
+                        "Qty in Ctns": 1,
+                        "Qty in Pcs": 0,
+                        "Total Value": 100,
+                        "carton_packing_numeric": 10,
+                        "total_packets": 10,
+                    }
+                ]
+            )
+
+            module._render_sales_business_dashboard(df)
+        finally:
+            setattr(module, "st", original_st)
+
+        month_view = fake_st.month_view
+        date_view = fake_st.date_view
+        if month_view is None:
+            self.fail("Expected 客户月度采购明细 dataframe to be rendered")
+        if date_view is None:
+            self.fail("Expected 客户采购时间线 dataframe to be rendered")
+
+        self.assertIn("基础卖价", month_view.columns)
+        self.assertIn("每公斤卖价", month_view.columns)
+        self.assertNotIn("总销售额", month_view.columns)
+        self.assertEqual(month_view.loc[0, "基础卖价"], "100.00")
+        self.assertEqual(month_view.loc[0, "每公斤卖价"], "10.00")
+
+        self.assertIn("基础卖价", date_view.columns)
+        self.assertIn("每公斤卖价", date_view.columns)
+        self.assertNotIn("销售额", date_view.columns)
+        self.assertEqual(date_view.loc[0, "基础卖价"], "100.00")
+        self.assertEqual(date_view.loc[0, "每公斤卖价"], "10.00")
+
+    def test_stock_module_does_not_expose_sales_account_conflict_checker(self):
+        module = _load_module()
+
+        self.assertFalse(
+            hasattr(module, "_find_sales_month_customer_account_conflicts")
+        )
+
+    def test_build_account_price_list_merges_equivalent_pack_sizes(self):
+        module = _load_module()
+        df = pd.DataFrame(
+            [
+                {
+                    "Account": "Account A",
+                    "Date": "2026-01-05",
+                    "Customer": "Customer One",
+                    "Supplier": "Supplier Alpha",
+                    "Product Code": "HBQ-01",
+                    "Product Description": "Hickory BBQ Sauce",
+                    "Carton Packing": "10 x 1l",
+                    "Qty in Pcs": 0,
+                    "Qty in Ctns": 1,
+                    "Total Value": 100,
+                },
+                {
+                    "Account": "Account A",
+                    "Date": "2026-01-20",
+                    "Customer": "Customer One",
+                    "Supplier": "Supplier Alpha",
+                    "Product Code": "HBQ-01",
+                    "Product Description": "Hickory BBQ Sauce",
+                    "Carton Packing": "10 x 1kg",
+                    "Qty in Pcs": 5,
+                    "Qty in Ctns": 0,
+                    "Total Value": 50,
+                },
+            ]
+        )
+
+        result = module.build_account_price_list(df, "Account A")
+
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result.loc[0, "Last Selling Date"], "2026-01-20")
+
+    def test_cache_stock_upload_persists_name_bytes_and_browse_time(self):
+        module = _load_module()
+
+        class _UploadedFile:
+            name = "stock.xlsx"
+
+            @staticmethod
+            def getvalue():
+                return b"excel-bytes"
+
+        session_state = {}
+        browse_time = datetime.datetime(2026, 4, 13, 9, 5)
+
+        module._cache_stock_upload(
+            _UploadedFile(),
+            session_state,
+            now=browse_time,
+        )
+
+        self.assertEqual(session_state["stock_file_name"], "stock.xlsx")
+        self.assertEqual(session_state["stock_file_bytes"], b"excel-bytes")
+        self.assertEqual(session_state["stock_file_browsed_at"], "09:05 AM 13/04/2026")
+
+    def test_cache_stock_upload_ignores_missing_upload(self):
+        module = _load_module()
+        session_state = {"stock_file_name": "existing.xlsx"}
+
+        module._cache_stock_upload(None, session_state)
+
+        self.assertEqual(session_state, {"stock_file_name": "existing.xlsx"})
+
+    def test_clear_stock_upload_cache_removes_cached_upload_and_browse_time(self):
+        module = _load_module()
+        session_state = {
+            "stock_file_name": "existing.xlsx",
+            "stock_file_bytes": b"abc",
+            "stock_file_browsed_at": "09:05 AM 13/04/2026",
+        }
+
+        module._clear_stock_upload_cache(session_state)
+
+        self.assertEqual(session_state, {})
+
+    def test_stock_persist_keys_include_browse_timestamp(self):
+        module = _load_module()
+
+        self.assertIn("stock_file_browsed_at", module._STOCK_PERSIST_KEYS)
+
+    def test_cache_sales_upload_persists_payload_and_browse_time(self):
+        module = _load_module()
+
+        class _UploadedFile:
+            def __init__(self, name, content):
+                self.name = name
+                self._content = content
+
+            def getvalue(self):
+                return self._content
+
+        session_state = {}
+        browse_time = datetime.datetime(2026, 4, 13, 10, 45)
+
+        module._cache_sales_upload(
+            [
+                _UploadedFile("sales-1.xlsx", b"one"),
+                _UploadedFile("sales-2.xlsx", b"two"),
+            ],
+            session_state,
+            now=browse_time,
+        )
+
+        self.assertEqual(
+            session_state["sales_files_payload"],
+            [
+                {"name": "sales-1.xlsx", "bytes": b"one"},
+                {"name": "sales-2.xlsx", "bytes": b"two"},
+            ],
+        )
+        self.assertEqual(session_state["sales_files_browsed_at"], "10:45 AM 13/04/2026")
+
+    def test_clear_sales_upload_cache_removes_cached_files_and_browse_time(self):
+        module = _load_module()
+        session_state = {
+            "sales_files_payload": [{"name": "sales.xlsx", "bytes": b"abc"}],
+            "sales_files_browsed_at": "10:45 AM 13/04/2026",
+        }
+
+        module._clear_sales_upload_cache(session_state)
+
+        self.assertEqual(session_state, {})
+
+    def test_sales_persist_keys_include_browse_timestamp(self):
+        module = _load_module()
+
+        self.assertIn("sales_files_browsed_at", module._SALES_PERSIST_KEYS)
+
+    def test_clear_sales_filters_state_resets_exact_date_keys(self):
+        module = _load_module()
+        session_state = {
+            "sales_filter_use_exact_date": True,
+            "sales_filter_exact_date": datetime.date(2026, 4, 15),
+        }
+
+        module._clear_sales_filters_state(session_state)
+
+        self.assertFalse(session_state["sales_filter_use_exact_date"])
+        self.assertIsNone(session_state["sales_filter_exact_date"])
+
+    def test_sales_persist_keys_include_exact_date_keys(self):
+        module = _load_module()
+
+        self.assertIn("sales_filter_use_exact_date", module._SALES_PERSIST_KEYS)
+        self.assertIn("sales_filter_exact_date", module._SALES_PERSIST_KEYS)
+
+    def test_apply_sales_filters_uses_exact_date_in_basic_mode(self):
+        module = _load_module()
+        original_st = getattr(module, "st")
+        session_state = {
+            "sales_basic_mode": True,
+            "sales_filter_year": [],
+            "sales_filter_month": [],
+            "sales_filter_customer": [],
+            "sales_filter_customer_exclude": [],
+            "sales_filter_outlet": [],
+            "sales_filter_product_description": [],
+            "sales_filter_supplier": [],
+            "sales_filter_brand": [],
+            "sales_filter_product_code": [],
+            "sales_filter_account": [],
+            "sales_filter_invoice": "",
+            "sales_filter_date_from": datetime.date(2026, 4, 1),
+            "sales_filter_date_to": datetime.date(2026, 4, 30),
+            "sales_filter_use_exact_date": True,
+            "sales_filter_exact_date": datetime.date(2026, 4, 15),
+        }
+        setattr(module, "st", _FakeStreamlit(session_state))
+        df = pd.DataFrame(
+            {
+                "Year": ["2026", "2026", "2026"],
+                "Month": ["Apr", "Apr", "Apr"],
+                "Customer": ["A", "A", "B"],
+                "Outlet": ["Outlet 1", "Outlet 1", "Outlet 2"],
+                "Product Description": ["Prod 1", "Prod 1", "Prod 2"],
+                "Supplier": ["Supp", "Supp", "Supp"],
+                "Brand/Category": ["Brand", "Brand", "Brand"],
+                "Product Code": ["P1", "P1", "P2"],
+                "Account": ["ACC", "ACC", "ACC2"],
+                "Invoice #": ["INV-1", "INV-2", "INV-3"],
+                "Date": pd.to_datetime(["2026-04-15", "2026-04-16", "2026-04-15"]),
+            }
+        )
+
+        try:
+            filtered_df, filter_state = module.apply_sales_filters(df)
+        finally:
+            setattr(module, "st", original_st)
+
+        self.assertEqual(filtered_df["Invoice #"].tolist(), ["INV-1", "INV-3"])
+        self.assertEqual(filter_state["Exact date"], "2026-04-15")
+        self.assertIsNone(session_state["sales_filter_date_from"])
+        self.assertIsNone(session_state["sales_filter_date_to"])
+
+    def test_append_forecast_total_row_adds_combined_total(self):
+        module = _load_module()
+        df = pd.DataFrame(
+            [
+                {
+                    "客户": "Customer One",
+                    "账户": "Account A",
+                    "供应商": "Supplier Alpha",
+                    "产品描述": "Hickory BBQ Sauce",
+                    "产品编码": "HBQ-01",
+                    "箱规": "10 x 1kg",
+                    "下月预测销量": "1 ctn 5 pkts",
+                    "下月预测销售额": "150.00",
+                    "_forecast_packets": 15.0,
+                    "_forecast_value": 150.0,
+                },
+                {
+                    "客户": "Customer Two",
+                    "账户": "Account B",
+                    "供应商": "Supplier Beta",
+                    "产品描述": "Hot Sauce",
+                    "产品编码": "HS-01",
+                    "箱规": "5 x 500g",
+                    "下月预测销量": "2 ctns",
+                    "下月预测销售额": "80.00",
+                    "_forecast_packets": 10.0,
+                    "_forecast_value": 80.0,
+                },
+            ]
+        )
+
+        result = module._append_sales_forecast_total_row(df)
+
+        self.assertEqual(len(result), 3)
+        self.assertEqual(result.iloc[-1]["客户"], "Total")
+        self.assertEqual(result.iloc[-1]["下月预测销量"], "25 pkts")
+        self.assertEqual(result.iloc[-1]["下月预测销售额"], "230.00")
+
+    def test_append_forecast_total_row_uses_ctns_for_consistent_pack_size(self):
+        module = _load_module()
+        df = pd.DataFrame(
+            [
+                {
+                    "客户": "Customer One",
+                    "账户": "Account A",
+                    "供应商": "Supplier Alpha",
+                    "产品描述": "Mozzarella",
+                    "产品编码": "FROZEN",
+                    "箱规": "1 x 6.81kg",
+                    "下月预测销量": "15 ctns",
+                    "下月预测销售额": "870.00",
+                    "_forecast_packets": 15.0,
+                    "_forecast_value": 870.0,
+                }
+            ]
+        )
+
+        result = module._append_sales_forecast_total_row(df)
+
+        self.assertEqual(result.iloc[-1]["客户"], "Total")
+        self.assertEqual(result.iloc[-1]["下月预测销量"], "15 ctns")
+        self.assertEqual(result.iloc[-1]["下月预测销售额"], "870.00")
 
 
 if __name__ == "__main__":
