@@ -2,9 +2,11 @@ import importlib.util
 import sys
 import unittest
 import datetime
+import io
 from pathlib import Path
 
 import pandas as pd
+from openpyxl import Workbook
 
 
 MODULE_PATH = Path(__file__).with_name("stock_datagrid.py")
@@ -387,6 +389,1038 @@ class StockFilterQueryTests(unittest.TestCase):
         self.assertEqual(result.loc[0, "日期"], "05-Jan-2026")
         self.assertEqual(result.loc[0, "总销量"], "22 pkts")
 
+    def test_load_stock_reconciliation_data_extracts_dated_outbound_quantities(self):
+        module = _load_module()
+        wb = Workbook()
+        ws = wb.active
+        if ws is None:
+            self.fail("Expected active worksheet")
+        ws.title = "Stocks report"
+        ws.append([None] * 12)
+        ws.append([None] * 10 + ["1-Apr", "2-Apr"])
+        ws.append(
+            [
+                "Supplier",
+                "Brand",
+                "Product Code",
+                "Description",
+                "Pack Size",
+                "Unit",
+                "Expiry Date",
+                "Relabel To Date",
+                "Daily Update",
+                "Stock Qty",
+                "",
+                "",
+            ]
+        )
+        ws.append(
+            [
+                "Acme",
+                "Sauces",
+                "P001",
+                "Aioli Sauce (Cold)",
+                "24 x 50g",
+                "ctn",
+                "2026-04-01",
+                "2026-03-20",
+                "",
+                10,
+                "13 ctns 5 pkts",
+                "2 pkts",
+            ]
+        )
+
+        payload = io.BytesIO()
+        wb.save(payload)
+
+        stock_df, timeline_df, warns = module.load_stock_reconciliation_data_from_bytes(
+            payload.getvalue(),
+            preferred_year=2026,
+        )
+
+        self.assertFalse(warns)
+        self.assertEqual(stock_df.loc[0, "product_code"], "P001")
+        self.assertEqual(
+            timeline_df["date"].dt.strftime("%Y-%m-%d").tolist(),
+            ["2026-04-01", "2026-04-02"],
+        )
+        self.assertEqual(timeline_df["stock_ctn"].tolist(), [13, 0])
+        self.assertEqual(timeline_df["stock_pkt"].tolist(), [5, 2])
+        self.assertEqual(
+            timeline_df["stock_qty_text"].tolist(),
+            ["13 ctns 5 pkts", "2 pkts"],
+        )
+
+    def test_load_stock_reconciliation_data_uses_fixed_positions_not_header_labels(
+        self,
+    ):
+        module = _load_module()
+        wb = Workbook()
+        ws = wb.active
+        if ws is None:
+            self.fail("Expected active worksheet")
+        ws.title = "Stocks report"
+        ws.append([None] * 12)
+        ws.append([None] * 10 + ["1-Apr"])
+        ws.append([None] * 12)
+        ws.append([None] * 12)
+        ws.append(
+            [
+                "Acme",
+                "Sauces",
+                "P001",
+                "Aioli Sauce",
+                "24 x 50g",
+                "ctn",
+                "2026-04-01",
+                "2026-03-20",
+                "",
+                10,
+                "13 ctns 5 pkts",
+                "",
+            ]
+        )
+
+        payload = io.BytesIO()
+        wb.save(payload)
+
+        stock_df, timeline_df, warns = module.load_stock_reconciliation_data_from_bytes(
+            payload.getvalue(),
+            preferred_year=2026,
+        )
+
+        self.assertFalse(warns)
+        self.assertEqual(stock_df.loc[0, "product_code"], "P001")
+        self.assertEqual(timeline_df.loc[0, "stock_qty_text"], "13 ctns 5 pkts")
+
+    def test_load_stock_reconciliation_data_detects_date_headers_on_excel_row_3(self):
+        module = _load_module()
+        wb = Workbook()
+        ws = wb.active
+        if ws is None:
+            self.fail("Expected active worksheet")
+        ws.title = "Stocks report"
+        ws.append([None] * 12)
+        ws.append([None] * 12)
+        ws.append([None] * 10 + ["1-Apr", None])
+        ws.append([None] * 12)
+        ws.append(
+            [
+                "Acme",
+                "Sauces",
+                "P001",
+                "Aioli Sauce",
+                "24 x 50g",
+                "ctn",
+                "2026-04-01",
+                "2026-03-20",
+                "",
+                10,
+                "13 ctns 5 pkts",
+                "",
+            ]
+        )
+
+        payload = io.BytesIO()
+        wb.save(payload)
+
+        _stock_df, timeline_df, warns = (
+            module.load_stock_reconciliation_data_from_bytes(
+                payload.getvalue(),
+                preferred_year=2026,
+            )
+        )
+
+        self.assertFalse(warns)
+        self.assertEqual(len(timeline_df), 1)
+        self.assertEqual(timeline_df.loc[0, "stock_qty_text"], "13 ctns 5 pkts")
+
+    def test_load_stock_reconciliation_data_treats_numeric_cell_as_row_unit_quantity(
+        self,
+    ):
+        module = _load_module()
+        wb = Workbook()
+        ws = wb.active
+        if ws is None:
+            self.fail("Expected active worksheet")
+        ws.title = "Stocks report"
+        ws.append([None] * 12)
+        ws.append([None] * 12)
+        ws.append([None] * 10 + ["1-Apr-2026"])
+        ws.append(
+            [
+                "Acme",
+                "Cheese",
+                "CH-001",
+                "Cheddar Cheese",
+                "1 x 1kg",
+                "ctn",
+                "2026-04-30",
+                None,
+                None,
+                20,
+                5,
+                None,
+            ]
+        )
+
+        payload = io.BytesIO()
+        wb.save(payload)
+
+        _stock_df, timeline_df, warns = (
+            module.load_stock_reconciliation_data_from_bytes(
+                payload.getvalue(),
+                preferred_year=2026,
+            )
+        )
+
+        self.assertFalse(warns)
+        self.assertEqual(len(timeline_df), 1)
+        self.assertEqual(timeline_df.loc[0, "stock_ctn"], 5)
+        self.assertEqual(timeline_df.loc[0, "stock_pkt"], 0)
+        self.assertEqual(timeline_df.loc[0, "stock_qty_text"], "5 ctns")
+
+    def test_load_stock_reconciliation_data_uses_second_duplicate_date_as_outbound(
+        self,
+    ):
+        module = _load_module()
+        wb = Workbook()
+        ws = wb.active
+        if ws is None:
+            self.fail("Expected active worksheet")
+        ws.title = "Stocks report"
+        ws.append([None] * 13)
+        ws.append([None] * 10 + ["1-Apr-2026", "1-Apr-2026", None])
+        ws.append([None] * 13)
+        ws.append(
+            [
+                "Acme",
+                "Cheese",
+                "CH-001",
+                "Cheddar Cheese",
+                "1 x 1kg",
+                "ctn",
+                "2026-04-30",
+                None,
+                None,
+                20,
+                99,
+                5,
+                None,
+            ]
+        )
+
+        payload = io.BytesIO()
+        wb.save(payload)
+
+        _stock_df, timeline_df, warns = (
+            module.load_stock_reconciliation_data_from_bytes(
+                payload.getvalue(),
+                preferred_year=2026,
+            )
+        )
+
+        self.assertFalse(warns)
+        self.assertEqual(len(timeline_df), 1)
+        self.assertEqual(timeline_df.loc[0, "stock_ctn"], 5)
+        self.assertEqual(timeline_df.loc[0, "stock_qty_text"], "5 ctns")
+
+    def test_build_sales_reconciliation_timeline_aggregates_by_item_and_date(self):
+        module = _load_module()
+        df = pd.DataFrame(
+            [
+                {
+                    "Date": "2026-04-01 10:00:00",
+                    "Product Code": "P001",
+                    "Product Description": "Aioli Sauce",
+                    "Carton Packing": "24 x 50g",
+                    "Qty in Ctns": 1,
+                    "Qty in Pcs": 3,
+                },
+                {
+                    "Date": "2026-04-01 15:00:00",
+                    "Product Code": "P001",
+                    "Product Description": "Aioli Sauce",
+                    "Carton Packing": "24 x 50g",
+                    "Qty in Ctns": 2,
+                    "Qty in Pcs": 1,
+                },
+            ]
+        )
+
+        result = module.build_sales_reconciliation_timeline(df)
+
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result.loc[0, "product_code"], "P001")
+        self.assertEqual(result.loc[0, "sales_ctn"], 3)
+        self.assertEqual(result.loc[0, "sales_pkt"], 4)
+        self.assertEqual(result.loc[0, "sales_qty_text"], "3 ctns 4 pkts")
+
+    def test_build_reconciliation_result_flags_matches_and_mismatches(self):
+        module = _load_module()
+        stock_timeline = pd.DataFrame(
+            [
+                {
+                    "match_key": "code::P001",
+                    "match_basis": "product_code",
+                    "product_code": "P001",
+                    "description": "Aioli Sauce",
+                    "pack_size": "24 x 50g",
+                    "date": pd.Timestamp("2026-04-01"),
+                    "stock_ctn": 1,
+                    "stock_pkt": 2,
+                    "stock_qty_text": "1 ctn 2 pkts",
+                },
+                {
+                    "match_key": "code::P002",
+                    "match_basis": "product_code",
+                    "product_code": "P002",
+                    "description": "Brown Sauce",
+                    "pack_size": "12 x 100g",
+                    "date": pd.Timestamp("2026-04-01"),
+                    "stock_ctn": 2,
+                    "stock_pkt": 0,
+                    "stock_qty_text": "2 ctns",
+                },
+            ]
+        )
+        sales_timeline = pd.DataFrame(
+            [
+                {
+                    "match_key": "code::P001",
+                    "match_basis": "product_code",
+                    "product_code": "P001",
+                    "description": "Aioli Sauce",
+                    "pack_size": "24 x 50g",
+                    "date": pd.Timestamp("2026-04-01"),
+                    "sales_ctn": 1,
+                    "sales_pkt": 2,
+                    "sales_qty_text": "1 ctn 2 pkts",
+                },
+                {
+                    "match_key": "code::P003",
+                    "match_basis": "product_code",
+                    "product_code": "P003",
+                    "description": "Fish Cake",
+                    "pack_size": "10 x 200g",
+                    "date": pd.Timestamp("2026-04-01"),
+                    "sales_ctn": 1,
+                    "sales_pkt": 1,
+                    "sales_qty_text": "1 ctn 1 pkt",
+                },
+            ]
+        )
+
+        result = module.build_reconciliation_result(stock_timeline, sales_timeline)
+
+        status_map = {
+            (row.product_code, row.date.strftime("%Y-%m-%d")): row.mismatch_reason
+            for row in result.itertuples()
+        }
+        self.assertEqual(status_map[("P001", "2026-04-01")], "match")
+        self.assertEqual(status_map[("P002", "2026-04-01")], "missing_in_sales")
+        self.assertEqual(status_map[("P003", "2026-04-01")], "missing_in_stock")
+
+    def test_build_reconciliation_result_aggregates_duplicate_rows_before_merging(self):
+        module = _load_module()
+        stock_timeline = pd.DataFrame(
+            [
+                {
+                    "match_key": "code::p001",
+                    "match_basis": "product_code",
+                    "product_code": "P001",
+                    "description": "Aioli Sauce",
+                    "pack_size": "24 x 50g",
+                    "supplier": "Acme",
+                    "brand": "Sauces",
+                    "date": pd.Timestamp("2026-04-01"),
+                    "stock_ctn": 1,
+                    "stock_pkt": 2,
+                    "stock_qty_text": "1 ctn 2 pkts",
+                },
+                {
+                    "match_key": "code::p001",
+                    "match_basis": "product_code",
+                    "product_code": "P001",
+                    "description": "Aioli Sauce (Cold)",
+                    "pack_size": "24 x 50g",
+                    "supplier": "Acme",
+                    "brand": "Sauces",
+                    "date": pd.Timestamp("2026-04-01"),
+                    "stock_ctn": 2,
+                    "stock_pkt": 3,
+                    "stock_qty_text": "2 ctns 3 pkts",
+                },
+            ]
+        )
+        sales_timeline = pd.DataFrame(
+            [
+                {
+                    "match_key": "code::p001",
+                    "match_basis": "product_code",
+                    "product_code": "P001",
+                    "description": "Aioli Sauce",
+                    "pack_size": "24 x 50g",
+                    "supplier": "Acme",
+                    "brand": "Sauces",
+                    "date": pd.Timestamp("2026-04-01"),
+                    "sales_ctn": 3,
+                    "sales_pkt": 5,
+                    "sales_qty_text": "3 ctns 5 pkts",
+                }
+            ]
+        )
+
+        result = module.build_reconciliation_result(stock_timeline, sales_timeline)
+
+        self.assertEqual(len(result), 1)
+        self.assertTrue(bool(result.loc[0, "is_match"]))
+        self.assertEqual(result.loc[0, "stock_qty_text"], "3 ctns 5 pkts")
+
+    def test_reconciliation_match_key_treats_parenthetical_remark_as_same_item(self):
+        module = _load_module()
+
+        stock_key, stock_basis = module._build_reconciliation_match_key(
+            "",
+            "13294632 (ER.38.17.20E) Kartoffel Instant Mashed Potato",
+            "5 x 2kg",
+            "Acme",
+            "Potato",
+        )
+        sales_key, sales_basis = module._build_reconciliation_match_key(
+            "",
+            "13294632 Kartoffel Instant Mashed Potato",
+            "5 x 2kg",
+            "Acme",
+            "Potato",
+        )
+
+        self.assertEqual(stock_basis, sales_basis)
+        self.assertEqual(stock_key, sales_key)
+
+    def test_reconciliation_match_key_normalizes_parenthetical_product_code(self):
+        module = _load_module()
+
+        stock_key, stock_basis = module._build_reconciliation_match_key(
+            "13294632  (ER.38.17.20E)",
+            "Kartoffel Instant Mashed Potato",
+            "5 x 2kg",
+            "Acme",
+            "Potato",
+        )
+        sales_key, sales_basis = module._build_reconciliation_match_key(
+            "13294632",
+            "Kartoffel Instant Mashed Potato",
+            "5 x 2kg",
+            "Acme",
+            "Potato",
+        )
+
+        self.assertEqual(stock_basis, sales_basis)
+        self.assertEqual(stock_key, sales_key)
+
+    def test_reconciliation_match_key_ignores_placeholder_product_code(self):
+        module = _load_module()
+
+        key, basis = module._build_reconciliation_match_key(
+            "NA",
+            "Highway BBQ Sauce",
+            "12 x 1kg",
+            "Hock Seng",
+            "Savori",
+        )
+
+        self.assertEqual(basis, "fallback_supplier_description_pack")
+        self.assertEqual(key, "descpack::hock seng::highway bbq sauce::12 x 1kg")
+
+    def test_reconciliation_match_key_fallback_ignores_blank_sales_brand(self):
+        module = _load_module()
+
+        stock_key, stock_basis = module._build_reconciliation_match_key(
+            "NA",
+            "Highway BBQ Sauce",
+            "12 x 1kg",
+            "Hock Seng",
+            "Savori",
+        )
+        sales_key, sales_basis = module._build_reconciliation_match_key(
+            pd.NA,
+            "Highway BBQ Sauce",
+            "12 x 1kg",
+            "Hock Seng",
+            pd.NA,
+        )
+
+        self.assertEqual(stock_basis, sales_basis)
+        self.assertEqual(stock_key, sales_key)
+
+    def test_strip_html_preserves_missing_values_before_sales_normalization(self):
+        module = _load_module()
+        df = pd.DataFrame({"Product Code": [pd.NA, "NA", "<b>P001</b>"]})
+
+        result = module._strip_html_df(df)
+
+        self.assertTrue(pd.isna(result.loc[0, "Product Code"]))
+        self.assertEqual(result.loc[1, "Product Code"], "NA")
+        self.assertEqual(result.loc[2, "Product Code"], "P001")
+
+    def test_build_reconciliation_result_handles_empty_stock_timeline(self):
+        module = _load_module()
+        sales_timeline = pd.DataFrame(
+            [
+                {
+                    "match_key": "code::p001",
+                    "match_basis": "product_code",
+                    "product_code": "P001",
+                    "description": "Aioli Sauce",
+                    "pack_size": "24 x 50g",
+                    "supplier": "Acme",
+                    "brand": "Sauces",
+                    "date": pd.Timestamp("2026-04-01"),
+                    "sales_ctn": 3,
+                    "sales_pkt": 5,
+                    "sales_qty_text": "3 ctns 5 pkts",
+                }
+            ]
+        )
+
+        result = module.build_reconciliation_result(pd.DataFrame(), sales_timeline)
+
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result.loc[0, "mismatch_reason"], "missing_in_stock")
+
+    def test_build_reconciliation_result_adds_difference_quantity_text(self):
+        module = _load_module()
+        stock_timeline = pd.DataFrame(
+            [
+                {
+                    "match_key": "code::p001",
+                    "match_basis": "product_code",
+                    "product_code": "P001",
+                    "description": "Aioli Sauce",
+                    "pack_size": "24 x 50g",
+                    "supplier": "Acme",
+                    "brand": "Sauces",
+                    "date": pd.Timestamp("2026-04-01"),
+                    "stock_ctn": 3,
+                    "stock_pkt": 5,
+                    "stock_qty_text": "3 ctns 5 pkts",
+                }
+            ]
+        )
+        sales_timeline = pd.DataFrame(
+            [
+                {
+                    "match_key": "code::p001",
+                    "match_basis": "product_code",
+                    "product_code": "P001",
+                    "description": "Aioli Sauce",
+                    "pack_size": "24 x 50g",
+                    "supplier": "Acme",
+                    "brand": "Sauces",
+                    "date": pd.Timestamp("2026-04-01"),
+                    "sales_ctn": 1,
+                    "sales_pkt": 2,
+                    "sales_qty_text": "1 ctn 2 pkts",
+                }
+            ]
+        )
+
+        result = module.build_reconciliation_result(stock_timeline, sales_timeline)
+
+        self.assertEqual(result.loc[0, "difference_ctn"], 2)
+        self.assertEqual(result.loc[0, "difference_pkt"], 3)
+        self.assertEqual(result.loc[0, "difference_qty_text"], "2 ctns 3 pkts")
+
+    def test_normalize_ctn_pkt_by_pack_size_rolls_packet_overflow_into_cartons(self):
+        module = _load_module()
+
+        cartons, packets = module._normalize_ctn_pkt_by_pack_size(4, 24, "12 x 1kg")
+
+        self.assertEqual((cartons, packets), (6, 0))
+
+    def test_default_reconciliation_year_prefers_2026(self):
+        module = _load_module()
+
+        self.assertEqual(
+            module._default_reconciliation_year_selection(["2025", "2026", "2027"]),
+            ["2026"],
+        )
+        self.assertEqual(
+            module._default_reconciliation_year_selection(["2024", "2025"]),
+            ["2025"],
+        )
+
+    def test_default_reconciliation_month_prefers_apr(self):
+        module = _load_module()
+
+        self.assertEqual(
+            module._default_reconciliation_month_selection(["Jan", "Apr", "May"]),
+            ["Apr"],
+        )
+        self.assertEqual(
+            module._default_reconciliation_month_selection(["Jan", "May"]),
+            ["May"],
+        )
+
+    def test_apply_reconciliation_filters_matches_code_description_year_and_date(self):
+        module = _load_module()
+        df = pd.DataFrame(
+            [
+                {
+                    "supplier": "Acme",
+                    "date": pd.Timestamp("2026-04-01"),
+                    "month": "Apr",
+                    "product_code": "P001",
+                    "description": "Aioli Sauce (Cold)",
+                    "pack_size": "24 x 50g",
+                    "sales_qty_text": "1 ctn",
+                    "stock_qty_text": "2 ctns",
+                    "difference_qty_text": "1 ctn",
+                },
+                {
+                    "supplier": "Acme",
+                    "date": pd.Timestamp("2025-04-01"),
+                    "month": "Apr",
+                    "product_code": "P002",
+                    "description": "Brown Sauce",
+                    "pack_size": "12 x 100g",
+                    "sales_qty_text": "1 pkt",
+                    "stock_qty_text": "1 pkt",
+                    "difference_qty_text": "0",
+                },
+                {
+                    "supplier": "Acme",
+                    "date": pd.Timestamp("2026-05-01"),
+                    "month": "May",
+                    "product_code": "P001",
+                    "description": "Aioli Sauce (Cold)",
+                    "pack_size": "24 x 50g",
+                    "sales_qty_text": "1 ctn",
+                    "stock_qty_text": "2 ctns",
+                    "difference_qty_text": "1 ctn",
+                },
+            ]
+        )
+
+        result = module._apply_reconciliation_filters(
+            df,
+            {
+                "product_code": ["P001"],
+                "description": ["Aioli Sauce"],
+                "year": ["2026"],
+                "month": ["Apr"],
+                "date": ["01-Apr-2026"],
+            },
+        )
+
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result.loc[0, "product_code"], "P001")
+
+    def test_get_reconciliation_date_bounds_narrows_to_selected_year_and_month(self):
+        module = _load_module()
+        df = pd.DataFrame(
+            [
+                {"date": pd.Timestamp("2026-04-01")},
+                {"date": pd.Timestamp("2026-04-15")},
+                {"date": pd.Timestamp("2026-05-01")},
+                {"date": pd.Timestamp("2025-04-01")},
+            ]
+        )
+
+        start_date, end_date = module._get_reconciliation_date_bounds(
+            df,
+            {"year": ["2026"], "month": ["Apr"]},
+        )
+
+        self.assertEqual(start_date, datetime.date(2026, 4, 1))
+        self.assertEqual(end_date, datetime.date(2026, 4, 30))
+
+    def test_apply_reconciliation_filters_matches_calendar_date_value(self):
+        module = _load_module()
+        df = pd.DataFrame(
+            [
+                {
+                    "supplier": "Acme",
+                    "date": pd.Timestamp("2026-04-01"),
+                    "product_code": "P001",
+                    "description": "Aioli Sauce",
+                    "pack_size": "24 x 50g",
+                },
+                {
+                    "supplier": "Acme",
+                    "date": pd.Timestamp("2026-04-02"),
+                    "product_code": "P001",
+                    "description": "Aioli Sauce",
+                    "pack_size": "24 x 50g",
+                },
+            ]
+        )
+
+        result = module._apply_reconciliation_filters(
+            df,
+            {
+                "product_code": [],
+                "description": [],
+                "year": [],
+                "month": [],
+                "date": datetime.date(2026, 4, 1),
+            },
+        )
+
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result.loc[0, "date"].strftime("%Y-%m-%d"), "2026-04-01")
+
+    def test_apply_reconciliation_filters_matches_calendar_date_range(self):
+        module = _load_module()
+        df = pd.DataFrame(
+            [
+                {"date": pd.Timestamp("2026-04-01"), "product_code": "P001"},
+                {"date": pd.Timestamp("2026-04-15"), "product_code": "P002"},
+                {"date": pd.Timestamp("2026-05-01"), "product_code": "P003"},
+            ]
+        )
+
+        result = module._apply_reconciliation_filters(
+            df,
+            {
+                "product_code": [],
+                "description": [],
+                "year": [],
+                "month": [],
+                "date": (datetime.date(2026, 4, 1), datetime.date(2026, 4, 30)),
+            },
+        )
+
+        self.assertEqual(result["product_code"].tolist(), ["P001", "P002"])
+
+    def test_apply_reconciliation_filters_range_and_specific_date_work_together(self):
+        module = _load_module()
+        df = pd.DataFrame(
+            [
+                {"date": pd.Timestamp("2026-04-01"), "product_code": "P001"},
+                {"date": pd.Timestamp("2026-04-15"), "product_code": "P002"},
+                {"date": pd.Timestamp("2026-04-20"), "product_code": "P003"},
+            ]
+        )
+
+        result = module._apply_reconciliation_filters(
+            df,
+            {
+                "product_code": [],
+                "description": [],
+                "year": [],
+                "month": [],
+                "date": (datetime.date(2026, 4, 1), datetime.date(2026, 4, 30)),
+                "specific_date": datetime.date(2026, 4, 15),
+                "use_specific_date": True,
+            },
+        )
+
+        self.assertEqual(result["product_code"].tolist(), ["P002"])
+
+    def test_apply_reconciliation_filters_uses_date_range_when_specific_date_disabled(self):
+        module = _load_module()
+        df = pd.DataFrame(
+            [
+                {"date": pd.Timestamp("2026-04-01"), "product_code": "P001"},
+                {"date": pd.Timestamp("2026-04-15"), "product_code": "P002"},
+                {"date": pd.Timestamp("2026-05-15"), "product_code": "P003"},
+            ]
+        )
+
+        result = module._apply_reconciliation_filters(
+            df,
+            {
+                "product_code": [],
+                "description": [],
+                "year": [],
+                "month": [],
+                "date": (datetime.date(2026, 4, 1), datetime.date(2026, 4, 30)),
+                "specific_date": datetime.date(2026, 5, 15),
+                "use_specific_date": False,
+            },
+        )
+
+        self.assertEqual(result["product_code"].tolist(), ["P001", "P002"])
+
+    def test_apply_reconciliation_filters_specific_date_overrides_other_date_filters(self):
+        module = _load_module()
+        df = pd.DataFrame(
+            [
+                {"date": pd.Timestamp("2026-04-01"), "product_code": "P001"},
+                {"date": pd.Timestamp("2026-05-15"), "product_code": "P002"},
+                {"date": pd.Timestamp("2025-05-15"), "product_code": "P003"},
+            ]
+        )
+
+        result = module._apply_reconciliation_filters(
+            df,
+            {
+                "product_code": [],
+                "description": [],
+                "year": ["2026"],
+                "month": ["Apr"],
+                "date": (datetime.date(2026, 4, 1), datetime.date(2026, 4, 30)),
+                "specific_date": datetime.date(2026, 5, 15),
+                "use_specific_date": True,
+            },
+        )
+
+        self.assertEqual(result["product_code"].tolist(), ["P002"])
+
+    def test_coerce_reconciliation_date_input_value_handles_old_list_state(self):
+        module = _load_module()
+
+        self.assertEqual(
+            module._coerce_reconciliation_date_input_value(["01-Apr-2026"]),
+            datetime.date(2026, 4, 1),
+        )
+        self.assertEqual(
+            module._coerce_reconciliation_date_input_value(["2026-04-01"]),
+            datetime.date(2026, 4, 1),
+        )
+        self.assertEqual(
+            module._coerce_reconciliation_date_input_value(
+                ["2026-04-01", "2026-04-30"]
+            ),
+            (datetime.date(2026, 4, 1), datetime.date(2026, 4, 30)),
+        )
+        self.assertIsNone(module._coerce_reconciliation_date_input_value([]))
+
+    def test_build_reconciliation_result_creates_possible_match_for_similar_descriptions(
+        self,
+    ):
+        module = _load_module()
+        stock_timeline = pd.DataFrame(
+            [
+                {
+                    "match_key": "descpack::acme::dairy::cheddar cheese::5 x 2kg",
+                    "match_basis": "fallback_supplier_brand_description_pack",
+                    "product_code": "",
+                    "description": "cheddar cheese",
+                    "pack_size": "5 x 2kg",
+                    "supplier": "Acme",
+                    "brand": "Dairy",
+                    "date": pd.Timestamp("2026-04-01"),
+                    "stock_ctn": 3,
+                    "stock_pkt": 0,
+                    "stock_qty_text": "3 ctns",
+                }
+            ]
+        )
+        sales_timeline = pd.DataFrame(
+            [
+                {
+                    "match_key": "descpack::acme::dairy::cheddar cheese sauce mix::5 x 2kg",
+                    "match_basis": "fallback_supplier_brand_description_pack",
+                    "product_code": "",
+                    "description": "cheddar cheese sauce mix",
+                    "pack_size": "5 x 2kg",
+                    "supplier": "Acme",
+                    "brand": "Dairy",
+                    "date": pd.Timestamp("2026-04-01"),
+                    "sales_ctn": 2,
+                    "sales_pkt": 0,
+                    "sales_qty_text": "2 ctns",
+                }
+            ]
+        )
+
+        result = module.build_reconciliation_result(stock_timeline, sales_timeline)
+
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result.loc[0, "mismatch_reason"], "possible_match")
+        self.assertIn("cheddar cheese", result.loc[0, "description"].lower())
+
+
+    def test_build_reconciliation_result_flags_possible_match_for_pack_size_typo(self):
+        module = _load_module()
+        stock_timeline = pd.DataFrame(
+            [
+                {
+                    "match_key": "descpack::3g pte ltd::pizza sauce campagna::6 x 2.55g",
+                    "match_basis": "fallback_supplier_description_pack",
+                    "product_code": "NA",
+                    "description": "Pizza Sauce Campagna",
+                    "pack_size": "6 x 2.55g",
+                    "supplier": "3G Pte Ltd",
+                    "brand": "Savori",
+                    "date": pd.Timestamp("2026-04-01"),
+                    "stock_ctn": 54,
+                    "stock_pkt": 0,
+                    "stock_qty_text": "54 ctns",
+                }
+            ]
+        )
+        sales_timeline = pd.DataFrame(
+            [
+                {
+                    "match_key": "code::001195",
+                    "match_basis": "product_code",
+                    "product_code": "001195",
+                    "description": "Pizza Sauce / Campagna",
+                    "pack_size": "6 x 2.55kg",
+                    "supplier": "3G Pte Ltd",
+                    "brand": "",
+                    "date": pd.Timestamp("2026-04-01"),
+                    "sales_ctn": 54,
+                    "sales_pkt": 0,
+                    "sales_qty_text": "54 ctns",
+                }
+            ]
+        )
+
+        result = module.build_reconciliation_result(stock_timeline, sales_timeline)
+
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result.loc[0, "mismatch_reason"], "possible_match")
+        self.assertEqual(result.loc[0, "difference_qty_text"], "0")
+
+    def test_build_reconciliation_result_matches_supplier_pack_core_description_equivalent_items(self):
+        module = _load_module()
+        stock_timeline = pd.DataFrame(
+            [
+                {
+                    "match_key": "descpack::yong wen food::jalapeno pepper sliced::6 x 2.9kg",
+                    "match_basis": "fallback_supplier_description_pack",
+                    "product_code": "NA",
+                    "description": "Jalapeno Pepper Sliced",
+                    "pack_size": "6 x 2.9kg",
+                    "supplier": "Yong Wen Food",
+                    "brand": "Savori",
+                    "date": pd.Timestamp("2026-04-01"),
+                    "stock_ctn": 3,
+                    "stock_pkt": 0,
+                    "stock_qty_text": "3 ctns",
+                }
+            ]
+        )
+        sales_timeline = pd.DataFrame(
+            [
+                {
+                    "match_key": "descpack::yongwen::saporito jalapeno pepper sliced::6 x 2.95kg",
+                    "match_basis": "fallback_supplier_description_pack",
+                    "product_code": "",
+                    "description": "Saporito Jalapeno Pepper Sliced",
+                    "pack_size": "6 x 2.95kg",
+                    "supplier": "YongWen",
+                    "brand": "",
+                    "date": pd.Timestamp("2026-04-01"),
+                    "sales_ctn": 3,
+                    "sales_pkt": 0,
+                    "sales_qty_text": "3 ctns",
+                }
+            ]
+        )
+
+        result = module.build_reconciliation_result(stock_timeline, sales_timeline)
+
+        self.assertEqual(len(result), 1)
+        self.assertTrue(bool(result.loc[0, "is_match"]))
+        self.assertEqual(result.loc[0, "mismatch_reason"], "match")
+        self.assertEqual(result.loc[0, "difference_qty_text"], "0")
+        self.assertIn("Jalapeno Pepper Sliced", result.loc[0, "description"])
+
+    def test_reconciliation_same_item_path_rejects_different_supplier(self):
+        module = _load_module()
+        self.assertFalse(
+            module._is_high_confidence_reconciliation_same_item(
+                "Different Supplier",
+                "Jalapeno Pepper Sliced",
+                "6 x 2.9kg",
+                "YongWen",
+                "Saporito Jalapeno Pepper Sliced",
+                "6 x 2.95kg",
+            )
+        )
+
+    def test_reconciliation_same_item_path_accepts_supplier_pack_core_description_equivalent(self):
+        module = _load_module()
+        self.assertTrue(
+            module._is_high_confidence_reconciliation_same_item(
+                "Yong Wen Food",
+                "Jalapeno Pepper Sliced",
+                "6 x 2.9kg",
+                "YongWen",
+                "Saporito Jalapeno Pepper Sliced",
+                "6 x 2.95kg",
+            )
+        )
+
+    def test_reconciliation_same_item_path_rejects_different_core_product(self):
+        module = _load_module()
+        self.assertFalse(
+            module._is_high_confidence_reconciliation_same_item(
+                "Yong Wen Food",
+                "Whole Jalapeno Pepper",
+                "6 x 2.9kg",
+                "YongWen",
+                "Saporito Jalapeno Pepper Sliced",
+                "6 x 2.95kg",
+            )
+        )
+
+    def test_reconciliation_same_item_path_rejects_materially_different_pack_size(self):
+        module = _load_module()
+        self.assertFalse(
+            module._is_high_confidence_reconciliation_same_item(
+                "Yong Wen Food",
+                "Jalapeno Pepper Sliced",
+                "12 x 2.9kg",
+                "YongWen",
+                "Saporito Jalapeno Pepper Sliced",
+                "6 x 2.95kg",
+            )
+        )
+
+    def test_reconciliation_same_item_path_rejects_different_pack_units(self):
+        module = _load_module()
+        self.assertFalse(
+            module._are_reconciliation_pack_sizes_close("6 x 2.55g", "6 x 2.55kg")
+        )
+        self.assertFalse(
+            module._is_high_confidence_reconciliation_same_item(
+                "3G Pte Ltd",
+                "Pizza Sauce Campagna",
+                "6 x 2.55g",
+                "3G Pte Ltd",
+                "Pizza Sauce / Campagna",
+                "6 x 2.55kg",
+            )
+        )
+
+    def test_reconciliation_possible_match_uses_similar_descriptions_only(self):
+        module = _load_module()
+
+        self.assertTrue(
+            module._is_possible_reconciliation_description_match(
+                "cheddar cheese",
+                "cheddar cheese sauce mix",
+            )
+        )
+        self.assertFalse(
+            module._is_possible_reconciliation_description_match(
+                "cheddar cheese",
+                "tomato ketchup",
+            )
+        )
+
+    def test_parse_stock_header_date_only_accepts_intended_date_formats(self):
+        module = _load_module()
+
+        self.assertEqual(
+            module._parse_stock_header_date("Apr-1", 2026).strftime("%Y-%m-%d"),
+            "2026-04-01",
+        )
+        self.assertEqual(
+            module._parse_stock_header_date("1 Apr", 2026).strftime("%Y-%m-%d"),
+            "2026-04-01",
+        )
+        self.assertIsNone(module._parse_stock_header_date("Total", 2026))
+        self.assertIsNone(module._parse_stock_header_date("Notes", 2026))
+
     def test_render_sales_business_dashboard_sorts_customer_month_detail_chronologically(
         self,
     ):
@@ -717,6 +1751,16 @@ class StockFilterQueryTests(unittest.TestCase):
         module = _load_module()
 
         self.assertIn("stock_file_browsed_at", module._STOCK_PERSIST_KEYS)
+
+    def test_stock_issue_focus_index_accepts_stale_display_label(self):
+        module = _load_module()
+
+        focus_index = module._coerce_stock_issue_focus_index(
+            "1. Near-Expiry | TDF Food | Chicken Salt | 20 x 1kg | -",
+            max_index=4,
+        )
+
+        self.assertEqual(focus_index, 0)
 
     def test_cache_sales_upload_persists_payload_and_browse_time(self):
         module = _load_module()

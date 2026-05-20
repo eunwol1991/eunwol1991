@@ -11,7 +11,9 @@ import sys
 import io
 import calendar
 import platform
+from difflib import SequenceMatcher
 from pathlib import Path
+from openpyxl import load_workbook
 
 # 尝试检测当前是否已经在 streamlit 运行环境中
 try:
@@ -445,7 +447,10 @@ def _format_quantity_pair(ctn: Optional[float], pkt: Optional[float]) -> str:
 def _strip_html_df(df: pd.DataFrame) -> pd.DataFrame:
     clean = df.copy()
     for col in clean.select_dtypes(include="object").columns:
-        clean[col] = clean[col].astype(str).str.replace(HTML_TAG_RE, "", regex=True)
+        clean[col] = clean[col].where(
+            clean[col].isna(),
+            clean[col].astype(str).str.replace(HTML_TAG_RE, "", regex=True),
+        )
     return clean
 
 
@@ -1111,7 +1116,8 @@ def split_by_expiry(
         if batch_mode == "remark":
             remark_label = key[0]
         elif batch_mode == "both":
-            exp_label, remark_label = key
+            exp_label = key[0] if len(key) > 0 else None
+            remark_label = key[1] if len(key) > 1 else None
         else:
             exp_label = key[0]
 
@@ -1152,7 +1158,7 @@ def split_by_expiry(
         qty_text = _format_quantity_breakdown(subtotal_qty_breakdown)
         info = ""
         if status_batch == "Expired":
-            info = f"已过期 {abs(d2e)} 天，数量 {qty_text}"
+            info = f"已过期 {abs(d2e or 0)} 天，数量 {qty_text}"
         elif status_batch == "Near-Expiry":
             info = f"到期日 {exp_date}，距离到期 {d2e} 天，数量 {qty_text}"
         elif status_batch == "Depleted":
@@ -1796,6 +1802,1399 @@ def load_and_normalize(file) -> Tuple[pd.DataFrame, list]:
     return load_and_normalize_cached(file_bytes)
 
 
+def _normalize_reconciliation_text(value: Any) -> str:
+    if pd.isna(value):
+        return ""
+    return str(value).strip()
+
+
+def _normalize_reconciliation_description(value: Any) -> str:
+    text = _normalize_reconciliation_text(value)
+    if not text:
+        return ""
+    return re.sub(PAREN_CONTENT_RE, "", text).strip()
+
+
+def _normalize_reconciliation_product_code(value: Any) -> str:
+    text = _normalize_reconciliation_description(value)
+    if not text:
+        return ""
+    if text.strip().lower() in {"na", "n/a", "nan", "none", "-"}:
+        return ""
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _simplify_reconciliation_description(value: Any) -> str:
+    text = _normalize_reconciliation_description(value).lower()
+    if not text:
+        return ""
+    text = re.sub(r"[^a-z0-9]+", " ", text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+_RECONCILIATION_SUPPLIER_NOISE_TOKENS = {
+    "food",
+    "foods",
+    "pte",
+    "ltd",
+    "trading",
+    "trade",
+    "co",
+    "company",
+}
+
+_RECONCILIATION_DESCRIPTION_CONTEXT_TOKENS = {
+    "savori",
+    "saporito",
+    "sapporito",
+}
+
+
+def _reconciliation_tokens(value: Any) -> List[str]:
+    text = _simplify_reconciliation_description(value)
+    if not text:
+        return []
+    return [token for token in text.split() if token]
+
+
+def _normalize_reconciliation_supplier_tokens(value: Any) -> List[str]:
+    return [
+        token
+        for token in _reconciliation_tokens(value)
+        if token not in _RECONCILIATION_SUPPLIER_NOISE_TOKENS
+    ]
+
+
+def _are_reconciliation_suppliers_equivalent(left: Any, right: Any) -> bool:
+    left_tokens = _normalize_reconciliation_supplier_tokens(left)
+    right_tokens = _normalize_reconciliation_supplier_tokens(right)
+    if not left_tokens or not right_tokens:
+        return False
+
+    left_joined = "".join(left_tokens)
+    right_joined = "".join(right_tokens)
+    if left_joined == right_joined:
+        return True
+
+    left_set = set(left_tokens)
+    right_set = set(right_tokens)
+    return left_set.issubset(right_set) or right_set.issubset(left_set)
+
+
+def _normalize_reconciliation_pack_text(value: Any) -> str:
+    text = _normalize_reconciliation_text(value)
+    if not text:
+        return ""
+    normalized = re.sub(r"\s+", " ", text.strip().lower().replace("×", "x"))
+    normalized = normalized.replace("kgs", "kg").replace("kilograms", "kg").replace(
+        "kilogram", "kg"
+    )
+    normalized = normalized.replace("grams", "g").replace("gram", "g")
+    normalized = normalized.replace("litres", "l").replace("litre", "l")
+    normalized = normalized.replace("ltrs", "l").replace("ltr", "l")
+    normalized = normalized.replace("liters", "l").replace("liter", "l")
+    normalized = normalized.replace("kgs", "kg")
+    normalized = normalized.replace("millilitres", "ml").replace("millilitre", "ml")
+    normalized = normalized.replace("milliliters", "ml").replace("milliliter", "ml")
+    return normalized
+
+
+def _parse_reconciliation_pack_components(
+    value: Any,
+) -> Optional[Tuple[float, float, str]]:
+    text = _normalize_reconciliation_pack_text(value)
+    if not text:
+        return None
+    if text in {"na", "n/a", "nan", "none", "-"}:
+        return None
+
+    match = re.match(
+        r"^(\d+(?:\.\d+)?)\s*[x*]\s*(\d+(?:\.\d+)?)\s*([a-z]+)$",
+        text.replace(" ", ""),
+    )
+    if not match:
+        return None
+
+    unit = match.group(3)
+    unit_aliases = {
+        "kgs": "kg",
+        "kg": "kg",
+        "grams": "g",
+        "gram": "g",
+        "g": "g",
+        "litre": "l",
+        "litres": "l",
+        "liter": "l",
+        "liters": "l",
+        "ltr": "l",
+        "ltrs": "l",
+        "l": "l",
+        "millilitre": "ml",
+        "millilitres": "ml",
+        "milliliter": "ml",
+        "milliliters": "ml",
+        "ml": "ml",
+    }
+    canonical_unit = unit_aliases.get(unit, unit)
+
+    try:
+        return float(match.group(1)), float(match.group(2)), canonical_unit
+    except ValueError:
+        return None
+
+
+def _are_reconciliation_pack_sizes_close(left: Any, right: Any) -> bool:
+    left_text = _normalize_reconciliation_pack_text(left)
+    right_text = _normalize_reconciliation_pack_text(right)
+    if not left_text or not right_text:
+        return False
+    if left_text == right_text:
+        return True
+
+    left_components = _parse_reconciliation_pack_components(left)
+    right_components = _parse_reconciliation_pack_components(right)
+    if left_components is None or right_components is None:
+        return False
+
+    left_multiplier, left_amount, left_unit = left_components
+    right_multiplier, right_amount, right_unit = right_components
+    if not math.isclose(left_multiplier, right_multiplier, rel_tol=0.0, abs_tol=1e-9):
+        return False
+    if left_unit != right_unit:
+        return False
+
+    tolerance = max(0.1, max(abs(left_amount), abs(right_amount)) * 0.03)
+    return abs(left_amount - right_amount) <= tolerance
+
+
+def _core_reconciliation_description_tokens(value: Any) -> List[str]:
+    return [
+        token
+        for token in _reconciliation_tokens(value)
+        if token not in _RECONCILIATION_DESCRIPTION_CONTEXT_TOKENS
+    ]
+
+
+def _are_reconciliation_core_descriptions_equivalent(left: Any, right: Any) -> bool:
+    left_tokens = _core_reconciliation_description_tokens(left)
+    right_tokens = _core_reconciliation_description_tokens(right)
+    if len(left_tokens) < 2 or len(right_tokens) < 2:
+        return False
+
+    left_set = set(left_tokens)
+    right_set = set(right_tokens)
+    if len(left_set & right_set) < 2:
+        return False
+    return left_set == right_set or left_set.issubset(right_set) or right_set.issubset(
+        left_set
+    )
+
+
+def _is_high_confidence_reconciliation_same_item(
+    stock_supplier: Any,
+    stock_description: Any,
+    stock_pack_size: Any,
+    sales_supplier: Any,
+    sales_description: Any,
+    sales_pack_size: Any,
+) -> bool:
+    return (
+        _are_reconciliation_suppliers_equivalent(stock_supplier, sales_supplier)
+        and _are_reconciliation_pack_sizes_close(stock_pack_size, sales_pack_size)
+        and _are_reconciliation_core_descriptions_equivalent(
+            stock_description, sales_description
+        )
+    )
+
+
+def _is_possible_reconciliation_description_match(left: Any, right: Any) -> bool:
+    left_text = _simplify_reconciliation_description(left)
+    right_text = _simplify_reconciliation_description(right)
+    if not left_text or not right_text or left_text == right_text:
+        return False
+
+    left_tokens = left_text.split()
+    right_tokens = right_text.split()
+    if len(left_tokens) < 2 or len(right_tokens) < 2:
+        return False
+
+    shorter, longer = (
+        (left_text, right_text)
+        if len(left_text) <= len(right_text)
+        else (right_text, left_text)
+    )
+    if shorter in longer:
+        return True
+
+    left_set = set(left_tokens)
+    right_set = set(right_tokens)
+    overlap = len(left_set & right_set)
+    if overlap >= max(2, min(len(left_set), len(right_set))):
+        return True
+
+    return SequenceMatcher(None, left_text, right_text).ratio() >= 0.72
+
+
+def _parse_stock_outbound_cell(raw_value: Any, unit_value: Any) -> Tuple[int, int]:
+    text = _normalize_reconciliation_text(raw_value)
+    if not text:
+        return 0, 0
+    parsed_ctn, parsed_pkt = _parse_qty_text(text)
+    if parsed_ctn != 0 or parsed_pkt != 0:
+        return parsed_ctn, parsed_pkt
+
+    try:
+        numeric_value = float(text.replace(",", ""))
+    except ValueError:
+        return 0, 0
+
+    qty = int(round(numeric_value))
+    if qty == 0:
+        return 0, 0
+
+    canonical_unit = _canonical_unit(unit_value)
+    if canonical_unit == "ctn":
+        return qty, 0
+    return 0, qty
+
+
+def _normalize_ctn_pkt_by_pack_size(
+    ctn_value: Any, pkt_value: Any, pack_size_value: Any
+) -> Tuple[int, int]:
+    cartons = _coerce_qty_int(ctn_value)
+    packets = _coerce_qty_int(pkt_value)
+    pack_size = _coerce_qty_int(_infer_carton_pack_size(pack_size_value))
+    if pack_size <= 0:
+        return cartons, packets
+    if packets >= 0:
+        cartons += packets // pack_size
+        packets = packets % pack_size
+        return cartons, packets
+    borrowed_cartons = math.ceil(abs(packets) / pack_size)
+    cartons -= borrowed_cartons
+    packets += borrowed_cartons * pack_size
+    return cartons, packets
+
+
+def _build_reconciliation_match_key(
+    product_code: Any,
+    description: Any,
+    pack_size: Any,
+    supplier: Any = None,
+    brand: Any = None,
+) -> Tuple[str, str]:
+    code = _normalize_reconciliation_product_code(product_code)
+    if code:
+        return f"code::{code.lower()}", "product_code"
+    supplier_text = _normalize_reconciliation_text(supplier).lower()
+    desc = _normalize_reconciliation_description(description).lower()
+    pack = _normalize_pack_size_value(pack_size).lower()
+    if supplier_text and desc and pack:
+        return (
+            f"descpack::{supplier_text}::{desc}::{pack}",
+            "fallback_supplier_description_pack",
+        )
+    return "", "unmatched"
+
+
+def _resolve_reconciliation_year(sales_df: Optional[pd.DataFrame]) -> Optional[int]:
+    if sales_df is None or sales_df.empty or "Date" not in sales_df.columns:
+        return None
+    dates = pd.to_datetime(sales_df["Date"], errors="coerce").dropna()
+    if dates.empty:
+        return None
+    years = sorted({int(value.year) for value in dates.tolist()})
+    if len(years) == 1:
+        return years[0]
+    return years[-1]
+
+
+def _default_reconciliation_year_selection(options: List[str]) -> List[str]:
+    if "2026" in options:
+        return ["2026"]
+    if options:
+        return [options[-1]]
+    return []
+
+
+def _default_reconciliation_month_selection(options: List[str]) -> List[str]:
+    if "Apr" in options:
+        return ["Apr"]
+    if options:
+        return [options[-1]]
+    return []
+
+
+def _get_reconciliation_date_bounds(
+    df: pd.DataFrame, filter_state: Dict[str, Any]
+) -> Tuple[Optional[datetime.date], Optional[datetime.date]]:
+    selected_years = [
+        str(value).strip()
+        for value in filter_state.get("year", [])
+        if str(value).strip()
+    ]
+    selected_months = [
+        str(value).strip()
+        for value in filter_state.get("month", [])
+        if str(value).strip()
+    ]
+
+    if len(selected_years) == 1 and len(selected_months) == 1:
+        year_value = selected_years[0]
+        month_value = selected_months[0]
+        if year_value.isdigit():
+            month_number = _month_sort_key(month_value)
+            if 1 <= month_number <= 12:
+                start_date = datetime.date(int(year_value), month_number, 1)
+                end_day = calendar.monthrange(int(year_value), month_number)[1]
+                end_date = datetime.date(int(year_value), month_number, end_day)
+                return start_date, end_date
+
+    if df is None or df.empty:
+        return None, None
+    narrowed = _apply_reconciliation_filters(
+        df,
+        {
+            "product_code": filter_state.get("product_code", []),
+            "description": filter_state.get("description", []),
+            "year": filter_state.get("year", []),
+            "month": filter_state.get("month", []),
+            "date": None,
+        },
+    )
+    if narrowed.empty:
+        return None, None
+    date_series = pd.to_datetime(narrowed.get("date"), errors="coerce").dropna()
+    if date_series.empty:
+        return None, None
+    return date_series.min().date(), date_series.max().date()
+
+
+def _format_reconciliation_date_label(value: Any) -> str:
+    parsed = pd.to_datetime(value, errors="coerce")
+    if pd.isna(parsed):
+        return ""
+    return pd.Timestamp(parsed).strftime("%d-%b-%Y")
+
+
+def _coerce_reconciliation_date_input_value(
+    value: Any,
+) -> Optional[datetime.date | Tuple[datetime.date, datetime.date]]:
+    if value in (None, "", []):
+        return None
+    if isinstance(value, tuple):
+        coerced_values: List[datetime.date] = []
+        for item in value:
+            if item in (None, ""):
+                continue
+            coerced_item = _coerce_reconciliation_date_input_value(item)
+            if isinstance(coerced_item, tuple):
+                coerced_values.extend(list(coerced_item))
+            elif coerced_item is not None:
+                coerced_values.append(coerced_item)
+        coerced_values = [item for item in coerced_values if item is not None]
+        if len(coerced_values) >= 2:
+            return (coerced_values[0], coerced_values[1])
+        return coerced_values[0] if coerced_values else None
+    if isinstance(value, list):
+        coerced_values: List[datetime.date] = []
+        for item in value:
+            if item in (None, ""):
+                continue
+            coerced_item = _coerce_reconciliation_date_input_value(item)
+            if isinstance(coerced_item, tuple):
+                coerced_values.extend(list(coerced_item))
+            elif coerced_item is not None:
+                coerced_values.append(coerced_item)
+        coerced_values = [item for item in coerced_values if item is not None]
+        if len(coerced_values) >= 2:
+            return (coerced_values[0], coerced_values[1])
+        return coerced_values[0] if coerced_values else None
+
+    parsed = pd.to_datetime(value, errors="coerce", format="mixed")
+    if pd.isna(parsed):
+        return None
+    return pd.Timestamp(parsed).date()
+
+
+def _build_reconciliation_filter_options(df: pd.DataFrame) -> Dict[str, List[str]]:
+    if df is None or df.empty:
+        return {
+            "product_code": [],
+            "description": [],
+            "year": [],
+            "month": [],
+            "date": [],
+        }
+
+    product_code_options = sorted(
+        {
+            _normalize_reconciliation_text(value)
+            for value in df.get("product_code", pd.Series(dtype="object")).tolist()
+            if _normalize_reconciliation_text(value)
+        }
+    )
+    description_options = sorted(
+        {
+            _normalize_reconciliation_description(value)
+            for value in df.get("description", pd.Series(dtype="object")).tolist()
+            if _normalize_reconciliation_description(value)
+        }
+    )
+    date_series = pd.to_datetime(
+        df.get("date", pd.Series(dtype="object")), errors="coerce"
+    )
+    year_options = sorted(
+        {str(int(value.year)) for value in date_series.dropna().tolist()}
+    )
+    month_options = sorted(
+        {pd.Timestamp(value).strftime("%b") for value in date_series.dropna().tolist()},
+        key=_month_sort_key,
+    )
+    date_options = sorted(
+        {
+            _format_reconciliation_date_label(value)
+            for value in date_series.dropna().tolist()
+            if _format_reconciliation_date_label(value)
+        }
+    )
+    return {
+        "product_code": product_code_options,
+        "description": description_options,
+        "year": year_options,
+        "month": month_options,
+        "date": date_options,
+    }
+
+
+def _apply_reconciliation_filters(
+    df: pd.DataFrame, filter_state: Dict[str, Any]
+) -> pd.DataFrame:
+    if df is None or df.empty:
+        return pd.DataFrame(columns=list(df.columns) if df is not None else [])
+
+    work = df.copy()
+    date_series = pd.to_datetime(
+        work.get("date", pd.Series(index=work.index)), errors="coerce"
+    )
+
+    selected_codes = [
+        _normalize_reconciliation_text(value)
+        for value in filter_state.get("product_code", [])
+        if _normalize_reconciliation_text(value)
+    ]
+    if selected_codes:
+        code_series = work.get(
+            "product_code", pd.Series(index=work.index, dtype="object")
+        ).apply(_normalize_reconciliation_text)
+        work = work[code_series.isin(selected_codes)].copy()
+        date_series = pd.to_datetime(
+            work.get("date", pd.Series(index=work.index)), errors="coerce"
+        )
+
+    selected_descriptions = [
+        _normalize_reconciliation_description(value)
+        for value in filter_state.get("description", [])
+        if _normalize_reconciliation_description(value)
+    ]
+    if selected_descriptions:
+        description_series = work.get(
+            "description", pd.Series(index=work.index, dtype="object")
+        ).apply(_normalize_reconciliation_description)
+        work = work[description_series.isin(selected_descriptions)].copy()
+        date_series = pd.to_datetime(
+            work.get("date", pd.Series(index=work.index)), errors="coerce"
+        )
+
+    use_specific_date = bool(filter_state.get("use_specific_date", False))
+    specific_date_value = filter_state.get("specific_date")
+    specific_date = pd.to_datetime(specific_date_value, errors="coerce")
+    if use_specific_date and pd.notna(specific_date):
+        specific_norm = pd.Timestamp(specific_date).normalize()
+        work = work[date_series == specific_norm].copy()
+        return work.reset_index(drop=True)
+
+    selected_years = [
+        str(value) for value in filter_state.get("year", []) if str(value).strip()
+    ]
+    if selected_years:
+        year_series = date_series.dt.year.astype("Int64").astype("string")
+        work = work[year_series.isin(selected_years)].copy()
+        date_series = pd.to_datetime(
+            work.get("date", pd.Series(index=work.index)), errors="coerce"
+        )
+
+    selected_months = [
+        str(value).strip()
+        for value in filter_state.get("month", [])
+        if str(value).strip()
+    ]
+    if selected_months:
+        month_series = date_series.dt.strftime("%b")
+        work = work[month_series.isin(selected_months)].copy()
+        date_series = pd.to_datetime(
+            work.get("date", pd.Series(index=work.index)), errors="coerce"
+        )
+
+    selected_date_value = filter_state.get("date")
+    if isinstance(selected_date_value, tuple):
+        start_raw, end_raw = (
+            selected_date_value if len(selected_date_value) == 2 else (None, None)
+        )
+        start_date = pd.to_datetime(start_raw, errors="coerce")
+        end_date = pd.to_datetime(end_raw, errors="coerce")
+        if pd.notna(start_date) and pd.notna(end_date):
+            start_norm = pd.Timestamp(start_date).normalize()
+            end_norm = pd.Timestamp(end_date).normalize()
+            work = work[(date_series >= start_norm) & (date_series <= end_norm)].copy()
+    elif isinstance(selected_date_value, list):
+        selected_dates = [
+            pd.to_datetime(value, errors="coerce") for value in selected_date_value
+        ]
+        normalized_dates = {
+            pd.Timestamp(value).normalize()
+            for value in selected_dates
+            if pd.notna(value)
+        }
+        if normalized_dates:
+            work = work[date_series.isin(list(normalized_dates))].copy()
+    else:
+        selected_date = pd.to_datetime(selected_date_value, errors="coerce")
+        if pd.notna(selected_date):
+            selected_norm = pd.Timestamp(selected_date).normalize()
+            work = work[date_series == selected_norm].copy()
+
+    return work.reset_index(drop=True)
+
+
+def _build_reconciliation_display_df(df: pd.DataFrame) -> pd.DataFrame:
+    columns = [
+        "Supplier",
+        "Date",
+        "Product Code",
+        "Description",
+        "Pack Size",
+        "Sales Data",
+        "Stock Data",
+        "Difference",
+        "mismatch_reason",
+    ]
+    if df is None or df.empty:
+        return pd.DataFrame(columns=columns)
+
+    display_df = pd.DataFrame(
+        {
+            "Supplier": df.get(
+                "supplier", pd.Series(index=df.index, dtype="object")
+            ).apply(_normalize_reconciliation_text),
+            "Date": pd.to_datetime(df.get("date"), errors="coerce").dt.strftime(
+                "%d-%b-%Y"
+            ),
+            "Product Code": df.get(
+                "product_code", pd.Series(index=df.index, dtype="object")
+            ).apply(_normalize_reconciliation_text),
+            "Description": df.get(
+                "description", pd.Series(index=df.index, dtype="object")
+            ).apply(_normalize_reconciliation_description),
+            "Pack Size": df.get(
+                "pack_size", pd.Series(index=df.index, dtype="object")
+            ).apply(_normalize_pack_size_value),
+            "Sales Data": df.get(
+                "sales_qty_text", pd.Series(index=df.index, dtype="object")
+            ).fillna("0"),
+            "Stock Data": df.get(
+                "stock_qty_text", pd.Series(index=df.index, dtype="object")
+            ).fillna("0"),
+            "Difference": df.get(
+                "difference_qty_text", pd.Series(index=df.index, dtype="object")
+            ).fillna("0"),
+            "mismatch_reason": df.get(
+                "mismatch_reason", pd.Series(index=df.index, dtype="object")
+            ).fillna(""),
+        }
+    )
+    display_df["Date"] = display_df["Date"].fillna("")
+    return display_df
+
+
+def _parse_stock_header_date(
+    value: Any, preferred_year: Optional[int]
+) -> Optional[pd.Timestamp]:
+    if value is None or pd.isna(value):
+        return None
+    if isinstance(value, datetime.datetime):
+        return pd.Timestamp(value.date())
+    if isinstance(value, datetime.date):
+        return pd.Timestamp(value)
+
+    text = str(value).strip()
+    if not text:
+        return None
+
+    yearless_patterns = [
+        r"^\d{1,2}[-/\s][A-Za-z]{3,9}$",
+        r"^[A-Za-z]{3,9}[-/\s]\d{1,2}$",
+        r"^\d{1,2}[-/]\d{1,2}$",
+    ]
+    full_patterns = [
+        r"^\d{4}[-/]\d{1,2}[-/]\d{1,2}$",
+        r"^\d{1,2}[-/]\d{1,2}[-/]\d{2,4}$",
+        r"^\d{1,2}[-/\s][A-Za-z]{3,9}[-/\s]\d{2,4}$",
+        r"^[A-Za-z]{3,9}[-/\s]\d{1,2}[-/\s]\d{2,4}$",
+    ]
+    if any(re.fullmatch(pattern, text) for pattern in yearless_patterns):
+        target_year = preferred_year or datetime.date.today().year
+        parsed = pd.to_datetime(
+            f"{text}-{target_year}",
+            errors="coerce",
+            format="mixed",
+        )
+        if pd.isna(parsed):
+            return None
+        return pd.Timestamp(parsed).normalize()
+    if any(re.fullmatch(pattern, text) for pattern in full_patterns):
+        parsed = pd.to_datetime(text, errors="coerce", format="mixed")
+        if pd.isna(parsed):
+            return None
+        return pd.Timestamp(parsed).normalize()
+    return None
+
+
+def _first_non_empty_text(series: pd.Series) -> str:
+    for value in series.tolist():
+        text = _normalize_reconciliation_text(value)
+        if text:
+            return text
+    return ""
+
+
+def _aggregate_reconciliation_rows(
+    df: pd.DataFrame,
+    *,
+    qty_ctn_col: str,
+    qty_pkt_col: str,
+    qty_text_col: str,
+) -> pd.DataFrame:
+    base_columns = [
+        "match_key",
+        "match_basis",
+        "product_code",
+        "description",
+        "pack_size",
+        "supplier",
+        "brand",
+        "date",
+        qty_ctn_col,
+        qty_pkt_col,
+        qty_text_col,
+    ]
+    if df is None or df.empty:
+        return pd.DataFrame(columns=base_columns)
+
+    work = df.copy()
+    for field in [
+        "match_basis",
+        "product_code",
+        "description",
+        "pack_size",
+        "supplier",
+        "brand",
+    ]:
+        if field not in work.columns:
+            work[field] = ""
+    work["match_key"] = work.get(
+        "match_key", pd.Series(index=work.index, dtype="object")
+    ).fillna("")
+    work = work[work["match_key"].astype(str).str.strip() != ""].copy()
+    if work.empty:
+        return pd.DataFrame(columns=base_columns)
+
+    work["date"] = pd.to_datetime(work.get("date"), errors="coerce").dt.normalize()
+    work = work.dropna(subset=["date"]).copy()
+    if work.empty:
+        return pd.DataFrame(columns=base_columns)
+
+    work[qty_ctn_col] = pd.to_numeric(work.get(qty_ctn_col), errors="coerce").fillna(0)
+    work[qty_pkt_col] = pd.to_numeric(work.get(qty_pkt_col), errors="coerce").fillna(0)
+    grouped = (
+        work.groupby(["match_key", "date"], as_index=False, dropna=False)
+        .agg(
+            {
+                "match_basis": _first_non_empty_text,
+                "product_code": _first_non_empty_text,
+                "description": _first_non_empty_text,
+                "pack_size": _first_non_empty_text,
+                "supplier": _first_non_empty_text,
+                "brand": _first_non_empty_text,
+                qty_ctn_col: "sum",
+                qty_pkt_col: "sum",
+            }
+        )
+        .copy()
+    )
+    normalized_qty = grouped.apply(
+        lambda row: _normalize_ctn_pkt_by_pack_size(
+            row[qty_ctn_col], row[qty_pkt_col], row.get("pack_size", "")
+        ),
+        axis=1,
+        result_type="expand",
+    )
+    grouped[qty_ctn_col] = normalized_qty[0].astype(int)
+    grouped[qty_pkt_col] = normalized_qty[1].astype(int)
+    grouped[qty_text_col] = grouped.apply(
+        lambda row: _format_ctn_pkt_total(row[qty_ctn_col], row[qty_pkt_col]),
+        axis=1,
+    )
+    return grouped
+
+
+def _select_outbound_date_columns(
+    candidates: List[Tuple[int, pd.Timestamp]],
+) -> List[Tuple[int, pd.Timestamp]]:
+    grouped: Dict[pd.Timestamp, List[Tuple[int, pd.Timestamp]]] = {}
+    ordered_dates: List[pd.Timestamp] = []
+    for col_idx, parsed_date in candidates:
+        date_key = pd.Timestamp(parsed_date).normalize()
+        if date_key not in grouped:
+            grouped[date_key] = []
+            ordered_dates.append(date_key)
+        grouped[date_key].append((col_idx, parsed_date))
+
+    selected: List[Tuple[int, pd.Timestamp]] = []
+    for date_key in ordered_dates:
+        occurrences = grouped[date_key]
+        if len(occurrences) >= 2:
+            selected.append(occurrences[1])
+        else:
+            selected.append(occurrences[0])
+    return selected
+
+
+def _normalize_reconciliation_stock_rows(ws) -> Tuple[pd.DataFrame, Optional[str]]:
+    rows: List[Dict[str, Any]] = []
+    carry_fields = {
+        "supplier": "",
+        "brand": "",
+        "product_code": "",
+        "description": "",
+        "pack_size": "",
+        "unit": "",
+    }
+    for row_idx in range(4, ws.max_row + 1):
+        raw = [ws.cell(row=row_idx, column=idx).value for idx in range(1, 11)]
+        if not any(value not in (None, "") for value in raw):
+            continue
+
+        current = {
+            "supplier": _normalize_reconciliation_text(raw[0]),
+            "brand": _normalize_reconciliation_text(raw[1]),
+            "product_code": _normalize_reconciliation_text(raw[2]),
+            "description": _normalize_reconciliation_text(raw[3]),
+            "pack_size": _normalize_reconciliation_text(raw[4]),
+            "unit": _normalize_reconciliation_text(raw[5]),
+            "expiry_date": raw[6],
+            "relabel_to_date": raw[7],
+            "daily_update_stock_i": raw[8],
+            "stock_qty": raw[9],
+        }
+        for field in carry_fields:
+            if current[field]:
+                carry_fields[field] = current[field]
+            else:
+                current[field] = carry_fields[field]
+
+        if not any(
+            current[field]
+            for field in [
+                "supplier",
+                "brand",
+                "product_code",
+                "description",
+                "pack_size",
+            ]
+        ):
+            continue
+        rows.append(current)
+
+    norm = pd.DataFrame(rows)
+    if norm.empty:
+        return _normalize_stocks_report(pd.DataFrame(columns=list(range(10))))
+
+    norm["warehouse"] = "Savori Whse"
+    for col in ["expiry_date", "relabel_to_date"]:
+        if col in norm.columns:
+            norm[col] = pd.to_datetime(norm[col], errors="coerce", format="mixed")
+    if "stock_qty" in norm.columns:
+        norm["stock_qty"] = pd.to_numeric(
+            norm["stock_qty"].astype(str).str.replace(",", "", regex=False),
+            errors="coerce",
+        )
+    for col in [
+        "supplier",
+        "brand",
+        "product_code",
+        "description",
+        "pack_size",
+        "unit",
+    ]:
+        if col in norm.columns:
+            norm[col] = norm[col].astype("string").str.strip()
+
+    required = [
+        "supplier",
+        "brand",
+        "product_code",
+        "description",
+        "pack_size",
+        "unit",
+        "expiry_date",
+        "relabel_to_date",
+        "stock_qty",
+        "warehouse",
+    ]
+    for col in required:
+        if col not in norm.columns:
+            norm[col] = pd.NA
+    return norm[required], None
+
+
+def _extract_stock_outbound_timeline_from_sheet(
+    ws,
+    *,
+    preferred_year: Optional[int],
+) -> pd.DataFrame:
+    rows: List[Dict[str, Any]] = []
+    date_candidates: List[Tuple[int, pd.Timestamp]] = []
+    header_rows = [2, 3]
+    carry_fields = {
+        "supplier": "",
+        "brand": "",
+        "product_code": "",
+        "description": "",
+        "pack_size": "",
+        "unit": "",
+    }
+    data_start_row = 4
+    for header_row in header_rows:
+        for col_idx in range(11, ws.max_column + 1):
+            parsed_date = _parse_stock_header_date(
+                ws.cell(row=header_row, column=col_idx).value, preferred_year
+            )
+            if parsed_date is not None:
+                date_candidates.append((col_idx, parsed_date))
+                data_start_row = max(data_start_row, header_row + 1)
+
+    date_columns = _select_outbound_date_columns(date_candidates)
+
+    if not date_columns:
+        return pd.DataFrame(
+            columns=[
+                "match_key",
+                "match_basis",
+                "product_code",
+                "description",
+                "pack_size",
+                "supplier",
+                "brand",
+                "date",
+                "stock_ctn",
+                "stock_pkt",
+                "stock_qty_text",
+            ]
+        )
+
+    for row_idx in range(data_start_row, ws.max_row + 1):
+        supplier = _normalize_reconciliation_text(ws.cell(row=row_idx, column=1).value)
+        brand = _normalize_reconciliation_text(ws.cell(row=row_idx, column=2).value)
+        product_code = _normalize_reconciliation_text(
+            ws.cell(row=row_idx, column=3).value
+        )
+        description = _normalize_reconciliation_text(
+            ws.cell(row=row_idx, column=4).value
+        )
+        pack_size = _normalize_reconciliation_text(ws.cell(row=row_idx, column=5).value)
+        unit_value = _normalize_reconciliation_text(
+            ws.cell(row=row_idx, column=6).value
+        )
+        current_values = {
+            "supplier": supplier,
+            "brand": brand,
+            "product_code": product_code,
+            "description": description,
+            "pack_size": pack_size,
+            "unit": unit_value,
+        }
+        for field in carry_fields:
+            if current_values[field]:
+                carry_fields[field] = current_values[field]
+            else:
+                current_values[field] = carry_fields[field]
+        supplier = current_values["supplier"]
+        brand = current_values["brand"]
+        product_code = current_values["product_code"]
+        description = current_values["description"]
+        pack_size = current_values["pack_size"]
+        unit_value = current_values["unit"]
+        if not any(
+            _normalize_reconciliation_text(value)
+            for value in [supplier, brand, product_code, description, pack_size]
+        ):
+            continue
+        match_key, match_basis = _build_reconciliation_match_key(
+            product_code,
+            description,
+            pack_size,
+            supplier,
+            brand,
+        )
+        for col_idx, parsed_date in date_columns:
+            raw_qty = ws.cell(row=row_idx, column=col_idx).value
+            qty_text = _normalize_reconciliation_text(raw_qty)
+            if not qty_text:
+                continue
+            stock_ctn, stock_pkt = _parse_stock_outbound_cell(raw_qty, unit_value)
+            if stock_ctn == 0 and stock_pkt == 0:
+                continue
+            rows.append(
+                {
+                    "match_key": match_key,
+                    "match_basis": match_basis,
+                    "product_code": _normalize_reconciliation_text(product_code),
+                    "description": _normalize_reconciliation_description(description),
+                    "pack_size": _normalize_pack_size_value(pack_size),
+                    "supplier": _normalize_reconciliation_text(supplier),
+                    "brand": _normalize_reconciliation_text(brand),
+                    "date": parsed_date,
+                    "stock_ctn": int(stock_ctn),
+                    "stock_pkt": int(stock_pkt),
+                    "stock_qty_text": _format_ctn_pkt_total(stock_ctn, stock_pkt),
+                }
+            )
+
+    return _aggregate_reconciliation_rows(
+        pd.DataFrame(rows),
+        qty_ctn_col="stock_ctn",
+        qty_pkt_col="stock_pkt",
+        qty_text_col="stock_qty_text",
+    )
+
+
+def load_stock_reconciliation_data_from_bytes(
+    file_bytes: bytes,
+    *,
+    preferred_year: Optional[int] = None,
+) -> Tuple[pd.DataFrame, pd.DataFrame, List[str]]:
+    warns: List[str] = []
+    if not file_bytes:
+        return pd.DataFrame(), pd.DataFrame(), ["空文件内容，无法读取。"]
+
+    try:
+        workbook = load_workbook(io.BytesIO(file_bytes), data_only=True)
+    except Exception as exc:
+        return pd.DataFrame(), pd.DataFrame(), [f"读取 Excel 失败：{exc}"]
+
+    sheet_name = _find_sheet_name_in_list(workbook.sheetnames, "Stocks report")
+    if not sheet_name:
+        return pd.DataFrame(), pd.DataFrame(), ["未找到工作表：Stocks report"]
+
+    ws = workbook[sheet_name]
+    stock_df, warning = _normalize_reconciliation_stock_rows(ws)
+    if warning:
+        warns.append(f"Stocks report: {warning}")
+    timeline_df = _extract_stock_outbound_timeline_from_sheet(
+        ws,
+        preferred_year=preferred_year,
+    )
+    if timeline_df.empty:
+        warns.append("Stocks report: 未在第 2 行右侧日期区域读取到任何出货数量。")
+    return stock_df, timeline_df, warns
+
+
+def build_sales_reconciliation_timeline(df: pd.DataFrame) -> pd.DataFrame:
+    columns = [
+        "match_key",
+        "match_basis",
+        "product_code",
+        "description",
+        "pack_size",
+        "supplier",
+        "brand",
+        "date",
+        "sales_ctn",
+        "sales_pkt",
+        "sales_qty_text",
+    ]
+    if df is None or df.empty:
+        return pd.DataFrame(columns=columns)
+
+    work = df.copy()
+    work["Date"] = pd.to_datetime(work.get("Date"), errors="coerce", format="mixed")
+    work = work.dropna(subset=["Date"]).copy()
+    if work.empty:
+        return pd.DataFrame(columns=columns)
+
+    work["product_code"] = work.get("Product Code", pd.Series(dtype="string")).apply(
+        _normalize_reconciliation_text
+    )
+    work["description"] = work.get(
+        "Product Description", pd.Series(dtype="string")
+    ).apply(_normalize_reconciliation_description)
+    work["pack_size"] = work.get("Carton Packing", pd.Series(dtype="string")).apply(
+        _normalize_pack_size_value
+    )
+    work["supplier"] = work.get("Supplier", pd.Series(dtype="string")).apply(
+        _normalize_reconciliation_text
+    )
+    work["brand"] = work.get("Brand/Category", pd.Series(dtype="string")).apply(
+        _normalize_reconciliation_text
+    )
+    match_data = work.apply(
+        lambda row: _build_reconciliation_match_key(
+            row.get("product_code"),
+            row.get("description"),
+            row.get("pack_size"),
+            row.get("supplier"),
+            row.get("brand"),
+        ),
+        axis=1,
+        result_type="expand",
+    )
+    work[["match_key", "match_basis"]] = match_data
+    work["date"] = work["Date"].dt.normalize()
+    work["sales_ctn"] = pd.to_numeric(work.get("Qty in Ctns"), errors="coerce").fillna(
+        0
+    )
+    work["sales_pkt"] = pd.to_numeric(work.get("Qty in Pcs"), errors="coerce").fillna(0)
+
+    grouped = _aggregate_reconciliation_rows(
+        work,
+        qty_ctn_col="sales_ctn",
+        qty_pkt_col="sales_pkt",
+        qty_text_col="sales_qty_text",
+    )
+    return grouped[columns]
+
+
+def build_reconciliation_result(
+    stock_timeline: pd.DataFrame,
+    sales_timeline: pd.DataFrame,
+) -> pd.DataFrame:
+    columns = [
+        "date",
+        "product_code",
+        "description",
+        "pack_size",
+        "supplier",
+        "brand",
+        "match_basis",
+        "stock_qty_text",
+        "sales_qty_text",
+        "stock_ctn",
+        "stock_pkt",
+        "sales_ctn",
+        "sales_pkt",
+        "difference_ctn",
+        "difference_pkt",
+        "difference_qty_text",
+        "is_match",
+        "mismatch_reason",
+    ]
+    stock = _aggregate_reconciliation_rows(
+        stock_timeline.copy() if stock_timeline is not None else pd.DataFrame(),
+        qty_ctn_col="stock_ctn",
+        qty_pkt_col="stock_pkt",
+        qty_text_col="stock_qty_text",
+    )
+    sales = _aggregate_reconciliation_rows(
+        sales_timeline.copy() if sales_timeline is not None else pd.DataFrame(),
+        qty_ctn_col="sales_ctn",
+        qty_pkt_col="sales_pkt",
+        qty_text_col="sales_qty_text",
+    )
+    if stock.empty and sales.empty:
+        return pd.DataFrame(columns=columns)
+
+    exact_stock = stock.copy()
+    exact_sales = sales.copy()
+    exact_merged = exact_stock.merge(
+        sales,
+        how="outer",
+        on=["match_key", "date"],
+        suffixes=("_stock", "_sales"),
+        indicator=True,
+    )
+
+    matched_exact = exact_merged[exact_merged["_merge"] == "both"].copy()
+    unmatched_stock = exact_merged[exact_merged["_merge"] == "left_only"].copy()
+    unmatched_sales = exact_merged[exact_merged["_merge"] == "right_only"].copy()
+
+    def _finalize_merged(merged: pd.DataFrame) -> pd.DataFrame:
+        for field in [
+            "product_code",
+            "description",
+            "pack_size",
+            "supplier",
+            "brand",
+            "match_basis",
+        ]:
+            stock_series = merged.get(
+                f"{field}_stock", pd.Series(index=merged.index, dtype="object")
+            )
+            sales_series = merged.get(
+                f"{field}_sales", pd.Series(index=merged.index, dtype="object")
+            )
+            merged[field] = stock_series.combine_first(sales_series).fillna("")
+        for field in ["stock_ctn", "stock_pkt", "sales_ctn", "sales_pkt"]:
+            merged[field] = (
+                pd.to_numeric(merged.get(field), errors="coerce")
+                .fillna(0)
+                .round()
+                .astype(int)
+            )
+        merged["stock_qty_text"] = merged.get(
+            "stock_qty_text", pd.Series(index=merged.index, dtype="object")
+        ).fillna("0")
+        merged["sales_qty_text"] = merged.get(
+            "sales_qty_text", pd.Series(index=merged.index, dtype="object")
+        ).fillna("0")
+        merged["difference_ctn"] = merged["stock_ctn"] - merged["sales_ctn"]
+        merged["difference_pkt"] = merged["stock_pkt"] - merged["sales_pkt"]
+        merged["difference_qty_text"] = merged.apply(
+            lambda row: _format_ctn_pkt_total(
+                row["difference_ctn"], row["difference_pkt"]
+            ),
+            axis=1,
+        )
+        has_stock = (merged["stock_ctn"] != 0) | (merged["stock_pkt"] != 0)
+        has_sales = (merged["sales_ctn"] != 0) | (merged["sales_pkt"] != 0)
+        merged["is_match"] = (
+            (merged["stock_ctn"] == merged["sales_ctn"])
+            & (merged["stock_pkt"] == merged["sales_pkt"])
+            & has_stock
+            & has_sales
+        )
+        merged["mismatch_reason"] = "qty_diff"
+        merged.loc[merged["is_match"], "mismatch_reason"] = "match"
+        merged.loc[has_stock & ~has_sales, "mismatch_reason"] = "missing_in_sales"
+        merged.loc[has_sales & ~has_stock, "mismatch_reason"] = "missing_in_stock"
+        return merged
+
+    possible_rows: List[Dict[str, Any]] = []
+    used_sales_indexes: set[int] = set()
+    used_stock_indexes: set[int] = set()
+    if not unmatched_stock.empty and not unmatched_sales.empty:
+        for stock_row in unmatched_stock.itertuples(index=True):
+            best_sales_index: Optional[int] = None
+            best_score = -1.0
+            best_high_confidence_same_item = False
+            stock_supplier = _normalize_reconciliation_text(
+                getattr(stock_row, "supplier_stock", "")
+            )
+            stock_pack = _normalize_pack_size_value(
+                getattr(stock_row, "pack_size_stock", "")
+            )
+            stock_desc = _normalize_reconciliation_description(
+                getattr(stock_row, "description_stock", "")
+            )
+            stock_match_basis = _normalize_reconciliation_text(
+                getattr(stock_row, "match_basis_stock", "")
+            )
+            stock_desc_simple = _simplify_reconciliation_description(stock_desc)
+            for sales_row in unmatched_sales.itertuples(index=True):
+                if sales_row.Index in used_sales_indexes:
+                    continue
+                if (
+                    pd.Timestamp(getattr(stock_row, "date")).normalize()
+                    != pd.Timestamp(getattr(sales_row, "date")).normalize()
+                ):
+                    continue
+                sales_supplier = _normalize_reconciliation_text(
+                    getattr(sales_row, "supplier_sales", "")
+                )
+                supplier_matches = stock_supplier == sales_supplier
+                supplier_equivalent = _are_reconciliation_suppliers_equivalent(
+                    stock_supplier, sales_supplier
+                )
+                if not (supplier_matches or supplier_equivalent):
+                    continue
+                sales_pack = _normalize_pack_size_value(
+                    getattr(sales_row, "pack_size_sales", "")
+                )
+                if stock_pack == sales_pack:
+                    pack_matches = True
+                else:
+                    pack_matches = _are_reconciliation_pack_sizes_close(
+                        stock_pack, sales_pack
+                    )
+                    if not pack_matches:
+                        stock_carton_size = _infer_carton_pack_size(stock_pack)
+                        sales_carton_size = _infer_carton_pack_size(sales_pack)
+                        pack_matches = (
+                            stock_carton_size is not None
+                            and sales_carton_size is not None
+                            and math.isclose(
+                                stock_carton_size,
+                                sales_carton_size,
+                                rel_tol=1e-9,
+                                abs_tol=1e-9,
+                            )
+                        )
+                if not pack_matches:
+                    continue
+                sales_desc = _normalize_reconciliation_description(
+                    getattr(sales_row, "description_sales", "")
+                )
+                sales_match_basis = _normalize_reconciliation_text(
+                    getattr(sales_row, "match_basis_sales", "")
+                )
+                sales_desc_simple = _simplify_reconciliation_description(sales_desc)
+                descriptions_match = stock_desc_simple == sales_desc_simple
+                high_confidence_same_item = _is_high_confidence_reconciliation_same_item(
+                    stock_supplier,
+                    stock_desc,
+                    stock_pack,
+                    sales_supplier,
+                    sales_desc,
+                    sales_pack,
+                ) and (
+                    stock_match_basis == sales_match_basis
+                    == "fallback_supplier_description_pack"
+                )
+                if (
+                    not high_confidence_same_item
+                    and not descriptions_match
+                    and not _is_possible_reconciliation_description_match(
+                        stock_desc, sales_desc
+                    )
+                ):
+                    continue
+                score = SequenceMatcher(
+                    None,
+                    stock_desc_simple,
+                    sales_desc_simple,
+                ).ratio()
+                if score > best_score:
+                    best_score = score
+                    best_sales_index = sales_row.Index
+                    best_high_confidence_same_item = high_confidence_same_item
+
+            if best_sales_index is None:
+                continue
+
+            sales_row = unmatched_sales.loc[best_sales_index]
+            used_sales_indexes.add(best_sales_index)
+            used_stock_indexes.add(stock_row.Index)
+            possible_rows.append(
+                {
+                    "date": pd.to_datetime(getattr(stock_row, "date"), errors="coerce"),
+                    "product_code": _normalize_reconciliation_text(
+                        getattr(stock_row, "product_code_stock", "")
+                    )
+                    or _normalize_reconciliation_text(
+                        sales_row.get("product_code_sales", "")
+                    ),
+                    "description": f"{stock_desc} ↔ {_normalize_reconciliation_description(sales_row.get('description_sales', ''))}",
+                    "pack_size": stock_pack
+                    or _normalize_pack_size_value(sales_row.get("pack_size_sales", "")),
+                    "supplier": stock_supplier,
+                    "brand": _normalize_reconciliation_text(
+                        getattr(stock_row, "brand_stock", "")
+                    )
+                    or _normalize_reconciliation_text(sales_row.get("brand_sales", "")),
+                    "match_basis": "possible_supplier_pack_description",
+                    "_high_confidence_same_item": best_high_confidence_same_item,
+                    "stock_qty_text": _normalize_reconciliation_text(
+                        getattr(stock_row, "stock_qty_text", "0")
+                    )
+                    or "0",
+                    "sales_qty_text": _normalize_reconciliation_text(
+                        sales_row.get("sales_qty_text", "0")
+                    )
+                    or "0",
+                    "stock_ctn": int(getattr(stock_row, "stock_ctn", 0) or 0),
+                    "stock_pkt": int(getattr(stock_row, "stock_pkt", 0) or 0),
+                    "sales_ctn": int(sales_row.get("sales_ctn", 0) or 0),
+                    "sales_pkt": int(sales_row.get("sales_pkt", 0) or 0),
+                }
+            )
+
+    unmatched_stock_remaining = unmatched_stock.copy()
+    unmatched_sales_remaining = unmatched_sales.copy()
+    if possible_rows:
+        unmatched_stock_remaining = unmatched_stock_remaining.drop(
+            index=list(used_stock_indexes),
+            errors="ignore",
+        )
+        unmatched_sales_remaining = unmatched_sales_remaining.drop(
+            index=list(used_sales_indexes), errors="ignore"
+        )
+
+    exact_result = (
+        _finalize_merged(matched_exact.copy())
+        if not matched_exact.empty
+        else pd.DataFrame(columns=columns)
+    )
+    remaining_result = (
+        _finalize_merged(
+            pd.concat(
+                [unmatched_stock_remaining, unmatched_sales_remaining],
+                ignore_index=True,
+            )
+        )
+        if (not unmatched_stock_remaining.empty or not unmatched_sales_remaining.empty)
+        else pd.DataFrame(columns=columns)
+    )
+    possible_result = pd.DataFrame(possible_rows)
+    if not possible_result.empty:
+        high_confidence_mask = possible_result.pop(
+            "_high_confidence_same_item"
+        ).fillna(False)
+        possible_result["difference_ctn"] = (
+            possible_result["stock_ctn"] - possible_result["sales_ctn"]
+        )
+        possible_result["difference_pkt"] = (
+            possible_result["stock_pkt"] - possible_result["sales_pkt"]
+        )
+        possible_result["difference_qty_text"] = possible_result.apply(
+            lambda row: _format_ctn_pkt_total(
+                row["difference_ctn"], row["difference_pkt"]
+            ),
+            axis=1,
+        )
+        qty_equal_mask = (
+            (possible_result["stock_ctn"] == possible_result["sales_ctn"])
+            & (possible_result["stock_pkt"] == possible_result["sales_pkt"])
+        )
+        possible_result["is_match"] = high_confidence_mask & qty_equal_mask
+        possible_result["mismatch_reason"] = "possible_match"
+        possible_result.loc[high_confidence_mask, "mismatch_reason"] = "qty_diff"
+        possible_result.loc[possible_result["is_match"], "mismatch_reason"] = "match"
+        possible_result.loc[high_confidence_mask, "match_basis"] = (
+            "supplier_pack_core_description"
+        )
+
+    result = pd.concat(
+        [
+            exact_result[columns]
+            if not exact_result.empty
+            else pd.DataFrame(columns=columns),
+            possible_result[columns]
+            if not possible_result.empty
+            else pd.DataFrame(columns=columns),
+            remaining_result[columns]
+            if not remaining_result.empty
+            else pd.DataFrame(columns=columns),
+        ],
+        ignore_index=True,
+    )
+    result["date"] = pd.to_datetime(result["date"], errors="coerce")
+    result = result.sort_values(
+        ["date", "product_code", "description", "pack_size"],
+        kind="stable",
+    ).reset_index(drop=True)
+    return result
+
+
 # ----------------------------- UI 状态回调 -----------------------------
 
 
@@ -1909,6 +3308,21 @@ _SALES_PERSIST_KEYS = [
     "sales_price_list_account",
 ]
 
+_RECONCILIATION_PERSIST_KEYS = [
+    "reconciliation_stock_file_name",
+    "reconciliation_stock_file_bytes",
+    "reconciliation_stock_file_browsed_at",
+    "reconciliation_sales_files_payload",
+    "reconciliation_sales_files_browsed_at",
+    "reconciliation_filter_product_code",
+    "reconciliation_filter_description",
+    "reconciliation_filter_year",
+    "reconciliation_filter_month",
+    "reconciliation_filter_date",
+    "reconciliation_filter_use_specific_date",
+    "reconciliation_filter_specific_date",
+]
+
 
 def _restore_persisted_state(persist_key: str) -> None:
     persisted = st.session_state.get(persist_key)
@@ -1925,6 +3339,29 @@ def _snapshot_persisted_state(persist_key: str, keys: List[str]) -> None:
         if key in st.session_state:
             snapshot[key] = st.session_state.get(key)
     st.session_state[persist_key] = snapshot
+
+
+def _coerce_stock_issue_focus_index(value: Any, max_index: int) -> int:
+    max_valid = max(int(max_index), 0)
+    parsed: Optional[int] = None
+    if isinstance(value, bool):
+        parsed = None
+    elif isinstance(value, int):
+        parsed = value
+    elif isinstance(value, float) and math.isfinite(value):
+        parsed = int(value)
+    elif isinstance(value, str):
+        text = value.strip()
+        if text:
+            if re.fullmatch(r"-?\d+", text):
+                parsed = int(text)
+            else:
+                label_match = re.match(r"^(\d+)\.\s+", text)
+                if label_match:
+                    parsed = int(label_match.group(1)) - 1
+    if parsed is None:
+        parsed = 0
+    return max(0, min(parsed, max_valid))
 
 
 def _format_browse_timestamp(value: Optional[datetime.datetime]) -> str:
@@ -1991,6 +3428,81 @@ def _handle_sales_uploader_change() -> None:
         _clear_sales_upload_cache()
         return
     _cache_sales_upload(uploaded_files)
+
+
+def _cache_reconciliation_stock_upload(
+    uploaded: Any,
+    session_state: Optional[Dict[str, Any]] = None,
+    *,
+    now: Optional[datetime.datetime] = None,
+) -> None:
+    if uploaded is None:
+        return
+    state = session_state if session_state is not None else st.session_state
+    state["reconciliation_stock_file_name"] = getattr(uploaded, "name", "uploaded.xlsx")
+    state["reconciliation_stock_file_bytes"] = uploaded.getvalue()
+    browse_time = now if now is not None else datetime.datetime.now()
+    state["reconciliation_stock_file_browsed_at"] = _format_browse_timestamp(
+        browse_time
+    )
+
+
+def _clear_reconciliation_stock_upload_cache(
+    session_state: Optional[Dict[str, Any]] = None,
+) -> None:
+    state = session_state if session_state is not None else st.session_state
+    for key in [
+        "reconciliation_stock_file_name",
+        "reconciliation_stock_file_bytes",
+        "reconciliation_stock_file_browsed_at",
+    ]:
+        state.pop(key, None)
+
+
+def _handle_reconciliation_stock_uploader_change() -> None:
+    uploaded = st.session_state.get("reconciliation_stock_uploader")
+    if uploaded is None:
+        _clear_reconciliation_stock_upload_cache()
+        return
+    _cache_reconciliation_stock_upload(uploaded)
+
+
+def _cache_reconciliation_sales_upload(
+    uploaded_files: Any,
+    session_state: Optional[Dict[str, Any]] = None,
+    *,
+    now: Optional[datetime.datetime] = None,
+) -> None:
+    files = [uploaded for uploaded in (uploaded_files or []) if uploaded is not None]
+    if not files:
+        return
+    state = session_state if session_state is not None else st.session_state
+    state["reconciliation_sales_files_payload"] = [
+        {"name": uploaded.name, "bytes": uploaded.getvalue()} for uploaded in files
+    ]
+    browse_time = now if now is not None else datetime.datetime.now()
+    state["reconciliation_sales_files_browsed_at"] = _format_browse_timestamp(
+        browse_time
+    )
+
+
+def _clear_reconciliation_sales_upload_cache(
+    session_state: Optional[Dict[str, Any]] = None,
+) -> None:
+    state = session_state if session_state is not None else st.session_state
+    for key in [
+        "reconciliation_sales_files_payload",
+        "reconciliation_sales_files_browsed_at",
+    ]:
+        state.pop(key, None)
+
+
+def _handle_reconciliation_sales_uploader_change() -> None:
+    uploaded_files = st.session_state.get("reconciliation_sales_uploader")
+    if not uploaded_files:
+        _clear_reconciliation_sales_upload_cache()
+        return
+    _cache_reconciliation_sales_upload(uploaded_files)
 
 
 # ----------------------------- 主程序：Stock 页 -----------------------------
@@ -2507,9 +4019,16 @@ def run_stock_page():
             if "stock_issue_focus_index" not in st.session_state:
                 st.session_state["stock_issue_focus_index"] = 0
             valid_max_idx = max(len(issue_rows) - 1, 0)
-            focus_idx = int(st.session_state.get("stock_issue_focus_index", 0))
-            focus_idx = max(0, min(focus_idx, valid_max_idx))
+            focus_idx = _coerce_stock_issue_focus_index(
+                st.session_state.get("stock_issue_focus_index", 0),
+                valid_max_idx,
+            )
             st.session_state["stock_issue_focus_index"] = focus_idx
+            stock_issue_focus_widget_key = "stock_issue_focus_selectbox"
+            st.session_state[stock_issue_focus_widget_key] = _coerce_stock_issue_focus_index(
+                st.session_state.get(stock_issue_focus_widget_key, focus_idx),
+                valid_max_idx,
+            )
 
             def _focus_label(i: int) -> str:
                 row = issue_rows.iloc[int(i)]
@@ -2521,10 +4040,11 @@ def run_stock_page():
             selected_focus_idx = st.selectbox(
                 "快速定位异常商品",
                 options=list(range(len(issue_rows))),
-                key="stock_issue_focus_index",
+                key=stock_issue_focus_widget_key,
                 format_func=_focus_label,
                 help="选择后点击“定位到主表”，将按 Supplier + Product + Pack Size + Product Code 精准定位。",
             )
+            st.session_state["stock_issue_focus_index"] = int(selected_focus_idx)
             focus_row = issue_rows.iloc[int(selected_focus_idx)]
             focus_supplier = str(focus_row.get("Supplier") or "").strip()
             focus_product = str(focus_row.get("Product") or "").strip()
@@ -3145,7 +4665,11 @@ def _normalize_sales_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     for col in SALES_COLUMNS:
         if col not in trimmed.columns:
             trimmed[col] = pd.NA
-    trimmed = trimmed[SALES_COLUMNS].replace(r"^\s*$", pd.NA, regex=True)
+    trimmed = trimmed[SALES_COLUMNS]
+    blank_mask = trimmed.apply(
+        lambda col: col.astype("string").str.fullmatch(r"\s*", na=False)
+    )
+    trimmed = trimmed.mask(blank_mask, pd.NA)
     trimmed = _strip_html_df(trimmed)
     for col in trimmed.select_dtypes(include="object").columns:
         trimmed[col] = trimmed[col].astype("string").str.strip()
@@ -4872,6 +6396,343 @@ def run_sales_page():
     return
 
 
+def _highlight_reconciliation_row(row: pd.Series) -> List[str]:
+    status = str(row.get("mismatch_reason", ""))
+    if status == "match":
+        color = "rgba(220, 252, 231, 0.8)"
+    elif status in {"missing_in_sales", "missing_in_stock"}:
+        color = "rgba(254, 240, 138, 0.8)"
+    else:
+        color = "rgba(254, 202, 202, 0.8)"
+    return [f"background-color: {color};"] * len(row)
+
+
+def run_reconciliation_page():
+    st.title("Reconciliation")
+    st.caption(
+        "Reconciliation compares dated outbound quantities from Stocks report against sales summary quantities for the same item and day."
+    )
+
+    stock_uploaded = st.file_uploader(
+        "上传 Stock report Excel (.xlsx)",
+        type=["xlsx"],
+        key="reconciliation_stock_uploader",
+        on_change=_handle_reconciliation_stock_uploader_change,
+    )
+    if stock_uploaded is not None and not st.session_state.get(
+        "reconciliation_stock_file_bytes"
+    ):
+        _cache_reconciliation_stock_upload(stock_uploaded)
+
+    sales_uploaded = st.file_uploader(
+        "上传 Sales summary Excel (.xlsx)",
+        type=["xlsx"],
+        accept_multiple_files=True,
+        key="reconciliation_sales_uploader",
+        on_change=_handle_reconciliation_sales_uploader_change,
+    )
+    if sales_uploaded and not st.session_state.get(
+        "reconciliation_sales_files_payload"
+    ):
+        _cache_reconciliation_sales_upload(sales_uploaded)
+
+    stock_file_bytes = st.session_state.get("reconciliation_stock_file_bytes")
+    sales_payload = st.session_state.get("reconciliation_sales_files_payload", [])
+    stock_name = st.session_state.get("reconciliation_stock_file_name", "")
+    stock_browsed_at = st.session_state.get("reconciliation_stock_file_browsed_at", "")
+    sales_browsed_at = st.session_state.get("reconciliation_sales_files_browsed_at", "")
+
+    if stock_name:
+        st.caption(f"Stock file: {stock_name}")
+    if stock_browsed_at:
+        st.caption(f"Stock last browsed: {stock_browsed_at}")
+    if sales_browsed_at:
+        st.caption(f"Sales last browsed: {sales_browsed_at}")
+
+    if not stock_file_bytes or not sales_payload:
+        st.info("请同时上传 Stock report 与 Sales summary 文件后继续。")
+        return
+
+    try:
+        sales_df, sales_warns = load_sales_data_from_payload(sales_payload)
+    except Exception as exc:
+        st.error(f"读取销售工作簿失败：{exc}")
+        return
+    for warn in sales_warns:
+        st.warning(warn)
+    if sales_df.empty:
+        st.warning("无法从上传的销售工作簿读取任何 Sales 数据。")
+        return
+
+    preferred_year = _resolve_reconciliation_year(sales_df)
+    if preferred_year is not None:
+        st.caption(
+            f"Using sales year {preferred_year} for stock date headers without year."
+        )
+
+    try:
+        stock_df, stock_timeline, stock_warns = (
+            load_stock_reconciliation_data_from_bytes(
+                stock_file_bytes,
+                preferred_year=preferred_year,
+            )
+        )
+    except Exception as exc:
+        st.error(f"读取 Stock 工作簿失败：{exc}")
+        return
+    for warn in stock_warns:
+        st.warning(warn)
+
+    sales_timeline = build_sales_reconciliation_timeline(sales_df)
+    result_df = build_reconciliation_result(stock_timeline, sales_timeline)
+
+    filter_options = _build_reconciliation_filter_options(result_df)
+    pre_date_filter_state = {
+        "product_code": st.session_state.get("reconciliation_filter_product_code", []),
+        "description": st.session_state.get("reconciliation_filter_description", []),
+        "year": st.session_state.get("reconciliation_filter_year", []),
+        "month": st.session_state.get("reconciliation_filter_month", []),
+    }
+    specific_date_bounds_filter_state = {
+        "product_code": st.session_state.get("reconciliation_filter_product_code", []),
+        "description": st.session_state.get("reconciliation_filter_description", []),
+        "year": [],
+        "month": [],
+    }
+    min_date, max_date = _get_reconciliation_date_bounds(
+        result_df, pre_date_filter_state
+    )
+    specific_min_date, specific_max_date = _get_reconciliation_date_bounds(
+        result_df, specific_date_bounds_filter_state
+    )
+    with st.sidebar:
+        st.subheader("Reconciliation Filters")
+        if st.button("Clear Date Filter", key="reconciliation_clear_date_filters_button"):
+            for key in [
+                "reconciliation_filter_year",
+                "reconciliation_filter_month",
+                "reconciliation_filter_date",
+                "reconciliation_filter_date_widget",
+                "reconciliation_filter_use_specific_date",
+                "reconciliation_filter_specific_date",
+                "reconciliation_filter_specific_date_widget",
+            ]:
+                if key.endswith(("year", "month")):
+                    st.session_state[key] = []
+                elif key == "reconciliation_filter_use_specific_date":
+                    st.session_state[key] = False
+                else:
+                    st.session_state[key] = None
+
+        _ensure_multiselect_key_state(
+            "reconciliation_filter_product_code",
+            filter_options["product_code"],
+            [],
+        )
+        st.multiselect(
+            "Product Code",
+            filter_options["product_code"],
+            key="reconciliation_filter_product_code",
+            placeholder="选择产品编码",
+        )
+
+        _ensure_multiselect_key_state(
+            "reconciliation_filter_description",
+            filter_options["description"],
+            [],
+        )
+        st.multiselect(
+            "Description",
+            filter_options["description"],
+            key="reconciliation_filter_description",
+            placeholder="选择产品描述",
+        )
+
+        _ensure_multiselect_key_state(
+            "reconciliation_filter_year",
+            filter_options["year"],
+            _default_reconciliation_year_selection(filter_options["year"]),
+        )
+        st.multiselect(
+            "Year",
+            filter_options["year"],
+            key="reconciliation_filter_year",
+            placeholder="选择年份",
+        )
+
+        _ensure_multiselect_key_state(
+            "reconciliation_filter_month",
+            filter_options["month"],
+            _default_reconciliation_month_selection(filter_options["month"]),
+        )
+        st.multiselect(
+            "Month",
+            filter_options["month"],
+            key="reconciliation_filter_month",
+            placeholder="选择月份",
+        )
+        current_date_value = _coerce_reconciliation_date_input_value(
+            st.session_state.get("reconciliation_filter_date")
+        )
+        if current_date_value is not None:
+            if isinstance(current_date_value, tuple):
+                start_date, end_date = current_date_value
+                if min_date is not None and start_date < min_date:
+                    start_date = min_date
+                if max_date is not None and end_date > max_date:
+                    end_date = max_date
+                current_date_value = (
+                    (
+                        start_date,
+                        end_date,
+                    )
+                    if start_date <= end_date
+                    else None
+                )
+            else:
+                if min_date is not None and current_date_value < min_date:
+                    current_date_value = None
+                elif max_date is not None and current_date_value > max_date:
+                    current_date_value = None
+        st.session_state["reconciliation_filter_date_widget"] = current_date_value
+        st.date_input(
+            "Date Range",
+            key="reconciliation_filter_date_widget",
+            min_value=min_date,
+            max_value=max_date,
+            value=st.session_state.get("reconciliation_filter_date_widget"),
+            help="Used only when Specific Date Override is empty.",
+        )
+        st.session_state["reconciliation_filter_date"] = st.session_state.get(
+            "reconciliation_filter_date_widget"
+        )
+
+        use_specific_date = st.checkbox(
+            "Use Specific Date",
+            key="reconciliation_filter_use_specific_date",
+            value=bool(st.session_state.get("reconciliation_filter_use_specific_date", False)),
+            help="When checked, only Specific Date Override is used; when unchecked, Date Range is used.",
+        )
+
+        current_specific_date = _coerce_reconciliation_date_input_value(
+            st.session_state.get("reconciliation_filter_specific_date")
+        )
+        if isinstance(current_specific_date, tuple):
+            current_specific_date = (
+                current_specific_date[0] if current_specific_date else None
+            )
+        if current_specific_date is not None:
+            if specific_min_date is not None and current_specific_date < specific_min_date:
+                current_specific_date = None
+            elif specific_max_date is not None and current_specific_date > specific_max_date:
+                current_specific_date = None
+        st.session_state["reconciliation_filter_specific_date_widget"] = (
+            current_specific_date
+        )
+        st.date_input(
+            "Specific Date Override",
+            key="reconciliation_filter_specific_date_widget",
+            min_value=specific_min_date,
+            max_value=specific_max_date,
+            value=st.session_state.get("reconciliation_filter_specific_date_widget"),
+            disabled=not use_specific_date,
+            help="Used only when Use Specific Date is checked.",
+        )
+        st.session_state["reconciliation_filter_specific_date"] = st.session_state.get(
+            "reconciliation_filter_specific_date_widget"
+        )
+
+        active_specific_date = (
+            st.session_state.get("reconciliation_filter_specific_date")
+            if use_specific_date
+            else None
+        )
+
+    filtered_result_df = _apply_reconciliation_filters(
+        result_df,
+        {
+            "product_code": st.session_state.get(
+                "reconciliation_filter_product_code", []
+            ),
+            "description": st.session_state.get(
+                "reconciliation_filter_description", []
+            ),
+            "year": st.session_state.get("reconciliation_filter_year", []),
+            "month": st.session_state.get("reconciliation_filter_month", []),
+            "date": st.session_state.get("reconciliation_filter_date"),
+            "specific_date": active_specific_date,
+            "use_specific_date": use_specific_date,
+        },
+    )
+
+    metric_cols = st.columns(4)
+    metric_cols[0].metric("Stock timeline rows", f"{len(stock_timeline):,}")
+    metric_cols[1].metric("Sales timeline rows", f"{len(sales_timeline):,}")
+    metric_cols[2].metric(
+        "Mismatch rows",
+        f"{int((filtered_result_df.get('is_match', pd.Series(dtype=bool)) == False).sum()):,}",
+    )
+    metric_cols[3].metric(
+        "Matched rows",
+        f"{int(filtered_result_df.get('is_match', pd.Series(dtype=bool)).sum()):,}",
+    )
+
+    st.markdown("### Mismatch rows")
+    mismatch_df = filtered_result_df[
+        filtered_result_df["mismatch_reason"] != "match"
+    ].copy()
+    display_df = filtered_result_df.copy()
+    mismatch_display_df = _build_reconciliation_display_df(mismatch_df)
+    all_display_df = _build_reconciliation_display_df(display_df)
+    possible_match_display_df = _build_reconciliation_display_df(
+        filtered_result_df[
+            filtered_result_df["mismatch_reason"] == "possible_match"
+        ].copy()
+    )
+
+    if mismatch_df.empty:
+        st.success("所有已匹配项目的日期数量都一致。")
+    else:
+        st.dataframe(
+            mismatch_display_df.drop(columns=["mismatch_reason"], errors="ignore"),
+            width="stretch",
+            hide_index=True,
+        )
+
+    if not possible_match_display_df.empty:
+        with st.expander("Possible match rows", expanded=False):
+            st.dataframe(
+                possible_match_display_df.drop(
+                    columns=["mismatch_reason"], errors="ignore"
+                ),
+                width="stretch",
+                hide_index=True,
+            )
+
+    with st.expander("All reconciliation rows", expanded=False):
+        if all_display_df.empty:
+            st.info("当前没有可显示的对账记录。")
+        else:
+            st.dataframe(
+                all_display_df.drop(columns=["mismatch_reason"], errors="ignore"),
+                width="stretch",
+                hide_index=True,
+            )
+
+    with st.expander("Parsed stock rows", expanded=False):
+        if stock_df.empty:
+            st.info("当前没有可显示的 Stock 明细。")
+        else:
+            stock_display = stock_df.copy()
+            for col in ["expiry_date", "relabel_to_date"]:
+                if col in stock_display.columns:
+                    stock_display[col] = pd.to_datetime(
+                        stock_display[col], errors="coerce"
+                    ).dt.strftime("%d-%b-%Y")
+                    stock_display[col] = stock_display[col].fillna("")
+            st.dataframe(stock_display, width="stretch", hide_index=True)
+
+
 def _infer_weight_kg_per_packet(value: Any) -> Optional[float]:
     if pd.isna(value):
         return None
@@ -5107,8 +6968,10 @@ def build_account_price_list(df: pd.DataFrame, account: str) -> pd.DataFrame:
 
 def main():
     st.sidebar.title("导航")
-    st.sidebar.write("选择页面运行 Sales 或 Stock。")
-    current_page = st.sidebar.radio("Page", ["Sales", "Stock"], index=0)
+    st.sidebar.write("选择页面运行 Sales、Stock 或 Reconciliation。")
+    current_page = st.sidebar.radio(
+        "Page", ["Sales", "Stock", "Reconciliation"], index=0
+    )
 
     action_for_page = (
         _HOTKEY_ACTION_CLEAR_SALES
@@ -5129,10 +6992,16 @@ def main():
         _restore_persisted_state("__sales_persist_state")
         run_sales_page()
         _snapshot_persisted_state("__sales_persist_state", _SALES_PERSIST_KEYS)
-    else:
+    elif current_page == "Stock":
         _restore_persisted_state("__stock_persist_state")
         run_stock_page()
         _snapshot_persisted_state("__stock_persist_state", _STOCK_PERSIST_KEYS)
+    else:
+        _restore_persisted_state("__reconciliation_persist_state")
+        run_reconciliation_page()
+        _snapshot_persisted_state(
+            "__reconciliation_persist_state", _RECONCILIATION_PERSIST_KEYS
+        )
 
     st.sidebar.markdown("---")
     st.sidebar.caption("Powered by Streamlit")
