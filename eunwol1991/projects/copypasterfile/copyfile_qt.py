@@ -5,8 +5,8 @@ import sys
 from datetime import date, timedelta
 
 try:
-    from PySide6.QtCore import QTimer, Qt
-    from PySide6.QtGui import QFont
+    from PySide6.QtCore import QEvent, QObject, QTimer, Qt
+    from PySide6.QtGui import QFont, QKeyEvent
     from PySide6.QtWidgets import (
         QApplication,
         QCheckBox,
@@ -285,6 +285,7 @@ class MainWindow(QMainWindow):
 
         source_row = QHBoxLayout()
         self.source_edit = QLineEdit(self.source_dir)
+        self.source_edit.installEventFilter(self)
         source_row.addWidget(QLabel("Source:"))
         source_row.addWidget(self.source_edit)
         btn_source = QPushButton("Browse Source")
@@ -297,6 +298,7 @@ class MainWindow(QMainWindow):
         self.filter_edit = QLineEdit()
         self.filter_edit.setPlaceholderText("Type keywords to filter matched files")
         self.filter_edit.textChanged.connect(self.apply_file_filter)
+        self.filter_edit.installEventFilter(self)
         filter_row.addWidget(self.filter_edit)
         btn_clear_filter = QPushButton("Clear Filter")
         btn_clear_filter.clicked.connect(lambda: self.filter_edit.setText(""))
@@ -305,8 +307,10 @@ class MainWindow(QMainWindow):
 
         lists = QGridLayout()
         self.file_list = QListWidget()
+        self.file_list.installEventFilter(self)
         self.file_list.itemDoubleClicked.connect(lambda _x: self.add_selected())
         self.selected_list = QListWidget()
+        self.selected_list.installEventFilter(self)
         lists.addWidget(QLabel("Matched Files"), 0, 0)
         lists.addWidget(QLabel("Selected Files Order"), 0, 1)
         lists.addWidget(self.file_list, 1, 0)
@@ -332,9 +336,14 @@ class MainWindow(QMainWindow):
         self.invoice_edit = QLineEdit()
         self.invoice_edit.setPlaceholderText("0326 - 001 or 0326 (auto mode)")
         self.invoice_edit.setFixedWidth(220)
+        self.invoice_edit.installEventFilter(self)
         invoice_row.addWidget(self.invoice_edit)
         self.auto_checkbox = QCheckBox("Auto number by MMYY")
         invoice_row.addWidget(self.auto_checkbox)
+        self.allow_duplicates_checkbox: QCheckBox = QCheckBox(
+            "Allow duplicate selections"
+        )
+        invoice_row.addWidget(self.allow_duplicates_checkbox)
         invoice_row.addStretch(1)
         btn_copy = QPushButton("Copy")
         btn_copy.clicked.connect(self.copy_files)
@@ -538,6 +547,52 @@ class MainWindow(QMainWindow):
         self.status.setText(
             f"Loaded {len(self.file_info_list)} file(s). Hidden FUTURE: {hidden_future}."
         )
+        self.filter_edit.setFocus()
+        QTimer.singleShot(0, self.filter_edit.setFocus)
+
+    def eventFilter(self, obj: QObject, event: QEvent) -> bool:
+        if not hasattr(self, "filter_edit"):
+            return super().eventFilter(obj, event)
+        if event.type() == QEvent.Type.KeyPress and isinstance(event, QKeyEvent):
+            if event.key() == Qt.Key.Key_Escape:
+                self.filter_edit.setFocus()
+                self.filter_edit.setCursorPosition(len(self.filter_edit.text()))
+                return True
+            if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+                self.copy_files()
+                return True
+            if (
+                event.key() == Qt.Key.Key_B
+                and event.modifiers() & Qt.KeyboardModifier.ControlModifier
+            ):
+                self.browse_source()
+                return True
+        if (
+            obj is self.filter_edit
+            and event.type() == QEvent.Type.KeyPress
+            and isinstance(event, QKeyEvent)
+            and event.key() == Qt.Key.Key_Tab
+        ):
+            if len(self.filtered_indices) == 1:
+                self.file_list.setCurrentRow(0)
+                self.add_selected()
+                return True
+            if len(self.filtered_indices) > 1:
+                if self.file_list.currentRow() < 0:
+                    self.file_list.setCurrentRow(0)
+                self.file_list.setFocus()
+                return True
+            return False
+        if (
+            hasattr(self, "file_list")
+            and obj is self.file_list
+            and event.type() == QEvent.Type.KeyPress
+            and isinstance(event, QKeyEvent)
+            and event.key() == Qt.Key.Key_Tab
+        ):
+            self.add_selected()
+            return True
+        return super().eventFilter(obj, event)
 
     def apply_file_filter(self):
         query = self.filter_edit.text().strip().lower()
@@ -571,7 +626,10 @@ class MainWindow(QMainWindow):
         if row < 0 or row >= len(self.filtered_indices):
             return
         real_index = self.filtered_indices[row]
-        if real_index in self.selected_indices:
+        if (
+            not self.allow_duplicates_checkbox.isChecked()
+            and real_index in self.selected_indices
+        ):
             return
         self.selected_indices.append(real_index)
         self.refresh_selected_list()
