@@ -454,6 +454,112 @@ def _strip_html_df(df: pd.DataFrame) -> pd.DataFrame:
     return clean
 
 
+def _build_copy_values_tsv(df: pd.DataFrame) -> str:
+    output = df.to_csv(sep="\t", index=False, lineterminator="\n")
+    return output[:-1] if output.endswith("\n") else output
+
+
+def _render_copy_values_button(
+    table_payload: str,
+    key: str,
+    *,
+    has_rows: bool,
+    label: str = "复制全部数值",
+) -> None:
+    container_id = f"copy-values-{key}"
+    status_id = f"{container_id}-status"
+    disabled = not has_rows
+    button_label = label if has_rows else "无可复制数据"
+    script = """
+<div id=__CONTAINER_ID__ class="copy-values-root">
+  <button id=__BUTTON_ID__ class="copy-values-button" type="button" __DISABLED__>
+    <span class="copy-values-icon">⧉</span>
+    <span>__LABEL_TEXT__</span>
+  </button>
+  <span id=__STATUS_ID__ class="copy-values-status" aria-live="polite"></span>
+</div>
+<style>
+  .copy-values-root {
+    --copy-bg: #f8fafc;
+    --copy-border: #cbd5e1;
+    --copy-text: #0f172a;
+    --copy-muted: #64748b;
+    --copy-accent: #0f766e;
+    --copy-disabled: #e2e8f0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 32px;
+    font-family: "Noto Sans SC", "Microsoft YaHei", sans-serif;
+  }
+  .copy-values-button {
+    appearance: none;
+    border: 1px solid var(--copy-border);
+    border-radius: 999px;
+    background: var(--copy-bg);
+    color: var(--copy-text);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1;
+    padding: 7px 12px;
+    transition: border-color 140ms ease, color 140ms ease, transform 140ms ease;
+  }
+  .copy-values-button:hover:not(:disabled) {
+    border-color: var(--copy-accent);
+    color: var(--copy-accent);
+    transform: translateY(-1px);
+  }
+  .copy-values-button:disabled {
+    background: var(--copy-disabled);
+    color: var(--copy-muted);
+    cursor: not-allowed;
+  }
+  .copy-values-icon {
+    font-size: 12px;
+  }
+  .copy-values-status {
+    color: var(--copy-muted);
+    font-size: 12px;
+  }
+</style>
+<script>
+(function() {
+  const payload = __PAYLOAD__;
+  const button = document.getElementById(__BUTTON_ID__);
+  const status = document.getElementById(__STATUS_ID__);
+  if (!button || button.disabled) {
+    return;
+  }
+  button.addEventListener("click", async function() {
+    try {
+      await navigator.clipboard.writeText(payload);
+      if (status) {
+        status.textContent = "已复制";
+      }
+    } catch (error) {
+      if (status) {
+        status.textContent = "复制失败";
+      }
+    }
+  });
+})();
+</script>
+"""
+    html = (
+        script.replace("__CONTAINER_ID__", json.dumps(container_id))
+        .replace("__BUTTON_ID__", json.dumps(f"{container_id}-button"))
+        .replace("__STATUS_ID__", json.dumps(status_id))
+        .replace("__DISABLED__", "disabled" if disabled else "")
+        .replace("__LABEL_TEXT__", button_label)
+        .replace("__PAYLOAD__", json.dumps(table_payload))
+    )
+    _ = components.html(html, height=42)
+
+
 MONTH_MAP: Dict[str, int] = {}
 for index, name in enumerate(calendar.month_name):
     if name:
@@ -611,12 +717,14 @@ SALES_FILTER_SESSION_KEYS = {
 }
 
 SALES_FILTER_CUSTOMER_EXCLUDE_KEY = "sales_filter_customer_exclude"
+SALES_FILTER_SUPPLIER_EXCLUDE_KEY = "sales_filter_supplier_exclude"
 
 
 def _clear_sales_filters_state(ss: Dict[str, Any]) -> None:
     for key in SALES_FILTER_SESSION_KEYS.values():
         ss[key] = []
     ss[SALES_FILTER_CUSTOMER_EXCLUDE_KEY] = []
+    ss[SALES_FILTER_SUPPLIER_EXCLUDE_KEY] = False
     ss["sales_filter_invoice"] = ""
     ss["sales_filter_use_exact_date"] = False
     ss["sales_filter_exact_date"] = None
@@ -3293,6 +3401,7 @@ _SALES_PERSIST_KEYS = [
     "sales_filter_outlet",
     "sales_filter_product_description",
     "sales_filter_supplier",
+    "sales_filter_supplier_exclude",
     "sales_filter_brand",
     "sales_filter_product_code",
     "sales_filter_account",
@@ -4781,6 +4890,7 @@ def apply_sales_filters(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, str]]
     ss = st.session_state
     session_keys = SALES_FILTER_SESSION_KEYS
     customer_exclude_key = SALES_FILTER_CUSTOMER_EXCLUDE_KEY
+    supplier_exclude_key = SALES_FILTER_SUPPLIER_EXCLUDE_KEY
 
     def _series(name: str) -> pd.Series:
         if name not in df.columns:
@@ -4827,7 +4937,11 @@ def apply_sales_filters(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, str]]
             sel = ss.get(session_keys[key], [])
             if not sel:
                 continue
-            mask &= series_cache[column].isin(sel)
+            selected_mask = series_cache[column].isin(sel)
+            if key == "Supplier" and bool(ss.get(supplier_exclude_key, False)):
+                mask &= ~selected_mask
+            else:
+                mask &= selected_mask
         if not ignore_customer_exclude and exclude != "Exclude Customer":
             excluded_customers = ss.get(customer_exclude_key, [])
             if excluded_customers:
@@ -4940,12 +5054,15 @@ def apply_sales_filters(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, str]]
 
         if basic_sales_mode:
             ss[customer_exclude_key] = []
-            ss[session_keys["Supplier"]] = []
             ss[session_keys["Brand/Category"]] = []
             ss["sales_filter_invoice"] = ""
             ss["sales_filter_date_from"] = None
             ss["sales_filter_date_to"] = None
 
+            supplier_options = _options_for("Supplier")
+            _ensure_multiselect_key_state(
+                session_keys["Supplier"], supplier_options, default=[]
+            )
             product_code_options = _options_for("Product Code")
             _ensure_multiselect_key_state(
                 session_keys["Product Code"], product_code_options, default=[]
@@ -4955,14 +5072,25 @@ def apply_sales_filters(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, str]]
                 session_keys["Account"], account_options, default=[]
             )
 
-            basic_extra_cols = st.columns(2)
+            basic_extra_cols = st.columns(3)
             with basic_extra_cols[0]:
+                st.multiselect(
+                    "Supplier",
+                    supplier_options,
+                    key=session_keys["Supplier"],
+                )
+                st.checkbox(
+                    "Exclude selected (Supplier)",
+                    key=supplier_exclude_key,
+                    value=bool(ss.get(supplier_exclude_key, False)),
+                )
+            with basic_extra_cols[1]:
                 st.multiselect(
                     "Product Code",
                     product_code_options,
                     key=session_keys["Product Code"],
                 )
-            with basic_extra_cols[1]:
+            with basic_extra_cols[2]:
                 st.multiselect(
                     "Account",
                     account_options,
@@ -5020,6 +5148,12 @@ def apply_sales_filters(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, str]]
                     "Supplier",
                     supplier_options,
                     key=session_keys["Supplier"],
+                )
+                st.checkbox(
+                    "Exclude selected (Supplier)",
+                    key=supplier_exclude_key,
+                    value=bool(ss.get(supplier_exclude_key, False)),
+                    help="Selected suppliers will be excluded from results.",
                 )
                 st.multiselect(
                     "Brand/Category",
@@ -5115,6 +5249,7 @@ def apply_sales_filters(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, str]]
         "Outlet": ss.get(session_keys["Outlet"], []),
         "Product Description": ss.get(session_keys["Product Description"], []),
         "Supplier": ss.get(session_keys["Supplier"], []),
+        "Exclude Supplier": ["Yes"] if bool(ss.get(supplier_exclude_key, False)) else [],
         "Brand/Category": ss.get(session_keys["Brand/Category"], []),
         "Product Code": ss.get(session_keys["Product Code"], []),
         "Account": ss.get(session_keys["Account"], []),
@@ -5907,10 +6042,20 @@ def _render_sales_business_dashboard(filtered_df: pd.DataFrame) -> None:
 
     product_monthly_view = build_product_monthly_summary(work)
     st.subheader("产品月度销量（不分客户）")
+    _render_copy_values_button(
+        _build_copy_values_tsv(product_monthly_view),
+        "sales-product-monthly",
+        has_rows=not product_monthly_view.empty,
+    )
     st.dataframe(product_monthly_view, width="stretch", hide_index=True)
 
     daily_sales_timeline = build_daily_sales_timeline(work)
     st.subheader("每日销量时间线（不分客户）")
+    _render_copy_values_button(
+        _build_copy_values_tsv(daily_sales_timeline),
+        "sales-daily-timeline",
+        has_rows=not daily_sales_timeline.empty,
+    )
     st.dataframe(daily_sales_timeline, width="stretch", hide_index=True)
 
     strict_key_cols = [
@@ -5996,6 +6141,11 @@ def _render_sales_business_dashboard(filtered_df: pd.DataFrame) -> None:
             "Unit Price per kg": "每公斤卖价",
         }
     )
+    _render_copy_values_button(
+        _build_copy_values_tsv(month_view),
+        "sales-customer-monthly",
+        has_rows=not month_view.empty,
+    )
     st.dataframe(month_view, width="stretch", hide_index=True)
 
     # Which customers buy, when, and how much (strictly split by product/account keys)
@@ -6080,6 +6230,11 @@ def _render_sales_business_dashboard(filtered_df: pd.DataFrame) -> None:
             "Base Price": "基础卖价",
             "Unit Price/kg": "每公斤卖价",
         }
+    )
+    _render_copy_values_button(
+        _build_copy_values_tsv(date_view),
+        "sales-customer-timeline",
+        has_rows=not date_view.empty,
     )
     st.dataframe(date_view, width="stretch", hide_index=True)
 

@@ -45,6 +45,11 @@ class _FakeStreamlit:
             return value
         return self.session_state.setdefault(key, value)
 
+    def checkbox(self, label, key=None, value=False, **kwargs):
+        if key is None:
+            return value
+        return self.session_state.setdefault(key, value)
+
     def multiselect(self, label, options, key=None, **kwargs):
         if key is not None:
             self.session_state.setdefault(key, [])
@@ -1875,6 +1880,71 @@ class StockFilterQueryTests(unittest.TestCase):
         self.assertEqual(filter_state["Exact date"], "2026-04-15")
         self.assertIsNone(session_state["sales_filter_date_from"])
         self.assertIsNone(session_state["sales_filter_date_to"])
+
+    def test_apply_sales_filters_excludes_supplier_in_basic_mode(self):
+        module = _load_module()
+        original_st = getattr(module, "st")
+        session_state = {
+            "sales_basic_mode": True,
+            "sales_filter_year": [],
+            "sales_filter_month": [],
+            "sales_filter_customer": [],
+            "sales_filter_customer_exclude": [],
+            "sales_filter_outlet": [],
+            "sales_filter_product_description": [],
+            "sales_filter_supplier": ["Supplier A"],
+            "sales_filter_supplier_exclude": True,
+            "sales_filter_brand": [],
+            "sales_filter_product_code": [],
+            "sales_filter_account": [],
+            "sales_filter_invoice": "",
+            "sales_filter_date_from": None,
+            "sales_filter_date_to": None,
+            "sales_filter_use_exact_date": False,
+            "sales_filter_exact_date": None,
+        }
+        setattr(module, "st", _FakeStreamlit(session_state))
+        df = pd.DataFrame(
+            {
+                "Year": ["2026", "2026", "2026"],
+                "Month": ["Apr", "Apr", "Apr"],
+                "Customer": ["A", "B", "C"],
+                "Outlet": ["Outlet 1", "Outlet 2", "Outlet 3"],
+                "Product Description": ["Prod 1", "Prod 2", "Prod 3"],
+                "Supplier": ["Supplier A", "Supplier B", "Supplier A"],
+                "Brand/Category": ["Brand", "Brand", "Brand"],
+                "Product Code": ["P1", "P2", "P3"],
+                "Account": ["ACC", "ACC", "ACC"],
+                "Invoice #": ["INV-1", "INV-2", "INV-3"],
+                "Date": pd.to_datetime(["2026-04-15", "2026-04-16", "2026-04-17"]),
+            }
+        )
+
+        try:
+            filtered_df, filter_state = module.apply_sales_filters(df)
+        finally:
+            setattr(module, "st", original_st)
+
+        self.assertEqual(filtered_df["Invoice #"].tolist(), ["INV-2"])
+        self.assertEqual(filter_state["Supplier"], "Supplier A")
+        self.assertEqual(filter_state["Exclude Supplier"], "Yes")
+
+    def test_build_copy_values_tsv_uses_visible_headers_and_values(self):
+        module = _load_module()
+        df = pd.DataFrame(
+            {
+                "客户": ["Customer A", "Customer B"],
+                "总销量": ["1 ctn", "2 pkts"],
+                "销售额": ["12.30", "45.60"],
+            }
+        )
+
+        result = module._build_copy_values_tsv(df)
+
+        self.assertEqual(
+            result,
+            "客户\t总销量\t销售额\nCustomer A\t1 ctn\t12.30\nCustomer B\t2 pkts\t45.60",
+        )
 
     def test_append_forecast_total_row_adds_combined_total(self):
         module = _load_module()
