@@ -169,8 +169,15 @@ ITEM_ALIAS = {
     "parsley flakes": "Parsley Leaves (6 x 5gm)",
     "toasted coconut flakes": "Toasted Coconut Flakes (36 x 200g)",
     "red sauce": "Red Sauce (10 x 1kg)",
+    "braised chilli sachet 15 g": "Chilli Sauce (300 x 15g)",
+    "braised sauce sachet 20 g": "Braised Duck Sauce (300 x 20g)",
+    "braised sauce 500 g": "Braised Duck Sauce (12 x 500g)",
     "j-lek sriracha sauce": "J-Lek Sriracha Hot Chilli Sauce (12 x 455ml)",
     "uht coconut water 1l": "UHT Coconut Water 1L (12 x 1L)",
+    "smoked chicken breakfast rashers 2mm": "Smoked Chicken Toast (12 x 500g)",
+    "cofe creamer": "Cofe Creamer (8 x 250ml)",
+    "liquid Sugar": "Liquid Sugar (20 x 200ml)",
+
 }
 
 

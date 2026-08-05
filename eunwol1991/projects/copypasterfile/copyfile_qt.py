@@ -229,6 +229,8 @@ def get_next_invoice_number(search_dir: str, invoice_prefix: str) -> int:
     for root_dir, dirs, files in os.walk(search_dir):
         dirs[:] = [d for d in dirs if d.lower() != "history"]
         for name in files:
+            if re.search(r"\bCN\b", os.path.splitext(name)[0], re.IGNORECASE):
+                continue
             for m in pattern.finditer(name):
                 max_number = max(max_number, int(m.group(1)))
     return max_number + 1

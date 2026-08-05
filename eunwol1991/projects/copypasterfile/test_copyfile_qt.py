@@ -1,6 +1,7 @@
 import importlib
 import os
 import sys
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -230,6 +231,20 @@ class ShortcutKeyFlowTest(unittest.TestCase):
             )
 
         browse_source.assert_called_once_with()
+
+
+@unittest.skipIf(QtApplication is None, "PySide6 is not installed")
+class InvoiceNumberTest(unittest.TestCase):
+    def test_next_invoice_number_ignores_cn_files(self):
+        assert copyfile_qt is not None
+
+        with tempfile.TemporaryDirectory() as folder:
+            open(os.path.join(folder, "ACME 0326 - 010 - CN.pdf"), "w").close()
+            open(os.path.join(folder, "ACME 0326 - 002 - DO & INV.pdf"), "w").close()
+
+            next_number = copyfile_qt.get_next_invoice_number(folder, "0326")
+
+        self.assertEqual(next_number, 3)
 
 
 if __name__ == "__main__":
