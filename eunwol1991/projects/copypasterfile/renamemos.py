@@ -4,6 +4,7 @@ import threading
 import traceback
 import tkinter as tk
 import tkinter.font as tkfont
+from collections.abc import Mapping
 from tkinter import ttk, filedialog, messagebox
 from tkinter.scrolledtext import ScrolledText
 
@@ -124,6 +125,7 @@ def update_excel_files(
     qty: float,
     uom: str,
     price_formula_template: str,
+    replacement_enabled: Mapping[str, bool] | None = None,
     log_func=print,
 ):
     """
@@ -147,6 +149,11 @@ def update_excel_files(
     log_func(f"Found {total} candidate files.")
 
     find_kw = (find_keyword or "").strip().lower()
+
+    def should_replace(field_name: str) -> bool:
+        if replacement_enabled is None:
+            return True
+        return replacement_enabled.get(field_name, True)
 
     for idx, file_path in enumerate(matched_files, start=1):
         if debug:
@@ -184,6 +191,7 @@ def update_excel_files(
                         )
                         if find_kw and find_kw in cell_value:
                             row_number = cell.row
+                            updated_cells = []
 
                             # 价格公式：将 {row} 替换为行号
                             price_formula = (price_formula_template or "").replace(
@@ -196,38 +204,63 @@ def update_excel_files(
                                 )
 
                             if sheet_name == "DO":
-                                sheet[f"B{row_number}"].value = product_code
-                                sheet[f"C{row_number}"].value = product_description
-                                if is_mos_file:
-                                    sheet[f"H{row_number}"].value = pack_size
-                                    sheet[f"G{row_number}"].value = None
-                                    pack_col = "H"
-                                else:
-                                    sheet[f"G{row_number}"].value = pack_size
-                                    sheet[f"H{row_number}"].value = None
-                                    pack_col = "G"
-                                sheet[f"I{row_number}"].value = qty
-                                sheet[f"K{row_number}"].value = uom
+                                if should_replace("product_code"):
+                                    sheet[f"B{row_number}"].value = product_code
+                                    updated_cells.append(f"B{row_number}")
+                                if should_replace("product_description"):
+                                    sheet[f"C{row_number}"].value = product_description
+                                    updated_cells.append(f"C{row_number}")
+                                if should_replace("pack_size"):
+                                    if is_mos_file:
+                                        sheet[f"H{row_number}"].value = pack_size
+                                        sheet[f"G{row_number}"].value = None
+                                        pack_col = "H"
+                                    else:
+                                        sheet[f"G{row_number}"].value = pack_size
+                                        sheet[f"H{row_number}"].value = None
+                                        pack_col = "G"
+                                    updated_cells.append(f"{pack_col}{row_number}")
+                                if should_replace("qty"):
+                                    sheet[f"I{row_number}"].value = qty
+                                    updated_cells.append(f"I{row_number}")
+                                if should_replace("uom"):
+                                    sheet[f"K{row_number}"].value = uom
+                                    updated_cells.append(f"K{row_number}")
                                 if debug:
-                                    log_func(
-                                        f"[DO updated] B{row_number}, C{row_number}, {pack_col}{row_number}, I{row_number}, K{row_number}"
-                                    )
+                                    if updated_cells:
+                                        log_func(f"[DO updated] {', '.join(updated_cells)}")
+                                    else:
+                                        log_func(f"[DO skipped] Row {row_number}: no replacement fields selected")
 
                             elif sheet_name == "Invoice":
-                                sheet[f"B{row_number}"].value = product_code
-                                sheet[f"C{row_number}"].value = product_description
-                                sheet[f"F{row_number}"].value = pack_size
-                                sheet[f"G{row_number}"].value = qty
-                                sheet[f"H{row_number}"].value = uom
-                                sheet[f"I{row_number}"].value = (
-                                    price_formula if price_formula else None
-                                )
-                                if debug:
-                                    log_func(
-                                        f"[Invoice updated] B{row_number}, C{row_number}, F{row_number}, G{row_number}, H{row_number}, I{row_number}"
+                                if should_replace("product_code"):
+                                    sheet[f"B{row_number}"].value = product_code
+                                    updated_cells.append(f"B{row_number}")
+                                if should_replace("product_description"):
+                                    sheet[f"C{row_number}"].value = product_description
+                                    updated_cells.append(f"C{row_number}")
+                                if should_replace("pack_size"):
+                                    sheet[f"F{row_number}"].value = pack_size
+                                    updated_cells.append(f"F{row_number}")
+                                if should_replace("qty"):
+                                    sheet[f"G{row_number}"].value = qty
+                                    updated_cells.append(f"G{row_number}")
+                                if should_replace("uom"):
+                                    sheet[f"H{row_number}"].value = uom
+                                    updated_cells.append(f"H{row_number}")
+                                if should_replace("price_formula"):
+                                    sheet[f"I{row_number}"].value = (
+                                        price_formula if price_formula else None
                                     )
+                                    updated_cells.append(f"I{row_number}")
+                                if debug:
+                                    if updated_cells:
+                                        log_func(f"[Invoice updated] {', '.join(updated_cells)}")
+                                    else:
+                                        log_func(f"[Invoice skipped] Row {row_number}: no replacement fields selected")
 
-                            modified = True
+                            if updated_cells:
+                                modified = True
                             # 不跳出，继续处理所有匹配
 
             if modified:
@@ -327,47 +360,71 @@ class App(tk.Tk):
         self.qty_var = tk.StringVar(value="1.00")
         self.uom_var = tk.StringVar(value="PKT")
         self.price_tmpl_var = tk.StringVar(value="=3.8*G{row}")
+        self.replace_product_code_var = tk.BooleanVar(value=True)
+        self.replace_product_desc_var = tk.BooleanVar(value=True)
+        self.replace_pack_size_var = tk.BooleanVar(value=True)
+        self.replace_qty_var = tk.BooleanVar(value=True)
+        self.replace_uom_var = tk.BooleanVar(value=True)
+        self.replace_price_tmpl_var = tk.BooleanVar(value=True)
 
         r = 0
-        ttk.Label(right, text="Product code:").grid(row=r, column=0, sticky="e")
+        ttk.Checkbutton(right, variable=self.replace_product_code_var).grid(
+            row=r, column=0, sticky="w"
+        )
+        ttk.Label(right, text="Product code:").grid(row=r, column=1, sticky="e")
         ttk.Entry(right, textvariable=self.product_code_var, width=28).grid(
-            row=r, column=1, padx=6, pady=2, sticky="w"
+            row=r, column=2, padx=6, pady=2, sticky="w"
         )
         r += 1
 
-        ttk.Label(right, text="Product description:").grid(row=r, column=0, sticky="e")
+        ttk.Checkbutton(right, variable=self.replace_product_desc_var).grid(
+            row=r, column=0, sticky="w"
+        )
+        ttk.Label(right, text="Product description:").grid(row=r, column=1, sticky="e")
         ttk.Entry(right, textvariable=self.product_desc_var, width=28).grid(
-            row=r, column=1, padx=6, pady=2, sticky="w"
+            row=r, column=2, padx=6, pady=2, sticky="w"
         )
         r += 1
 
-        ttk.Label(right, text="Pack size:").grid(row=r, column=0, sticky="e")
+        ttk.Checkbutton(right, variable=self.replace_pack_size_var).grid(
+            row=r, column=0, sticky="w"
+        )
+        ttk.Label(right, text="Pack size:").grid(row=r, column=1, sticky="e")
         ttk.Entry(right, textvariable=self.pack_size_var, width=28).grid(
-            row=r, column=1, padx=6, pady=2, sticky="w"
+            row=r, column=2, padx=6, pady=2, sticky="w"
         )
         r += 1
 
-        ttk.Label(right, text="Quantity (Qty):").grid(row=r, column=0, sticky="e")
+        ttk.Checkbutton(right, variable=self.replace_qty_var).grid(
+            row=r, column=0, sticky="w"
+        )
+        ttk.Label(right, text="Quantity (Qty):").grid(row=r, column=1, sticky="e")
         ttk.Entry(right, textvariable=self.qty_var, width=28).grid(
-            row=r, column=1, padx=6, pady=2, sticky="w"
+            row=r, column=2, padx=6, pady=2, sticky="w"
         )
         r += 1
 
-        ttk.Label(right, text="Unit (UOM):").grid(row=r, column=0, sticky="e")
+        ttk.Checkbutton(right, variable=self.replace_uom_var).grid(
+            row=r, column=0, sticky="w"
+        )
+        ttk.Label(right, text="Unit (UOM):").grid(row=r, column=1, sticky="e")
         ttk.Entry(right, textvariable=self.uom_var, width=28).grid(
-            row=r, column=1, padx=6, pady=2, sticky="w"
+            row=r, column=2, padx=6, pady=2, sticky="w"
         )
         r += 1
 
+        ttk.Checkbutton(right, variable=self.replace_price_tmpl_var).grid(
+            row=r, column=0, sticky="w"
+        )
         ttk.Label(right, text="Price formula template:").grid(
-            row=r, column=0, sticky="e"
+            row=r, column=1, sticky="e"
         )
         ttk.Entry(right, textvariable=self.price_tmpl_var, width=28).grid(
-            row=r, column=1, padx=6, pady=2, sticky="w"
+            row=r, column=2, padx=6, pady=2, sticky="w"
         )
         ttk.Label(
             right, text="Example: =3.8*G{row}, {row} will be replaced by row number"
-        ).grid(row=r, column=2, sticky="w")
+        ).grid(row=r, column=3, sticky="w")
         r += 1
 
         # 操作区
@@ -466,6 +523,14 @@ class App(tk.Tk):
         pack_size = self.pack_size_var.get()
         uom = self.uom_var.get()
         price_tmpl = self.price_tmpl_var.get()
+        replacement_enabled = {
+            "product_code": self.replace_product_code_var.get(),
+            "product_description": self.replace_product_desc_var.get(),
+            "pack_size": self.replace_pack_size_var.get(),
+            "qty": self.replace_qty_var.get(),
+            "uom": self.replace_uom_var.get(),
+            "price_formula": self.replace_price_tmpl_var.get(),
+        }
 
         # 校验数量
         try:
@@ -513,6 +578,7 @@ class App(tk.Tk):
                     qty=qty,
                     uom=uom,
                     price_formula_template=price_tmpl,
+                    replacement_enabled=replacement_enabled,
                     log_func=self.append_log,
                 )
                 for done, tot in gen:
