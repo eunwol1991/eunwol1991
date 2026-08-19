@@ -82,11 +82,11 @@ PDF_DIR = _pick_existing_path(
         _from_c("Users/jhunj/Dropbox/for jj/mos_pdfs"),
     ]
 )  # 待处理 PDF 文件夹
-PO_COL = "AI"
+PO_COL = "AJ"
 ROW_START = 39
 ROW_END = 73
 COL_START = "C"
-COL_END = "AD"
+COL_END = "AE"
 HIGHLIGHT = PatternFill(fill_type="solid", fgColor="00FFFCD7")
 ARCHIVE_DIR = _pick_existing_path(
     [
@@ -177,6 +177,11 @@ ITEM_ALIAS = {
     "smoked chicken breakfast rashers 2mm": "Smoked Chicken Toast (12 x 500g)",
     "cofe creamer": "Cofe Creamer (8 x 250ml)",
     "liquid Sugar": "Liquid Sugar (20 x 200ml)",
+    "mustard sauce": "Mustard Sauce (24 x 500g)",
+    "japanese short grain rice dachi": "Japanese Short Grain Rice Dachi\n(1 x 20kg)",
+    "roasted white sesame": "Roasted White Sesame\n(10 x 1kg)",
+    "roasted black sesame": "Roasted Black Sesame\n(10 x 1kg)",
+    "160g wagyu patty": "MW Wagyu Patties 80/20 (20 x 150g)"
 
 }
 
