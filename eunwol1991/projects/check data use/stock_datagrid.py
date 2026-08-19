@@ -459,6 +459,39 @@ def _build_copy_values_tsv(df: pd.DataFrame) -> str:
     return output[:-1] if output.endswith("\n") else output
 
 
+STOCK_SUMMARY_COPY_COLUMNS = [
+    "Supplier",
+    "Brand",
+    "Product",
+    "Pack Size",
+    "Product Code",
+    "Savori Whse",
+    "Lai Hock Whse",
+    "Total",
+    "Status",
+]
+
+
+def _build_stock_summary_copy_df(df: Optional[pd.DataFrame]) -> pd.DataFrame:
+    if df is None or df.empty:
+        return pd.DataFrame(columns=pd.Index(STOCK_SUMMARY_COPY_COLUMNS))
+    columns = [col for col in STOCK_SUMMARY_COPY_COLUMNS if col in df.columns]
+    return _strip_html_df(df.reindex(columns=columns).copy())
+
+
+def _build_stock_summary_with_expiry_copy_tsv(
+    summary_df: pd.DataFrame | None, expiry_df: pd.DataFrame | None
+) -> str:
+    summary_copy_df = _build_stock_summary_copy_df(summary_df)
+    payload_parts = [_build_copy_values_tsv(summary_copy_df)]
+    if expiry_df is not None and not expiry_df.empty:
+        expiry_copy_df = _strip_html_df(expiry_df.copy())
+        payload_parts.append(
+            "Expiry Breakdown\n" + _build_copy_values_tsv(expiry_copy_df)
+        )
+    return "\n\n".join(payload_parts)
+
+
 def _render_copy_values_button(
     table_payload: str,
     key: str,
@@ -4398,6 +4431,14 @@ def run_stock_page():
             styles = ["background-color: rgba(128,128,128,0.12);"] * len(row)
         return styles
 
+    stock_summary_copy_df = _build_stock_summary_copy_df(view_df_display_clean)
+    _render_copy_values_button(
+        _build_copy_values_tsv(stock_summary_copy_df),
+        "stock-summary-main",
+        has_rows=not stock_summary_copy_df.empty,
+        label="复制当前表格数据",
+    )
+
     styled_view = view_df_display_clean.style.apply(_style_row, axis=1)
     st.dataframe(styled_view, width="stretch", hide_index=True)
 
@@ -4532,6 +4573,16 @@ def run_stock_page():
 
     export_summary_clean = _strip_html_df(export_summary)
     expiry_export_clean = _strip_html_df(expiry_export_df)
+
+    stock_with_expiry_copy_tsv = _build_stock_summary_with_expiry_copy_tsv(
+        stock_summary_copy_df, expiry_export_clean
+    )
+    _render_copy_values_button(
+        stock_with_expiry_copy_tsv,
+        "stock-summary-with-expiry",
+        has_rows=not stock_summary_copy_df.empty and not expiry_export_clean.empty,
+        label="复制当前表格及Expiry明细",
+    )
 
     issue_summary_df = (
         view_df[view_df["status_product"].isin(["Expired", "Near-Expiry", "Low-Stock"])]

@@ -1946,6 +1946,83 @@ class StockFilterQueryTests(unittest.TestCase):
             "客户\t总销量\t销售额\nCustomer A\t1 ctn\t12.30\nCustomer B\t2 pkts\t45.60",
         )
 
+    def test_build_stock_summary_copy_df_uses_visible_stock_columns(self):
+        module = _load_module()
+        df = pd.DataFrame(
+            {
+                "Supplier": ["Griffith"],
+                "Brand": ["Savori"],
+                "Product": ["Hickory BBQ Sauce"],
+                "Pack Size": ["10 x 1kg"],
+                "Product Code": ["LSYZ04A"],
+                "Savori Whse": ["90 ctns 2 pkts"],
+                "Lai Hock Whse": ["0"],
+                "Total": ["90 ctns 2 pkts"],
+                "Status": ["OK"],
+                "total_ctn": [90.0],
+                "group_key": [("Griffith", "Savori", "Hickory BBQ Sauce", "10 x 1kg", "LSYZ04A")],
+            }
+        )
+
+        result = module._build_stock_summary_copy_df(df)
+
+        self.assertEqual(
+            result.to_dict(orient="records"),
+            [
+                {
+                    "Supplier": "Griffith",
+                    "Brand": "Savori",
+                    "Product": "Hickory BBQ Sauce",
+                    "Pack Size": "10 x 1kg",
+                    "Product Code": "LSYZ04A",
+                    "Savori Whse": "90 ctns 2 pkts",
+                    "Lai Hock Whse": "0",
+                    "Total": "90 ctns 2 pkts",
+                    "Status": "OK",
+                }
+            ],
+        )
+
+    def test_build_stock_summary_with_expiry_copy_tsv_appends_expiry_breakdown(self):
+        module = _load_module()
+        summary_df = pd.DataFrame(
+            {
+                "Supplier": ["Griffith"],
+                "Brand": ["Savori"],
+                "Product": ["Hickory BBQ Sauce"],
+                "Pack Size": ["10 x 1kg"],
+                "Product Code": ["LSYZ04A"],
+                "Savori Whse": ["90 ctns 2 pkts"],
+                "Lai Hock Whse": ["0"],
+                "Total": ["90 ctns 2 pkts"],
+                "Status": ["Near-Expiry"],
+            }
+        )
+        expiry_df = pd.DataFrame(
+            {
+                "Supplier": ["Griffith"],
+                "Product": ["Hickory BBQ Sauce"],
+                "Product Code": ["LSYZ04A"],
+                "Expiry": ["2026-04-30"],
+                "Savori Whse": ["10 ctns"],
+                "Lai Hock Whse": ["0"],
+                "Subtotal": ["10 ctns"],
+                "status_batch": ["Near-Expiry"],
+                "days_to_expiry": [12],
+            }
+        )
+
+        result = module._build_stock_summary_with_expiry_copy_tsv(summary_df, expiry_df)
+
+        self.assertEqual(
+            result,
+            "Supplier\tBrand\tProduct\tPack Size\tProduct Code\tSavori Whse\tLai Hock Whse\tTotal\tStatus\n"
+            "Griffith\tSavori\tHickory BBQ Sauce\t10 x 1kg\tLSYZ04A\t90 ctns 2 pkts\t0\t90 ctns 2 pkts\tNear-Expiry\n\n"
+            "Expiry Breakdown\n"
+            "Supplier\tProduct\tProduct Code\tExpiry\tSavori Whse\tLai Hock Whse\tSubtotal\tstatus_batch\tdays_to_expiry\n"
+            "Griffith\tHickory BBQ Sauce\tLSYZ04A\t2026-04-30\t10 ctns\t0\t10 ctns\tNear-Expiry\t12",
+        )
+
     def test_append_forecast_total_row_adds_combined_total(self):
         module = _load_module()
         df = pd.DataFrame(
